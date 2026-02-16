@@ -1,4 +1,5 @@
 import { html } from '../../lib/html.js';
+import { appStore } from "../../lib/store.js";
 
 export class RepoSearch extends HTMLElement {
     constructor() { super(); this.repos = []; this.loading = false; }
@@ -9,6 +10,7 @@ export class RepoSearch extends HTMLElement {
             const res = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars`);
             const data = await res.json();
             this.repos = data.items || [];
+            appStore.state.lastSearch = query;
         } catch (err) { console.error(err); } finally { this.loading = false; this.update(); }
     }
     connectedCallback() { this.update(); }

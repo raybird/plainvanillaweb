@@ -1,0 +1,33 @@
+:root {
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --primary-color: #007bff;
+    --nav-bg: #f8f9fa;
+}
+
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --text-color: #f0f0f0;
+    --primary-color: #375a7f;
+    --nav-bg: #2c2c2c;
+}
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    padding: 2rem;
+    line-height: 1.6;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+nav {
+    background: var(--nav-bg);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+a { color: var(--primary-color); text-decoration: none; margin: 0 0.5rem; }
+a:hover { text-decoration: underline; }
+hr { border: 0; border-top: 1px solid #ddd; margin: 1.5rem 0; }

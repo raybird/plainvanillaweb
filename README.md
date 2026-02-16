@@ -1,5 +1,7 @@
 # 🍦 Plain Vanilla Web App Template
 
+> **[📍 檢視 2026 演進路線圖 (Roadmap)](./ROADMAP.md)**
+
 這是一個遵循 **[Plain Vanilla Web](https://plainvanillaweb.com/)** 精神所構建的現代原生網頁應用範本。
 我們拒絕過度封裝，擁抱瀏覽器原生能力，旨在提供一個高效、安全且具備高度教育意義的開發起點。
 

@@ -1,25 +1,42 @@
+import { router } from '../../lib/router.js';
+
 export class RouteComponent extends HTMLElement {
-    constructor() { super(); this.style.display = 'contents'; this.update = this.update.bind(this); }
-    #isActive = false;
-    get isActive() { return this.#isActive; }
-    connectedCallback() { this.classList.toggle('route', true); window.addEventListener('hashchange', this.update); this.update(); }
-    disconnectedCallback() { window.removeEventListener('hashchange', this.update); }
-    static get observedAttributes() { return ['path', 'exact']; }
-    attributeChangedCallback() { this.update(); }
+    constructor() { 
+        super(); 
+        this.style.display = 'none'; 
+        this.update = this.update.bind(this); 
+    }
+
+    connectedCallback() {
+        router.addEventListener('route-change', this.update);
+        this.update();
+    }
+
+    disconnectedCallback() {
+        router.removeEventListener('route-change', this.update);
+    }
+
     update() {
         const path = this.getAttribute('path') || '';
         const exact = this.hasAttribute('exact');
-        const matches = this.#matchesRoute(path, exact);
-        this.#isActive = !!matches;
-        this.style.display = this.#isActive ? 'contents' : 'none';
-    }
-    #matchesRoute(path, exact) {
+        const currentPath = router.currentPath;
+
+        let match = null;
         if (path === '*') {
-            const active = Array.from(this.parentNode.querySelectorAll('.route')).filter(r => r.isActive && r !== this);
-            return active.length ? null : ['*'];
+            // 簡易 404 邏輯
+            match = true; 
+        } else {
+            const regex = new RegExp(`^${path.replace(/\//g, '\\/')}${exact ? '$' : ''}`, 'i');
+            match = currentPath.match(regex);
         }
-        const regex = new RegExp(`^#${path.replace(/\//g, '\\/')}${exact ? '$' : ''}`, 'i');
-        return regex.exec(window.location.hash || '#/');
+
+        if (match) {
+            this.style.display = 'contents';
+            // 如果有配對到，發送事件讓子組件獲取 Params (選配功能)
+            this.dispatchEvent(new CustomEvent('match', { detail: { match } }));
+        } else {
+            this.style.display = 'none';
+        }
     }
 }
 export const registerRoute = () => customElements.define('x-route', RouteComponent);

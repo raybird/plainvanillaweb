@@ -1,21 +1,33 @@
 import { html } from '../../lib/html.js';
 import { appStore } from "../../lib/store.js";
+import { BaseComponent } from '../../lib/base-component.js';
 
-export class RepoSearch extends HTMLElement {
-    constructor() { super(); this.repos = []; this.loading = false; }
+export class RepoSearch extends BaseComponent {
+    constructor() {
+        super();
+        this.repos = [];
+        this.loading = false;
+    }
+
     async search(query) {
         if (!query) return;
-        this.loading = true; this.update();
+        this.loading = true;
+        this.update();
         try {
             const res = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars`);
             const data = await res.json();
             this.repos = data.items || [];
             appStore.state.lastSearch = query;
-        } catch (err) { console.error(err); } finally { this.loading = false; this.update(); }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            this.loading = false;
+            this.update();
+        }
     }
-    connectedCallback() { this.update(); }
-    update() {
-        this.innerHTML = html`
+
+    render() {
+        return html`
             <div class="repo-search">
                 <h2>GitHub 專案搜尋 (API Demo)</h2>
                 <div style="margin-bottom: 1rem;">
@@ -33,7 +45,13 @@ export class RepoSearch extends HTMLElement {
                 </ul>
             </div>
         `;
-        this.querySelector('#go')?.addEventListener('click', () => this.search(this.querySelector('#q').value));
+    }
+
+    afterFirstRender() {
+        this.querySelector('#go')?.addEventListener('click', () => {
+            const query = this.querySelector('#q').value;
+            this.search(query);
+        });
     }
 }
 customElements.define('page-repo-search', RepoSearch);

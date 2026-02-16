@@ -48,5 +48,9 @@ import { html } from '../lib/html.js';
 this.innerHTML = html`<div>Hello, ${userName}</div>`;
 ```
 
+## 教學指南 (Documentation)
+- [原生狀態管理實作](./docs/state-management.md)
+- [非同步 API 請求範例](./docs/api-fetching.md)
+
 ## 授權
 MIT License

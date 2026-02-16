@@ -1,0 +1,36 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - name: Run Unit Tests
+        # 這裡會自動掃描 tests/ 下的所有 .test.js 檔案
+        run: node --test tests/*.test.js
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Syntax Check
+        # 簡單的語法檢查，確保沒有基本的 JS 錯誤
+        run: find . -name "*.js" -not -path "./node_modules/*" | xargs -n 1 node -c
+
+  deploy-info:
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Ready to Deploy
+        run: echo "Code verified. Integration complete."

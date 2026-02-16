@@ -1,3 +1,4 @@
+import "./components/Notification.js";
 import "./components/pages/HomePage.js";
 import "./components/pages/RepoSearch.js";
 import { registerApp } from "./app/App.js";

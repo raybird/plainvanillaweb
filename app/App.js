@@ -57,4 +57,4 @@ export class App extends HTMLElement {
         });
     }
 }
-customElements.define('x-app', App);
+export const registerApp = () => customElements.define("x-app", App);

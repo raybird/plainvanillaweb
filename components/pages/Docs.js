@@ -1,4 +1,4 @@
-import { html } from '../../lib/html.js';
+import { html, unsafe } from '../../lib/html.js';
 import { BaseComponent } from '../../lib/base-component.js';
 import { docService } from '../../lib/doc-service.js';
 
@@ -45,7 +45,7 @@ export class Documentation extends BaseComponent {
 
                 <!-- 右側內容 -->
                 <article style="flex: 1; padding: 2rem; border: 1px solid #eee; border-radius: 12px; background: white; min-height: 60vh;">
-                    ${this.state.content}
+                    ${unsafe(this.state.content)}
                 </article>
             </div>
         `;

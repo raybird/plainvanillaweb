@@ -22,6 +22,16 @@ export class SwitchComponent extends HTMLElement {
     }
 
     update() {
+        // 如果瀏覽器支援 View Transitions API，則使用它來包裹 DOM 更新
+        if (!document.startViewTransition) {
+            this._performUpdate();
+            return;
+        }
+
+        document.startViewTransition(() => this._performUpdate());
+    }
+
+    _performUpdate() {
         const routes = Array.from(this.querySelectorAll('x-route'));
         const currentPath = router.currentPath;
         let matched = false;

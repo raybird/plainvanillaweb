@@ -49,3 +49,4 @@
 - [x] **連線與更新管理 (PWA UX)**：即時連線偵測與 SW 版本更新通知。
 - [x] **反應式本地狀態 (Reactive State)**：BaseComponent 支援自動重繪 Proxy 狀態。
 - [x] **原生性能監控 (Performance Metrics)**：利用 PerformanceObserver 追蹤 Web Vitals。
+- [x] **原生頁面過渡 (Page Transitions)**：整合 View Transitions API 優化切換體驗。

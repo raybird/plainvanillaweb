@@ -1,3 +1,4 @@
+import "./components/pages/WorkerDemo.js";
 import "./components/Notification.js";
 import "./components/pages/HomePage.js";
 import "./components/pages/RepoSearch.js";

@@ -7,13 +7,9 @@ export class PlaygroundPage extends BaseComponent {
     constructor() {
         super();
         this.initReactiveState({
-            html: '<h1>Hello Vanilla!</h1>
-<button id="btn">Click Me</button>',
-            css: 'body { font-family: system-ui; padding: 20px; }
-button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }',
-            js: 'document.getElementById("btn").addEventListener("click", () => {
-  alert("Native power!");
-});',
+            html: `<h1>Hello Vanilla!</h1>\n<button id="btn">Click Me</button>`,
+            css: `body { font-family: system-ui; padding: 20px; }\nbutton { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }`,
+            js: `document.getElementById("btn").addEventListener("click", () => {\n  alert("Native power!");\n});`,
             runnerUrl: ''
         });
         this._currentUrl = '';

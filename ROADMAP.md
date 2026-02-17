@@ -47,3 +47,4 @@
 - [x] **原生表單驗證引擎 (Form Validation)**：封裝 Constraint Validation API。
 - [x] **非同步請求管理 (Fetch Lifecycle)**：整合 AbortController 預防競爭條件。
 - [x] **連線與更新管理 (PWA UX)**：即時連線偵測與 SW 版本更新通知。
+- [x] **反應式本地狀態 (Reactive State)**：BaseComponent 支援自動重繪 Proxy 狀態。

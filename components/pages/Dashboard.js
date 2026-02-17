@@ -8,14 +8,14 @@ import { networkMonitor } from '../../lib/network-monitor.js';
 export class Dashboard extends BaseComponent {
     constructor() {
         super();
-        this.state = {
+        this.initReactiveState({
             workerStatus: '閒置',
             idbCount: 0,
             lastUpdate: new Date().toLocaleTimeString(),
             showState: false, 
             memoryUsage: 'N/A',
             networkLogs: []
-        };
+        });
         this.onWorkerDone = this.onResult.bind(this);
         this.onStoreChange = this.updateStateView.bind(this);
         this.onNetworkLog = this.updateNetworkLogs.bind(this);
@@ -38,7 +38,6 @@ export class Dashboard extends BaseComponent {
             if (performance && performance.memory) {
                 const used = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
                 this.state.memoryUsage = `${used} MB`;
-                this.update();
             }
         }, 2000);
     }
@@ -53,19 +52,16 @@ export class Dashboard extends BaseComponent {
 
     updateNetworkLogs() {
         this.state.networkLogs = networkMonitor.logs;
-        this.update();
     }
 
     async refreshStats() {
         const stats = await idbService.getStats();
         this.state.idbCount = stats.count;
         this.state.lastUpdate = new Date().toLocaleTimeString();
-        this.update();
     }
 
     onResult(e) {
         this.state.workerStatus = `完成! 結果: ${e.detail.result} (耗時: ${e.detail.duration || '未知'}ms)`;
-        this.update();
     }
 
     updateStateView() {
@@ -74,7 +70,6 @@ export class Dashboard extends BaseComponent {
 
     toggleStateView() {
         this.state.showState = !this.state.showState;
-        this.update();
     }
 
     clearLogs() {

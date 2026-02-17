@@ -43,4 +43,5 @@
 - [x] **SEO 與無障礙優化 (SEO & A11y)**：動態 Meta 標籤管理與 Skip Link 實作。
 - [x] **進階主題系統 (Advanced Theming)**：系統跟隨模式與動態主色調自訂。
 - [x] **內建教學文件 (Doc Hub)**：App 內直接閱讀 Markdown 指南。
-- [x] **安全 HTML 策略 (Safe HTML)**：自動 XSS 防護與受信任內容管理。
+- [x] **安全 HTML 策略 (Safe HTML)**：自動 XSS 防護與受信任內容 management。
+- [x] **原生表單驗證引擎 (Form Validation)**：封裝 Constraint Validation API。

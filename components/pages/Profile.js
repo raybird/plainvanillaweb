@@ -1,6 +1,7 @@
 import { html } from '../../lib/html.js';
 import { BaseComponent } from '../../lib/base-component.js';
 import { appStore } from '../../lib/store.js';
+import { validationService } from '../../lib/validation-service.js';
 
 export class UserProfile extends BaseComponent {
     constructor() {
@@ -9,29 +10,50 @@ export class UserProfile extends BaseComponent {
             name: appStore.state.userProfile?.name || '',
             bio: appStore.state.userProfile?.bio || '',
             avatar: appStore.state.userProfile?.avatar || 'assets/images/user-profile.jpg',
-            previewMode: false 
+            previewMode: false,
+            errors: {} // 存放驗證錯誤
         };
         this.handleSubmit = this.handleSubmit.bind(this);
+        this.handleValidation = this.handleValidation.bind(this);
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        validationService.addEventListener('validation-change', this.handleValidation);
+    }
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        validationService.removeEventListener('validation-change', this.handleValidation);
+    }
+
+    handleValidation(e) {
+        const { name, isValid, message } = e.detail;
+        this.state.errors[name] = isValid ? null : message;
+        this.update();
     }
 
     handleSubmit(e) {
         e.preventDefault();
-        const formData = new FormData(e.target);
+        const form = e.target;
         
-        // 更新 Store
+        // 提交前進行全表單驗證
+        if (!validationService.validateForm(form)) {
+            appStore.state.notifications = [...appStore.state.notifications, "表單包含錯誤，請修正後再試。"];
+            return;
+        }
+
+        const formData = new FormData(form);
         const newProfile = {
             ...appStore.state.userProfile,
             name: formData.get('name'),
-            bio: formData.get('bio')
+            bio: formData.get('bio'),
+            avatar: this.state.avatar // 保留可能的預覽圖
         };
         
         appStore.state.userProfile = newProfile;
-        
-        // 顯示通知
         appStore.state.notifications = [...appStore.state.notifications, "個人資料已更新！"];
-        
-        // 更新本地狀態以觸發重繪
-        this.state = { ...this.state, ...newProfile };
+        this.state = { ...this.state, ...newProfile, previewMode: false };
         this.update();
     }
 
@@ -41,7 +63,7 @@ export class UserProfile extends BaseComponent {
             const reader = new FileReader();
             reader.onload = (e) => {
                 this.state.avatar = e.target.result;
-                this.state.previewMode = true; // 標記為預覽模式，不立即存入 Store (除非使用者按儲存)
+                this.state.previewMode = true;
                 this.update();
             };
             reader.readAsDataURL(file);
@@ -51,10 +73,13 @@ export class UserProfile extends BaseComponent {
     render() {
         const theme = appStore.state.theme || 'system';
         const primaryColor = appStore.state.primaryColor || '#007bff';
+        const { errors } = this.state;
+
+        const errorStyle = "color: #dc3545; font-size: 0.8rem; margin-top: 0.25rem; display: block;";
 
         return html`
             <h1>👤 個人資料 (Profile Demo)</h1>
-            <p>展示原生表單處理與靜態資源管理。</p>
+            <p>展示原生表單處理、驗證機制與靜態資源管理。</p>
 
             <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
                 <!-- 左側：卡片預覽 -->
@@ -69,6 +94,7 @@ export class UserProfile extends BaseComponent {
 
                 <!-- 右側：編輯表單 -->
                 <div style="flex: 1; min-width: 300px;">
+                    <!-- 外觀設定略 (保持原樣) -->
                     <div style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #eee;">
                         <h3>🎨 外觀設定</h3>
                         <div style="display: grid; gap: 1rem; grid-template-columns: 1fr 1fr;">
@@ -91,15 +117,19 @@ export class UserProfile extends BaseComponent {
                     </div>
 
                     <h3>編輯資料</h3>
-                    <form id="profile-form" style="display: grid; gap: 1rem;">
+                    <form id="profile-form" novalidate style="display: grid; gap: 1rem;">
                         <label>
                             <strong>姓名</strong>
-                            <input name="name" value="${this.state.name}" required style="display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem;">
+                            <input name="name" value="${this.state.name}" required minlength="2" maxlength="20" 
+                                   style="display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; border: 1px solid ${errors.name ? 'red' : '#ccc'};">
+                            ${errors.name ? html`<span style="${errorStyle}">${errors.name}</span>` : ''}
                         </label>
                         
                         <label>
                             <strong>簡介</strong>
-                            <textarea name="bio" required style="display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; min-height: 80px;">${this.state.bio}</textarea>
+                            <textarea name="bio" required minlength="5" maxlength="100" 
+                                      style="display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; min-height: 80px; border: 1px solid ${errors.bio ? 'red' : '#ccc'};">${this.state.bio}</textarea>
+                            ${errors.bio ? html`<span style="${errorStyle}">${errors.bio}</span>` : ''}
                         </label>
 
                         <label>
@@ -120,10 +150,16 @@ export class UserProfile extends BaseComponent {
     }
 
     afterFirstRender() {
-        this.querySelector('#profile-form')?.addEventListener('submit', this.handleSubmit);
+        const form = this.querySelector('#profile-form');
+        form?.addEventListener('submit', this.handleSubmit);
+        
+        // 監聽 input 事件進行即時驗證
+        form?.addEventListener('input', (e) => {
+            if (e.target.name) validationService.validateField(e.target);
+        });
+
         this.querySelector('#avatar-input')?.addEventListener('change', (e) => this.handleAvatarChange(e));
         
-        // 主題設定事件
         this.querySelector('#theme-select')?.addEventListener('change', (e) => {
             appStore.state.theme = e.target.value;
         });

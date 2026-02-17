@@ -2,6 +2,7 @@ import { html } from '../../lib/html.js';
 import { BaseComponent } from '../../lib/base-component.js';
 import { speechService } from '../../lib/speech-service.js';
 import { notificationService } from '../../lib/notification-service.js';
+import '../ui/Card.js'; // 引入卡片組件
 
 export class LabPage extends BaseComponent {
     constructor() {
@@ -72,6 +73,7 @@ export class LabPage extends BaseComponent {
                     70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
                     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
                 }
+                .code-block { background: #272822; color: #f8f8f2; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; overflow-x: auto; margin: 1rem 0; }
             </style>
 
             <h1>🧪 Vanilla 實驗室 (Lab)</h1>
@@ -101,12 +103,44 @@ export class LabPage extends BaseComponent {
                 </div>
             </div>
 
+            <h2 style="margin-top: 3rem;">🧩 進階組件組合 (Slots)</h2>
+            <p>展示如何在不使用 Shadow DOM 的情況下實現內容分發。</p>
+            
+            <div class="lab-grid">
+                <ui-card>
+                    <span slot="title">🚀 原生插槽演示</span>
+                    <button slot="actions" class="btn btn-secondary" onclick="alert('Action Clicked!')" style="font-size: 0.7rem; padding: 4px 8px;">點擊測試</button>
+                    
+                    <p>這段文字是被分發到「預設插槽」的內容。</p>
+                    <p>您可以輕鬆地建立如卡片、對話框等容器組件，並保持全局 CSS 的可訪問性。</p>
+                    
+                    <div class="code-block">
+&lt;ui-card&gt;<br>
+&nbsp;&nbsp;&lt;span slot="title"&gt;標題&lt;/span&gt;<br>
+&nbsp;&nbsp;&lt;p&gt;內容正文...&lt;/p&gt;<br>
+&lt;/ui-card&gt;
+                    </div>
+
+                    <em slot="footer">⚡ Powered by BaseComponent 2.2</em>
+                </ui-card>
+
+                <div class="lab-card">
+                    <h3>💡 為什麼需要它？</h3>
+                    <p>在 Vanilla 開發中，<code>innerHTML</code> 雖然方便，但會破壞組件內部的子元素。透過 2.2 版的內容擷取機制：</p>
+                    <ul>
+                        <li><strong>保持語義化</strong>：在 HTML 中宣告內容，由組件決定位置。</li>
+                        <li><strong>CSS 友善</strong>：非 Shadow DOM 結構讓全局樣式能直接作用於內容。</li>
+                        <li><strong>狀態無關</strong>：即使組件重新渲染，分發的內容依然保持穩定。</li>
+                    </ul>
+                </div>
+            </div>
+
             <section style="margin-top: 3rem; padding: 2rem; background: var(--nav-bg); border-radius: 12px;">
-                <h3>🎓 教學重點：Web Speech API</h3>
+                <h3>🎓 教學重點</h3>
                 <ul>
-                    <li><strong>零依賴</strong>：無需呼叫雲端語音 API (如 Google Cloud Speech)，完全在瀏覽器端運算。</li>
-                    <li><strong>無障礙 (A11y)</strong>：TTS 是建構友善視障者應用的核心技術。</li>
-                    <li><strong>非同步交互</strong>：展示了事件驅動的媒體處理流程。</li>
+                    <li><strong>零依賴</strong>：Speech API 與 Slots 模擬皆為純 JS 實作。</li>
+                    <li><strong>無障礙 (A11y)</strong>：語音技術是輔助科技的核心。</li>
+                    <li><strong>架構演進</strong>：展示了從簡單渲染到進階內容分發的架構路徑。</li>
                 </ul>
             </section>
         `;

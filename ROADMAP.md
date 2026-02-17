@@ -41,3 +41,4 @@
 - [x] **高效能虛擬列表 (Virtual List)**：支持大數據量下的流暢渲染。
 - [x] **原生影像處理 (Image Filter)**：利用 Canvas 實作純前端圖片濾鏡。
 - [x] **原生語音實驗室 (Speech Lab)**：整合 Web Speech API (TTS & STT)。
+- [x] **進階組件組合 (Slots Simulation)**：支援 Light DOM 內容分發。

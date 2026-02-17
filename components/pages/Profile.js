@@ -49,6 +49,9 @@ export class UserProfile extends BaseComponent {
     }
 
     render() {
+        const theme = appStore.state.theme || 'system';
+        const primaryColor = appStore.state.primaryColor || '#007bff';
+
         return html`
             <h1>👤 個人資料 (Profile Demo)</h1>
             <p>展示原生表單處理與靜態資源管理。</p>
@@ -66,6 +69,27 @@ export class UserProfile extends BaseComponent {
 
                 <!-- 右側：編輯表單 -->
                 <div style="flex: 1; min-width: 300px;">
+                    <div style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #eee;">
+                        <h3>🎨 外觀設定</h3>
+                        <div style="display: grid; gap: 1rem; grid-template-columns: 1fr 1fr;">
+                            <label>
+                                <strong>主題模式</strong>
+                                <select id="theme-select" style="display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem;">
+                                    <option value="system" ${theme === 'system' ? 'selected' : ''}>系統跟隨 (System)</option>
+                                    <option value="light" ${theme === 'light' ? 'selected' : ''}>淺色 (Light)</option>
+                                    <option value="dark" ${theme === 'dark' ? 'selected' : ''}>深色 (Dark)</option>
+                                </select>
+                            </label>
+                            <label>
+                                <strong>主色調</strong>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                                    <input type="color" id="color-input" value="${primaryColor}" style="height: 38px; cursor: pointer;">
+                                    <span id="color-val" style="font-family: monospace;">${primaryColor}</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
                     <h3>編輯資料</h3>
                     <form id="profile-form" style="display: grid; gap: 1rem;">
                         <label>
@@ -98,6 +122,17 @@ export class UserProfile extends BaseComponent {
     afterFirstRender() {
         this.querySelector('#profile-form')?.addEventListener('submit', this.handleSubmit);
         this.querySelector('#avatar-input')?.addEventListener('change', (e) => this.handleAvatarChange(e));
+        
+        // 主題設定事件
+        this.querySelector('#theme-select')?.addEventListener('change', (e) => {
+            appStore.state.theme = e.target.value;
+        });
+        
+        this.querySelector('#color-input')?.addEventListener('input', (e) => {
+            const color = e.target.value;
+            appStore.state.primaryColor = color;
+            this.querySelector('#color-val').textContent = color;
+        });
     }
 }
 customElements.define('page-profile', UserProfile);

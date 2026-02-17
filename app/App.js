@@ -1,39 +1,47 @@
 import { appStore } from "../lib/store.js";
-import { BaseComponent } from "../lib/base-component.js"; // 繼承 BaseComponent
-import { i18n } from "../lib/i18n-service.js"; // 引入 i18n
+import { BaseComponent } from "../lib/base-component.js"; 
+import { i18n } from "../lib/i18n-service.js"; 
+import { themeService } from "../lib/theme-service.js"; // 引入 themeService
 import { html } from "../lib/html.js";
 import "../components/AppFooter.js";
 import "../components/pages/Profile.js";
-import "../components/route/switch.js"; // 引入 x-switch
+import "../components/route/switch.js"; 
 
 export class App extends BaseComponent {
     constructor() {
         super();
-        this.updateTheme = this.updateTheme.bind(this);
+        // updateTheme 不再需要綁定，由 themeService 自動處理
     }
 
     async connectedCallback() {
-        super.connectedCallback(); // BaseComponent 的連線處理 (包含 i18n 監聽)
-        appStore.addEventListener('change', this.updateTheme);
-        this.applyTheme(appStore.state.theme);
+        super.connectedCallback(); 
+        // 移除 appStore.addEventListener('change', this.updateTheme);
+        // 移除 this.applyTheme(...);
         
-        // 初始化 i18n (非同步)
+        themeService.init(); // 初始化主題
+        
         if (!i18n.locale) await i18n.init();
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
-        appStore.removeEventListener('change', this.updateTheme);
+        // appStore.removeEventListener('change', this.updateTheme);
     }
 
-    updateTheme(e) { if (e.detail.key === 'theme') this.applyTheme(e.detail.value); }
-    applyTheme(theme) { document.documentElement.setAttribute('data-theme', theme); }
+    // 移除舊的 applyTheme 方法
 
     render() {
-        // 使用 i18n.t 取得翻譯
         const t = (k) => this.$t(k);
         const currentLang = i18n.locale === 'zh-TW' ? 'English' : '中文';
         const nextLang = i18n.locale === 'zh-TW' ? 'en-US' : 'zh-TW';
+        
+        // 顯示當前主題狀態
+        const currentTheme = appStore.state.theme || 'system';
+        const themeLabel = {
+            'light': '☀️ Light',
+            'dark': '🌙 Dark',
+            'system': '💻 System'
+        }[currentTheme];
 
         return html`
             <a href="#main-content" class="skip-link" style="position: absolute; top: -40px; left: 0; background: var(--primary-color); color: white; padding: 0.5rem; z-index: 100; transition: top 0.3s;">
@@ -50,7 +58,7 @@ export class App extends BaseComponent {
                 <a href="#/dashboard">${t('app.dashboard')}</a>
                 <div style="float: right;">
                     <button id="lang-toggle" data-lang="${nextLang}" style="cursor: pointer; margin-right: 0.5rem;">${currentLang}</button>
-                    <button id="theme-toggle" style="cursor: pointer;">${t('app.theme')}</button>
+                    <button id="theme-toggle" style="cursor: pointer;">${themeLabel}</button>
                 </div>
             </nav>
             <hr>
@@ -90,7 +98,10 @@ export class App extends BaseComponent {
 
     addEventListeners() {
         this.querySelector('#theme-toggle')?.addEventListener('click', () => {
-            appStore.state.theme = appStore.state.theme === 'light' ? 'dark' : 'light';
+            const modes = ['system', 'light', 'dark'];
+            const current = appStore.state.theme || 'system';
+            const next = modes[(modes.indexOf(current) + 1) % modes.length];
+            appStore.state.theme = next;
         });
 
         this.querySelector('#lang-toggle')?.addEventListener('click', (e) => {

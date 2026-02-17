@@ -44,8 +44,8 @@ export class RepoSearch extends BaseComponent {
     render() {
         const listItems = this.repos.slice(0, 10).map(r => html`
             <li style="margin-bottom: 0.5rem;">
-                <strong><a href="${r.html_url}" target="_blank">${escapeHTML(r.full_name)}</a></strong>
-                <br><small>⭐ ${r.stargazers_count.toLocaleString()} stars | ${escapeHTML(r.description || '無描述')}</small>
+                <strong><a href="${r.html_url}" target="_blank">${r.full_name}</a></strong>
+                <br><small>⭐ ${r.stargazers_count.toLocaleString()} stars | ${r.description || '無描述'}</small>
             </li>
         `);
 

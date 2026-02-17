@@ -51,6 +51,7 @@
 - [x] **原生性能監控 (Performance Metrics)**：利用 PerformanceObserver 追蹤 Web Vitals。
 - [x] **原生頁面過渡 (Page Transitions)**：整合 View Transitions API 優化切換體驗。
 - [x] **跨分頁狀態同步 (Cross-tab Sync)**：利用 BroadcastChannel 保持多標籤數據一致。
+- [x] **原生 Canvas 圖表 (Native Charts)**：利用 Canvas API 實作高效能即時性能趨勢圖。
 - [x] **資源動態載入 (Lazy & Prefetch)**：基於路由的組件載入與預載優化。
 - [x] **通知機制服務化 (Notification Service)**：解耦 UI 與邏輯，支援多類型通知。
 - [x] **原生對話框系統 (Modal System)**：利用 <dialog> 實作 A11y 友善的彈窗。

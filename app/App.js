@@ -53,6 +53,7 @@ export class App extends BaseComponent {
                 <a href="#/worker" onmouseover="prefetchService.preloadModule('./components/pages/WorkerDemo.js')">${t('app.worker')}</a> |
                 <a href="#/profile" onmouseover="prefetchService.preloadModule('./components/pages/Profile.js')">${t('app.profile')}</a> | 
                 <a href="#/docs" onmouseover="prefetchService.preloadModule('./components/pages/Docs.js')">${t('app.docs')}</a> | 
+                <a href="#/analytics" onmouseover="prefetchService.preloadModule('./components/pages/Analytics.js')">${t('app.analytics')}</a> | 
                 <a href="#/contact">${t('app.contact')}</a> | 
                 <a href="#/dashboard" onmouseover="prefetchService.preloadModule('./components/pages/Dashboard.js')">${t('app.dashboard')}</a>
                 <div style="float: right;">
@@ -68,6 +69,7 @@ export class App extends BaseComponent {
                     <x-route path="/worker" exact module="./components/pages/WorkerDemo.js" meta-title="app.worker"><page-worker-demo></page-worker-demo></x-route>
                     <x-route path="/profile" exact module="./components/pages/Profile.js" meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>
                     <x-route path="/docs" module="./components/pages/Docs.js" meta-title="app.docs"><page-docs></page-docs></x-route>
+                    <x-route path="/analytics" module="./components/pages/Analytics.js" meta-title="app.analytics"><page-analytics></page-analytics></x-route>
                     <x-route path="/dashboard" exact module="./components/pages/Dashboard.js" meta-title="app.dashboard"><page-dashboard></page-dashboard></x-route>
                     <x-route path="/contact" exact meta-title="app.contact">
                         <h2>${t('app.contact')} (Demo)</h2>

@@ -31,3 +31,23 @@ nav {
 a { color: var(--primary-color); text-decoration: none; margin: 0 0.5rem; }
 a:hover { text-decoration: underline; }
 hr { border: 0; border-top: 1px solid #ddd; margin: 1.5rem 0; }
+
+/* 組件封裝樣式規範實踐 */
+page-home {
+    --home-card-bg: var(--nav-bg);
+    display: block;
+    padding: 1rem;
+    background: var(--home-card-bg);
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+page-repo-search {
+    --search-input-width: 100%;
+    display: block;
+}
+
+page-repo-search input {
+    width: var(--search-input-width);
+    max-width: 400px;
+}

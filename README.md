@@ -18,7 +18,7 @@
 ### 開發指南 (Guides)
 - [**非同步資料處理 (API Fetching)**](./docs/api-fetching.md) - Web Components 與 API 串接。
 - [**部署指南 (Deployment)**](./docs/deployment.md) - GitHub Pages 部署與路由配置。
-- [**架構決策紀錄 (ADR)](./docs/decisions/README.md) - 追蹤專案的所有技術決策。
+- [**架構決策紀錄 (ADR)**](./docs/decisions/README.md) - 追蹤專案的所有技術決策。
 
 ---
 

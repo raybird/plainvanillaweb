@@ -17,15 +17,11 @@ export class RouteComponent extends HTMLElement {
         router.removeEventListener('route-change', this.update);
     }
 
-    update() {
+    async update() {
         const parentSwitch = this.closest('x-switch');
         
         // 如果在 x-switch 內，則不自行判斷顯示邏輯，等待 x-switch 設置 active 屬性
         if (parentSwitch) {
-            // Meta 更新邏輯移至 attributeChangedCallback (監聽 active 變化)
-            // 或者簡單地在此檢查 active
-            // 但 x-switch 的 update 可能在 route-change 之後才跑 (因為 setTimeout)
-            // 所以這裡先不做事，等 x-switch 處理
             return;
         }
 
@@ -35,19 +31,24 @@ export class RouteComponent extends HTMLElement {
 
         let match = false;
         if (path === '*') {
-            // 簡易 404 邏輯 (僅當沒有其他路由匹配時)
-            // 這裡的邏輯比較簡單，可能需要 Router 支援更精確的匹配順序
-            // 暫時保持現狀，因為 Router 並沒有提供全域匹配結果
             match = true; 
         } else {
-            // 將 path 轉為 regex，支援基本參數 (簡易版)
-            // 例如 /user/:id -> /user/([^/]+)
             const regexPath = path.replace(/:[^\s/]+/g, '([^/]+)');
             const regex = new RegExp(`^${regexPath.replace(/\//g, '\\/')}${exact ? '$' : ''}`, 'i');
             match = !!currentPath.match(regex);
         }
 
         if (match) {
+            // 處理動態模組載入
+            const modulePath = this.getAttribute('module');
+            if (modulePath) {
+                try {
+                    await import(modulePath);
+                } catch (err) {
+                    console.error(`[Route] Failed to load module: ${modulePath}`, err);
+                }
+            }
+
             this.style.display = 'contents';
             
             // 更新 Meta 資訊 (SEO & A11y)
@@ -67,9 +68,19 @@ export class RouteComponent extends HTMLElement {
         return ['active'];
     }
 
-    attributeChangedCallback(name, oldValue, newValue) {
+    async attributeChangedCallback(name, oldValue, newValue) {
         if (name === 'active') {
             if (this.hasAttribute('active')) {
+                // 處理動態模組載入 (針對被 x-switch 管理的情況)
+                const modulePath = this.getAttribute('module');
+                if (modulePath) {
+                    try {
+                        await import(modulePath);
+                    } catch (err) {
+                        console.error(`[Route] Failed to load module: ${modulePath}`, err);
+                    }
+                }
+
                 this.style.display = 'contents';
                 // 更新 Meta 資訊 (SEO & A11y)
                 const metaTitle = this.getAttribute('meta-title');

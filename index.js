@@ -1,10 +1,7 @@
-import "./components/pages/Dashboard.js";
 import { errorService } from "./lib/error-service.js";
-import { networkMonitor } from "./lib/network-monitor.js"; // 引入 Network Monitor
-import "./components/pages/WorkerDemo.js";
-import "./components/Notification.js";
-import "./components/pages/HomePage.js";
-import "./components/pages/RepoSearch.js";
+import { networkMonitor } from "./lib/network-monitor.js"; 
+import { prefetchService } from "./lib/prefetch-service.js";
+import "./components/Notification.js"; // 通知組件保持全域載入
 import { registerApp } from "./app/App.js";
 import { registerRoute } from "./components/route/route.js";
 import { connectivityService } from "./lib/connectivity-service.js";

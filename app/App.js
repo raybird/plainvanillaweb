@@ -62,7 +62,7 @@ export class App extends BaseComponent {
                 <a href="#/profile" onmouseover="prefetchService.preloadModule('./components/pages/Profile.js')">${t('app.profile')}</a> | 
                 <a href="#/docs" onmouseover="prefetchService.preloadModule('./components/pages/Docs.js')">${t('app.docs')}</a> | 
                 <a href="#/analytics" onmouseover="prefetchService.preloadModule('./components/pages/Analytics.js')">${t('app.analytics')}</a> | 
-                <a href="#/contact">${t('app.contact')}</a> | 
+                <a href="#/lab" onmouseover="prefetchService.preloadModule('./components/pages/Lab.js')">${t('app.lab')}</a> | 
                 <a href="#/dashboard" onmouseover="prefetchService.preloadModule('./components/pages/Dashboard.js')">${t('app.dashboard')}</a>
                 
                 <div style="float: right; display: flex; align-items: center; gap: 0.5rem;">
@@ -89,6 +89,7 @@ export class App extends BaseComponent {
                     <x-route path="/analytics" auth-required module="./components/pages/Analytics.js" meta-title="app.analytics"><page-analytics></page-analytics></x-route>
                     
                     <x-route path="/docs" module="./components/pages/Docs.js" meta-title="app.docs"><page-docs></page-docs></x-route>
+                    <x-route path="/lab" module="./components/pages/Lab.js" meta-title="app.lab"><page-lab></page-lab></x-route>
                     <x-route path="/dashboard" exact module="./components/pages/Dashboard.js" meta-title="app.dashboard"><page-dashboard></page-dashboard></x-route>
                     
                     <x-route path="/login" module="./components/pages/Login.js" meta-title="登入系統"><page-login></page-login></x-route>

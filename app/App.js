@@ -5,6 +5,7 @@ import { themeService } from "../lib/theme-service.js"; // 引入 themeService
 import { html } from "../lib/html.js";
 import "../components/AppFooter.js";
 import "../components/pages/Profile.js";
+import "../components/pages/Docs.js"; // 引入教學文件頁面
 import "../components/route/switch.js"; 
 
 export class App extends BaseComponent {
@@ -52,6 +53,7 @@ export class App extends BaseComponent {
                 <a href="#/search">${t('app.search')}</a> |
                 <a href="#/worker">${t('app.worker')}</a> |
                 <a href="#/profile">${t('app.profile')}</a> | 
+                <a href="#/docs">${t('app.docs')}</a> | 
                 <a href="#/contact">${t('app.contact')}</a> | 
                 <a href="#/dashboard">${t('app.dashboard')}</a>
                 <div style="float: right;">
@@ -66,6 +68,7 @@ export class App extends BaseComponent {
                     <x-route path="/search" exact meta-title="app.search"><page-repo-search></page-repo-search></x-route>
                     <x-route path="/worker" exact meta-title="app.worker"><page-worker-demo></page-worker-demo></x-route>
                     <x-route path="/profile" exact meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>
+                    <x-route path="/docs" meta-title="app.docs"><page-docs></page-docs></x-route>
                     <x-route path="/dashboard" exact meta-title="app.dashboard"><page-dashboard></page-dashboard></x-route>
                     <x-route path="/contact" exact meta-title="app.contact">
                         <h2>${t('app.contact')} (Demo)</h2>

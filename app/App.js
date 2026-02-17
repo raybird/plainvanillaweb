@@ -15,12 +15,10 @@ export class App extends BaseComponent {
 
     async connectedCallback() {
         super.connectedCallback(); 
-        // 移除 appStore.addEventListener('change', this.updateTheme);
-        // 移除 this.applyTheme(...);
+        themeService.init();
         
-        themeService.init(); // 初始化主題
-        
-        if (!i18n.locale) await i18n.init();
+        // 檢查語言檔是否已載入，避免重複載入或未載入的情況
+        if (!i18n.isInitialized) await i18n.init();
     }
 
     disconnectedCallback() {

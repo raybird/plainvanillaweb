@@ -1,0 +1,25 @@
+{
+    "app": {
+        "title": "Plain Vanilla Web",
+        "home": "Home",
+        "search": "GitHub Search",
+        "worker": "Performance",
+        "profile": "Profile",
+        "contact": "Contact",
+        "dashboard": "Dashboard",
+        "theme": "Toggle Theme",
+        "lang": "中文"
+    },
+    "home": {
+        "welcome": "Welcome to Plain Vanilla Web",
+        "desc": "This project uses absolutely no frontend frameworks (like React, Vue, Angular) or complex build tools (like Webpack, Vite), returning to the browser's essential performance and developer experience."
+    },
+    "profile": {
+        "title": "User Profile",
+        "desc": "Demonstrating native form handling and static asset management.",
+        "edit": "Edit Profile",
+        "name": "Name",
+        "bio": "Biography",
+        "save": "Save Changes"
+    }
+}

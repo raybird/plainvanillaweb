@@ -1,0 +1,25 @@
+{
+    "app": {
+        "title": "Plain Vanilla Web",
+        "home": "首頁",
+        "search": "GitHub 搜尋",
+        "worker": "高效能運算",
+        "profile": "個人資料",
+        "contact": "聯絡我們",
+        "dashboard": "儀表板",
+        "theme": "切換主題",
+        "lang": "English"
+    },
+    "home": {
+        "welcome": "歡迎來到 Plain Vanilla Web",
+        "desc": "本專案完全不使用前端框架（如 React, Vue, Angular）或複雜的建置工具（如 Webpack, Vite），回歸瀏覽器最本質的效能與開發體驗。"
+    },
+    "profile": {
+        "title": "個人資料",
+        "desc": "展示原生表單處理與靜態資源管理。",
+        "edit": "編輯資料",
+        "name": "姓名",
+        "bio": "簡介",
+        "save": "儲存變更"
+    }
+}

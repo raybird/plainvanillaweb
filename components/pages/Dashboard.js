@@ -4,6 +4,7 @@ import { appStore } from '../../lib/store.js';
 import { computeService } from '../../lib/worker-service.js';
 import { idbService } from '../../lib/idb-service.js';
 import { networkMonitor } from '../../lib/network-monitor.js';
+import { performanceService } from '../../lib/performance-service.js';
 
 export class Dashboard extends BaseComponent {
     constructor() {
@@ -14,11 +15,13 @@ export class Dashboard extends BaseComponent {
             lastUpdate: new Date().toLocaleTimeString(),
             showState: false, 
             memoryUsage: 'N/A',
-            networkLogs: []
+            networkLogs: [],
+            perfMetrics: performanceService.summary
         });
         this.onWorkerDone = this.onResult.bind(this);
         this.onStoreChange = this.updateStateView.bind(this);
         this.onNetworkLog = this.updateNetworkLogs.bind(this);
+        this.onPerfUpdate = this.updatePerfMetrics.bind(this);
     }
 
     connectedCallback() {
@@ -27,9 +30,11 @@ export class Dashboard extends BaseComponent {
         appStore.addEventListener('change', this.onStoreChange);
         networkMonitor.addEventListener('log', this.onNetworkLog);
         networkMonitor.addEventListener('clear', this.onNetworkLog);
+        performanceService.addEventListener('metric-update', this.onPerfUpdate);
         
-        // 載入現有日誌
+        // 載入現有數據
         this.state.networkLogs = networkMonitor.logs;
+        this.state.perfMetrics = performanceService.summary;
         
         this.refreshStats();
 
@@ -47,7 +52,12 @@ export class Dashboard extends BaseComponent {
         appStore.removeEventListener('change', this.onStoreChange);
         networkMonitor.removeEventListener('log', this.onNetworkLog);
         networkMonitor.removeEventListener('clear', this.onNetworkLog);
+        performanceService.removeEventListener('metric-update', this.onPerfUpdate);
         clearInterval(this.statsInterval);
+    }
+
+    updatePerfMetrics() {
+        this.state.perfMetrics = performanceService.summary;
     }
 
     updateNetworkLogs() {
@@ -65,6 +75,7 @@ export class Dashboard extends BaseComponent {
     }
 
     updateStateView() {
+        // Store 是外部狀態，Proxy 無法偵測，需手動 update
         if (this.state.showState) this.update();
     }
 
@@ -79,6 +90,8 @@ export class Dashboard extends BaseComponent {
     render() {
         const lastSearch = appStore.state.lastSearch || '無';
         const stateJson = JSON.stringify(appStore.state, null, 2);
+        const { perfMetrics } = this.state;
+        
         const logsHtml = this.state.networkLogs.map(log => {
             const statusColor = log.status >= 400 || log.status === 'Error' ? 'red' : 'green';
             return html`
@@ -90,7 +103,7 @@ export class Dashboard extends BaseComponent {
                     <td style="padding: 0.5rem; word-break: break-all; font-family: monospace;">${log.url}</td>
                 </tr>
             `;
-        }).join('');
+        });
 
         return html`
             <style>
@@ -98,6 +111,8 @@ export class Dashboard extends BaseComponent {
                 .card { background: var(--bg-color); border: 1px solid #ddd; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
                 .metric { font-size: 2rem; font-weight: bold; color: var(--primary-color); }
                 .label { color: #666; font-size: 0.9rem; }
+                .perf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; }
+                .perf-item { border-bottom: 1px solid #eee; padding: 0.25rem 0; font-size: 0.85rem; }
                 pre { background: #f4f4f4; padding: 1rem; border-radius: 8px; overflow-x: auto; max-height: 300px; font-size: 0.85rem; }
                 [data-theme="dark"] pre { background: #2d2d2d; color: #e0e0e0; }
                 .btn-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
@@ -133,6 +148,20 @@ export class Dashboard extends BaseComponent {
                     </div>
                 </div>
 
+                <!-- 性能監控 -->
+                <div class="card">
+                    <h3>🚀 性能核心 (Web Vitals)</h3>
+                    <div class="perf-grid">
+                        <div class="perf-item"><strong>LCP:</strong> ${perfMetrics.lcp}ms</div>
+                        <div class="perf-item"><strong>FID:</strong> ${perfMetrics.fid}ms</div>
+                        <div class="perf-item"><strong>CLS:</strong> ${perfMetrics.cls.toFixed(3)}</div>
+                        <div class="perf-item"><strong>Load:</strong> ${perfMetrics.loadTime}ms</div>
+                    </div>
+                    <small style="color: #666; display: block; margin-top: 0.5rem;">
+                        數據取自原生 PerformanceObserver API。
+                    </small>
+                </div>
+
                 <!-- 運算狀態 -->
                 <div class="card">
                     <h3>⚡ 運算核心 (Web Worker)</h3>
@@ -143,7 +172,7 @@ export class Dashboard extends BaseComponent {
                     </div>
                 </div>
 
-                <!-- 網路監控 (New) -->
+                <!-- 網路監控 -->
                 <div class="card" style="grid-column: 1 / -1;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <h3>🌐 網路請求 (Network Monitor)</h3>
@@ -203,13 +232,8 @@ export class Dashboard extends BaseComponent {
 
     startTask(n) {
         this.state.workerStatus = `運算中 (Fib ${n})...`;
-        this.update();
         const start = performance.now();
-        // 傳遞時間戳記以便計算耗時
         computeService.run('fibonacci', n);
-        
-        // 暫時 hack: 在這裡監聽一次性完成事件來計算時間，或者依賴 worker 回傳
-        // 為了簡單起見，我們假設 worker 回傳時不包含時間，這裡只是 UI 顯示
     }
 
     triggerError() {

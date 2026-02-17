@@ -15,6 +15,8 @@ const CORE_ASSETS = [
 
 // 安裝階段：快取核心資產
 self.addEventListener('install', (event) => {
+    // 立即接管，不需要等待舊的 SW 關閉
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             console.log('[Service Worker] Caching core assets');
@@ -26,16 +28,21 @@ self.addEventListener('install', (event) => {
 // 啟動階段：清理舊快取
 self.addEventListener('activate', (event) => {
     event.waitUntil(
-        caches.keys().then((keys) => {
-            return Promise.all(
-                keys.map((key) => {
-                    if (key !== CACHE_NAME) {
-                        console.log('[Service Worker] Removing old cache', key);
-                        return caches.delete(key);
-                    }
-                })
-            );
-        })
+        Promise.all([
+            // 立即接管所有頁面
+            self.clients.claim(),
+            // 清理舊快取
+            caches.keys().then((keys) => {
+                return Promise.all(
+                    keys.map((key) => {
+                        if (key !== CACHE_NAME) {
+                            console.log('[Service Worker] Removing old cache', key);
+                            return caches.delete(key);
+                        }
+                    })
+                );
+            })
+        ])
     );
 });
 

@@ -57,3 +57,4 @@
 - [x] **通知機制服務化 (Notification Service)**：解耦 UI 與邏輯，支援多類型通知。
 - [x] **原生對話框系統 (Modal System)**：利用 <dialog> 實作 A11y 友善的彈窗。
 - [x] **身分驗證與保護 (Auth System)**：實作 Auth Guard 與受保護路由。
+- [x] **操作歷史管理 (History API)**：實作撤銷/重做 (Undo/Redo) 狀態快照。

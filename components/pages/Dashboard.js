@@ -9,6 +9,7 @@ import { notificationService } from '../../lib/notification-service.js';
 import { broadcastService } from '../../lib/broadcast-service.js';
 import { modalService } from '../../lib/modal-service.js';
 import { syncService } from '../../lib/sync-service.js';
+import { historyService } from '../../lib/history-service.js';
 
 export class Dashboard extends BaseComponent {
     constructor() {
@@ -24,13 +25,19 @@ export class Dashboard extends BaseComponent {
             lastSyncTab: '無',
             syncCount: 0,
             thisTabId: broadcastService.tabId,
-            syncQueueCount: 0
+            syncQueueCount: 0,
+            canUndo: false,
+            canRedo: false
         });
         this.onWorkerDone = this.onResult.bind(this);
         this.onStoreChange = this.onStoreUpdate.bind(this);
         this.onNetworkLog = this.updateNetworkLogs.bind(this);
         this.onPerfUpdate = this.updatePerfMetrics.bind(this);
         this.onSyncUpdate = () => this.updateQueueCount();
+        this.onHistoryChange = (e) => {
+            this.state.canUndo = e.detail.canUndo;
+            this.state.canRedo = e.detail.canRedo;
+        };
     }
 
     connectedCallback() {
@@ -42,9 +49,12 @@ export class Dashboard extends BaseComponent {
         performanceService.addEventListener('metric-update', this.onPerfUpdate);
         syncService.addEventListener('action-queued', this.onSyncUpdate);
         syncService.addEventListener('action-synced', this.onSyncUpdate);
+        historyService.addEventListener('change', this.onHistoryChange);
         
         this.state.networkLogs = networkMonitor.logs;
         this.state.perfMetrics = performanceService.summary;
+        this.state.canUndo = historyService.canUndo;
+        this.state.canRedo = historyService.canRedo;
         
         this.refreshStats();
         this.updateQueueCount();
@@ -65,6 +75,7 @@ export class Dashboard extends BaseComponent {
         performanceService.removeEventListener('metric-update', this.onPerfUpdate);
         syncService.removeEventListener('action-queued', this.onSyncUpdate);
         syncService.removeEventListener('action-synced', this.onSyncUpdate);
+        historyService.removeEventListener('change', this.onHistoryChange);
         clearInterval(this.statsInterval);
     }
 
@@ -74,6 +85,11 @@ export class Dashboard extends BaseComponent {
     }
 
     onStoreUpdate(e) {
+        if (!e.detail.isSnapshot && !e.detail.remote) {
+            // 只有本地的手動變更才紀錄歷史
+            historyService.push(appStore._baseState);
+        }
+
         if (e.detail.remote) {
             this.state.lastSyncTab = e.detail.sender;
             this.state.syncCount++;
@@ -108,10 +124,20 @@ export class Dashboard extends BaseComponent {
         networkMonitor.clear();
     }
 
+    handleUndo() {
+        const snapshot = historyService.undo(appStore._baseState);
+        if (snapshot) appStore.applySnapshot(snapshot);
+    }
+
+    handleRedo() {
+        const snapshot = historyService.redo(appStore._baseState);
+        if (snapshot) appStore.applySnapshot(snapshot);
+    }
+
     render() {
         const lastSearch = appStore.state.lastSearch || '無';
         const stateJson = JSON.stringify(appStore.state, null, 2);
-        const { perfMetrics, lastSyncTab, syncCount, thisTabId, syncQueueCount } = this.state;
+        const { perfMetrics, lastSyncTab, syncCount, thisTabId, syncQueueCount, canUndo, canRedo } = this.state;
         
         const logsHtml = this.state.networkLogs.map(log => {
             const statusColor = log.status >= 400 || log.status === 'Error' ? 'red' : 'green';
@@ -138,7 +164,8 @@ export class Dashboard extends BaseComponent {
                 [data-theme="dark"] pre { background: #2d2d2d; color: #e0e0e0; }
                 .btn-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
                 button { cursor: pointer; padding: 0.5rem 1rem; border: none; border-radius: 6px; font-weight: 500; transition: opacity 0.2s; }
-                button:hover { opacity: 0.9; }
+                button:hover:not(:disabled) { opacity: 0.9; }
+                button:disabled { opacity: 0.4; cursor: not-allowed; }
                 .btn-primary { background: var(--primary-color); color: white; }
                 .btn-danger { background: #dc3545; color: white; }
                 .btn-secondary { background: #6c757d; color: white; }
@@ -163,9 +190,6 @@ export class Dashboard extends BaseComponent {
                                     onclick="import('../../lib/sync-service.js').then(m => m.syncService.processQueue())">立即同步</button>
                         </div>
                     </div>
-                    <small style="color: #666; display: block; margin-top: 0.5rem;">
-                        離線時的操作會自動進入排隊，並在恢復連線後同步。
-                    </small>
                 </div>
 
                 <!-- 分頁同步資訊 -->
@@ -181,6 +205,10 @@ export class Dashboard extends BaseComponent {
                             <div class="metric" style="font-size:1.5rem; overflow:hidden; text-overflow:ellipsis">${lastSyncTab}</div>
                             <div class="label">最後來源</div>
                         </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" style="flex:1;" ${!canUndo ? 'disabled' : ''} onclick="this.closest('page-dashboard').handleUndo()">↩️ 復原</button>
+                        <button class="btn btn-secondary" style="flex:1;" ${!canRedo ? 'disabled' : ''} onclick="this.closest('page-dashboard').handleRedo()">↪️ 重做</button>
                     </div>
                 </div>
 

@@ -4,6 +4,7 @@ import { i18n } from "../lib/i18n-service.js";
 import { themeService } from "../lib/theme-service.js";
 import { prefetchService } from "../lib/prefetch-service.js";
 import { notificationService } from "../lib/notification-service.js";
+import { authService } from "../lib/auth-service.js"; // 引入 Auth 服務
 import { html } from "../lib/html.js";
 import "../components/AppFooter.js";
 import "../components/Modal.js";
@@ -12,12 +13,16 @@ import "../components/route/switch.js";
 export class App extends BaseComponent {
     constructor() {
         super();
+        this._handleAuthChange = () => this.update();
     }
 
     async connectedCallback() {
         super.connectedCallback(); 
         themeService.init();
         
+        // 監聽登入狀態變更
+        authService.addEventListener('auth-change', this._handleAuthChange);
+
         // 啟動連結預載監聽
         prefetchService.observeLinks(this);
 
@@ -26,6 +31,7 @@ export class App extends BaseComponent {
 
     disconnectedCallback() {
         super.disconnectedCallback();
+        authService.removeEventListener('auth-change', this._handleAuthChange);
     }
 
     render() {
@@ -39,6 +45,8 @@ export class App extends BaseComponent {
             'dark': '🌙 Dark',
             'system': '💻 System'
         }[currentTheme];
+
+        const { isAuthenticated, user } = authService;
 
         return html`
             <a href="#main-content" class="skip-link" style="position: absolute; top: -40px; left: 0; background: var(--primary-color); color: white; padding: 0.5rem; z-index: 100; transition: top 0.3s;">
@@ -56,8 +64,16 @@ export class App extends BaseComponent {
                 <a href="#/analytics" onmouseover="prefetchService.preloadModule('./components/pages/Analytics.js')">${t('app.analytics')}</a> | 
                 <a href="#/contact">${t('app.contact')}</a> | 
                 <a href="#/dashboard" onmouseover="prefetchService.preloadModule('./components/pages/Dashboard.js')">${t('app.dashboard')}</a>
-                <div style="float: right;">
-                    <button id="lang-toggle" data-lang="${nextLang}" style="cursor: pointer; margin-right: 0.5rem;">${currentLang}</button>
+                
+                <div style="float: right; display: flex; align-items: center; gap: 0.5rem;">
+                    ${isAuthenticated ? html`
+                        <span style="font-size: 0.85rem; color: #666;">Hi, <strong>${user.username}</strong></span>
+                        <button id="logout-btn" style="cursor: pointer; border: 1px solid #ddd; background: none; border-radius: 4px; padding: 2px 6px;">登出</button>
+                    ` : html`
+                        <a href="#/login" style="font-size: 0.85rem; font-weight: bold;">登入</a>
+                    `}
+                    <span style="color:#ccc">|</span>
+                    <button id="lang-toggle" data-lang="${nextLang}" style="cursor: pointer;">${currentLang}</button>
                     <button id="theme-toggle" style="cursor: pointer;">${themeLabel}</button>
                 </div>
             </nav>
@@ -67,10 +83,16 @@ export class App extends BaseComponent {
                     <x-route path="/" exact module="./components/pages/HomePage.js" meta-title="app.home" meta-desc="home.desc"><page-home></page-home></x-route>
                     <x-route path="/search" exact module="./components/pages/RepoSearch.js" meta-title="app.search"><page-repo-search></page-repo-search></x-route>
                     <x-route path="/worker" exact module="./components/pages/WorkerDemo.js" meta-title="app.worker"><page-worker-demo></page-worker-demo></x-route>
-                    <x-route path="/profile" exact module="./components/pages/Profile.js" meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>
+                    
+                    <!-- 受保護路由 (Auth Guard Required) -->
+                    <x-route path="/profile" exact auth-required module="./components/pages/Profile.js" meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>
+                    <x-route path="/analytics" auth-required module="./components/pages/Analytics.js" meta-title="app.analytics"><page-analytics></page-analytics></x-route>
+                    
                     <x-route path="/docs" module="./components/pages/Docs.js" meta-title="app.docs"><page-docs></page-docs></x-route>
-                    <x-route path="/analytics" module="./components/pages/Analytics.js" meta-title="app.analytics"><page-analytics></page-analytics></x-route>
                     <x-route path="/dashboard" exact module="./components/pages/Dashboard.js" meta-title="app.dashboard"><page-dashboard></page-dashboard></x-route>
+                    
+                    <x-route path="/login" module="./components/pages/Login.js" meta-title="登入系統"><page-login></page-login></x-route>
+                    
                     <x-route path="/contact" exact meta-title="app.contact">
                         <h2>${t('app.contact')} (Demo)</h2>
                         <form id="demo-form" style="display: grid; gap: 1rem; max-width: 300px;">
@@ -107,6 +129,13 @@ export class App extends BaseComponent {
         this.querySelector('#lang-toggle')?.addEventListener('click', (e) => {
             const nextLang = e.target.dataset.lang;
             i18n.setLocale(nextLang);
+        });
+
+        this.querySelector('#logout-btn')?.addEventListener('click', () => {
+            if (confirm('確定要登出嗎？')) {
+                authService.logout();
+                notificationService.info('已成功登出。');
+            }
         });
 
         this.querySelector('#demo-form')?.addEventListener('submit', (e) => {

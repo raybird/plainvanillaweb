@@ -1,9 +1,10 @@
 import { router } from '../../lib/router.js';
+import { authService } from '../../lib/auth-service.js';
 
 /**
  * x-switch 組件
  * 類似 React Router 的 <Switch>，確保同一時間只顯示第一個匹配的路由。
- * 解決 404 頁面與正常頁面同時顯示的問題。
+ * 支援 Auth Guard: 檢查路由屬性 auth-required
  */
 export class SwitchComponent extends HTMLElement {
     constructor() {
@@ -56,6 +57,13 @@ export class SwitchComponent extends HTMLElement {
             }
 
             if (isMatch) {
+                // Auth Guard 邏輯
+                if (route.hasAttribute('auth-required') && !authService.isAuthenticated) {
+                    console.log(`[Auth Guard] Protected route ${path} detected. Redirecting to login.`);
+                    router.push('/login');
+                    return;
+                }
+
                 matched = true;
                 route.setAttribute('active', '');
                 route.style.display = 'contents';

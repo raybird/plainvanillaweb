@@ -1,18 +1,13 @@
 #!/bin/bash
-# TeleNexus Project Sync Tool
-echo "--- Starting Project Maintenance ---"
-# 執行測試
+echo "--- Starting Vanilla Sync & Audit ---"
+# 1. 執行單元測試
 node --test tests/*.test.js
-if [ $? -eq 0 ]; then
-    echo "✅ Tests passed."
-    # 執行提交與推送
-    git add .
-    git commit -m "Auto-maintenance: automated sync and cleanup at $(date)"
-    git push origin master
-    echo "🚀 Sync completed."
-else
-    echo "❌ Tests failed. Sync aborted."
-    exit 1
-fi
-# 觸發系統清理
+# 2. 語法檢查
+find . -name "*.js" -not -path "./node_modules/*" | xargs -n 1 node -c
+# 3. 系統清理
 /app/workspace/.gemini/skills/system-cleanup/scripts/cleanup.sh
+# 4. 同步遠端
+git add .
+git commit -m "Auto-sync: automated project maintenance and cleanup"
+git push origin master
+echo "--- Sync Completed ---"

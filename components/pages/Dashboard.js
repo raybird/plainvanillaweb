@@ -187,7 +187,7 @@ export class Dashboard extends BaseComponent {
                         </div>
                         <div style="display:flex; align-items:center;">
                             <button class="btn btn-secondary" style="font-size:0.8rem; padding:0.4rem 0.8rem;" 
-                                    onclick="import('../../lib/sync-service.js').then(m => m.syncService.processQueue())">立即同步</button>
+                                    onclick="import('./lib/sync-service.js').then(m => m.syncService.processQueue())">立即同步</button>
                         </div>
                     </div>
                 </div>

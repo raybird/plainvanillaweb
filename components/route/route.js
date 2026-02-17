@@ -43,7 +43,9 @@ export class RouteComponent extends HTMLElement {
             const modulePath = this.getAttribute('module');
             if (modulePath) {
                 try {
-                    await import(modulePath);
+                    // 使用 document.baseURI 確保路徑相對於應用根目錄
+                    const absolutePath = new URL(modulePath, document.baseURI).href;
+                    await import(absolutePath);
                 } catch (err) {
                     console.error(`[Route] Failed to load module: ${modulePath}`, err);
                 }
@@ -75,7 +77,9 @@ export class RouteComponent extends HTMLElement {
                 const modulePath = this.getAttribute('module');
                 if (modulePath) {
                     try {
-                        await import(modulePath);
+                        // 使用 document.baseURI 確保路徑相對於應用根目錄
+                        const absolutePath = new URL(modulePath, document.baseURI).href;
+                        await import(absolutePath);
                     } catch (err) {
                         console.error(`[Route] Failed to load module: ${modulePath}`, err);
                     }

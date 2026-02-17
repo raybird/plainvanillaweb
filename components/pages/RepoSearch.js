@@ -1,6 +1,7 @@
 import { html, escapeHTML } from '../../lib/html.js';
 import { appStore } from "../../lib/store.js";
 import { BaseComponent } from '../../lib/base-component.js';
+import { idbService } from '../../lib/idb-service.js';
 
 export class RepoSearch extends BaseComponent {
     constructor() {
@@ -12,8 +13,10 @@ export class RepoSearch extends BaseComponent {
     async search(query) {
         if (!query) return;
         
-        const cached = appStore.getCache(`repo_${query}`);
+        // 優先從 IndexedDB 讀取大容量快取
+        const cached = await idbService.get(`repo_${query}`);
         if (cached) {
+            console.log(`[RepoSearch] Cache Hit (IDB): ${query}`);
             this.repos = cached;
             this.update();
             return;
@@ -25,7 +28,10 @@ export class RepoSearch extends BaseComponent {
             const res = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars`);
             const data = await res.json();
             this.repos = data.items || [];
-            appStore.setCache(`repo_${query}`, this.repos);
+            
+            // 存儲至 IndexedDB，TTL 設定為 30 分鐘
+            await idbService.set(`repo_${query}`, this.repos, 30);
+            
             appStore.state.lastSearch = query;
         } catch (err) {
             console.error(err);

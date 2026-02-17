@@ -6,19 +6,19 @@
 
 ## 📅 當前階段：架構標準化 (Standardization)
 **重心：定義標準接口，提升代碼一致性。**
-- [ ] **Base Service 抽象化**：實作 `lib/base-service.js` 規範事件與狀態。
-- [ ] **Base Component 強化**：提供生命週期鉤子與渲染優化。
-- [ ] **CSS 變數封裝規範**：定義原生 Scoped CSS 實作模式。
+- [x] **Base Service 抽象化**：實作 `lib/base-service.js` 規範事件與狀態。
+- [x] **Base Component 強化**：提供生命週期鉤子與渲染優化。
+- [x] **CSS 變數封裝規範**：定義原生 Scoped CSS 實作模式。
 
 ## 🚀 下一階段：AI 協作與開發體驗 (AI & DX)
 **重心：人機友善工具化。**
 - [x] **架構決策紀錄 (ADR)**：建立 `docs/decisions/` 追蹤設計選擇。
-- [ ] **AI 專用維護腳本**：自動化測試、清理與同步工具。
+- [x] **AI 專用維護腳本**：自動化測試、清理與同步工具。
 - [x] **動態腳手架 (CLI)**：原生指令快速產生組件。
 
 ## 💎 進階階段：高性能與邊緣情境 (Performance)
-- [ ] **Web Workers 服務化**：多線程運算整合。
-- [ ] **智能快取策略**：IndexedDB 離線支援。
+- [x] **Web Workers 服務化**：多線程運算整合。
+- [x] **智能快取策略**：IndexedDB 離線支援。
 - [x] **全域錯誤邊界**：增強 SPA 穩定性。
 
 ## 🎓 最終目標：生態與教學 (Education)

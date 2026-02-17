@@ -2,6 +2,7 @@ import { html } from '../../lib/html.js';
 import { BaseComponent } from '../../lib/base-component.js';
 import { appStore } from '../../lib/store.js';
 import { computeService } from '../../lib/worker-service.js';
+import { idbService } from '../../lib/idb-service.js';
 
 export class Dashboard extends BaseComponent {
     constructor() {
@@ -33,9 +34,18 @@ export class Dashboard extends BaseComponent {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                 <!-- 狀態管理區 -->
                 <section style="border: 1px solid #ddd; padding: 1rem; border-radius: 8px;">
-                    <h3>📡 Store & Cache</h3>
+                    <h3>📡 Store (Sync)</h3>
                     <p>最後搜尋: <strong>${lastSearch}</strong></p>
                     <small>數據已持久化至 LocalStorage</small>
+                </section>
+
+                <!-- 大容量持久化區 -->
+                <section style="border: 1px solid #ddd; padding: 1rem; border-radius: 8px;">
+                    <h3>💾 IndexedDB (Async)</h3>
+                    <p>用於 API 快取與大型數據。</p>
+                    <button onclick="this.closest('page-dashboard').clearCache()" style="background: #6c757d; color: white; border: none; padding: 0.5rem; border-radius: 4px; cursor: pointer;">
+                        清除 API 快取
+                    </button>
                 </section>
 
                 <!-- 高性能運算區 -->
@@ -55,6 +65,13 @@ export class Dashboard extends BaseComponent {
                 </section>
             </div>
         `;
+    }
+
+    async clearCache() {
+        if (confirm('確定要清除所有 IndexedDB 快取嗎？')) {
+            await idbService.clear();
+            appStore.state.notifications = [...appStore.state.notifications, "IndexedDB 快取已清空！" ];
+        }
     }
 
     startTask() {

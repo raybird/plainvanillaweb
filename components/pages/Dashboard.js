@@ -5,6 +5,7 @@ import { computeService } from '../../lib/worker-service.js';
 import { idbService } from '../../lib/idb-service.js';
 import { networkMonitor } from '../../lib/network-monitor.js';
 import { performanceService } from '../../lib/performance-service.js';
+import { notificationService } from '../../lib/notification-service.js';
 
 export class Dashboard extends BaseComponent {
     constructor() {
@@ -226,7 +227,7 @@ export class Dashboard extends BaseComponent {
         if (confirm('確定要清除所有 IndexedDB 快取嗎？')) {
             await idbService.clear();
             await this.refreshStats();
-            appStore.state.notifications = [...appStore.state.notifications, "IndexedDB 快取已清空！" ];
+            notificationService.success("IndexedDB 快取已清空！");
         }
     }
 

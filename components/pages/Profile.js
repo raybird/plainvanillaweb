@@ -2,6 +2,7 @@ import { html } from '../../lib/html.js';
 import { BaseComponent } from '../../lib/base-component.js';
 import { appStore } from '../../lib/store.js';
 import { validationService } from '../../lib/validation-service.js';
+import { notificationService } from '../../lib/notification-service.js';
 
 export class UserProfile extends BaseComponent {
     constructor() {
@@ -39,7 +40,7 @@ export class UserProfile extends BaseComponent {
         
         // 提交前進行全表單驗證
         if (!validationService.validateForm(form)) {
-            appStore.state.notifications = [...appStore.state.notifications, "表單包含錯誤，請修正後再試。"];
+            notificationService.warn("表單包含錯誤，請修正後再試。");
             return;
         }
 
@@ -52,7 +53,7 @@ export class UserProfile extends BaseComponent {
         };
         
         appStore.state.userProfile = newProfile;
-        appStore.state.notifications = [...appStore.state.notifications, "個人資料已更新！"];
+        notificationService.success("個人資料已更新！");
         this.state = { ...this.state, ...newProfile, previewMode: false };
         this.update();
     }

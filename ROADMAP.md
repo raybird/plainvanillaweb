@@ -51,3 +51,4 @@
 - [x] **原生性能監控 (Performance Metrics)**：利用 PerformanceObserver 追蹤 Web Vitals。
 - [x] **原生頁面過渡 (Page Transitions)**：整合 View Transitions API 優化切換體驗。
 - [x] **資源動態載入 (Lazy & Prefetch)**：基於路由的組件載入與預載優化。
+- [x] **通知機制服務化 (Notification Service)**：解耦 UI 與邏輯，支援多類型通知。

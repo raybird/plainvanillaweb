@@ -2,7 +2,9 @@ import { html } from '../../lib/html.js';
 import { appStore } from "../../lib/store.js";
 import { BaseComponent } from '../../lib/base-component.js';
 import { idbService } from '../../lib/idb-service.js';
-import { apiService } from '../../lib/api-service.js'; // 引入 APIService
+import { apiService } from '../../lib/api-service.js';
+import { notificationService } from '../../lib/notification-service.js';
+ // 引入 APIService
 
 export class RepoSearch extends BaseComponent {
     constructor() {
@@ -43,7 +45,7 @@ export class RepoSearch extends BaseComponent {
             appStore.state.lastSearch = query;
         } catch (err) {
             console.error('[RepoSearch] Search Error:', err);
-            appStore.state.notifications = [...appStore.state.notifications, "搜尋失敗，請稍後再試。"];
+            notificationService.error("搜尋失敗，請稍後再試。");
         } finally {
             this.loading = false;
             this.update();

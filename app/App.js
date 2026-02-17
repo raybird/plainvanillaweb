@@ -3,6 +3,7 @@ import { BaseComponent } from "../lib/base-component.js";
 import { i18n } from "../lib/i18n-service.js"; 
 import { themeService } from "../lib/theme-service.js";
 import { prefetchService } from "../lib/prefetch-service.js";
+import { notificationService } from "../lib/notification-service.js";
 import { html } from "../lib/html.js";
 import "../components/AppFooter.js";
 import "../components/route/switch.js"; 
@@ -106,7 +107,7 @@ export class App extends BaseComponent {
 
         this.querySelector('#demo-form')?.addEventListener('submit', (e) => {
             e.preventDefault();
-            appStore.state.notifications = [...appStore.state.notifications, "Message Sent!"];
+            notificationService.success("Message Sent!");
             e.target.reset();
         });
     }

@@ -6,6 +6,7 @@ import { registerApp } from "./app/App.js";
 import { registerRoute } from "./components/route/route.js";
 import { connectivityService } from "./lib/connectivity-service.js";
 import { appStore } from "./lib/store.js";
+import { notificationService } from "./lib/notification-service.js"; // 引入通知服務
 
 // 啟動網路監控
 networkMonitor.enable();
@@ -15,8 +16,11 @@ registerApp();
 
 // 監聽連線狀態
 connectivityService.addEventListener('change', (e) => {
-    const status = e.detail.isOnline ? '🟢 已恢復連線' : '🔴 目前處於離線模式';
-    appStore.state.notifications = [...appStore.state.notifications, status];
+    if (e.detail.isOnline) {
+        notificationService.success('🟢 已恢復連線');
+    } else {
+        notificationService.error('🔴 目前處於離線模式');
+    }
 });
 
 // PWA Service Worker 註冊與更新管理
@@ -31,7 +35,7 @@ if ('serviceWorker' in navigator) {
                     const newWorker = reg.installing;
                     newWorker.addEventListener('statechange', () => {
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            appStore.state.notifications = [...appStore.state.notifications, "✨ 應用程式有新版本，請重新整理頁面以套用更新。"];
+                            notificationService.info("✨ 應用程式有新版本，請重新整理頁面以套用更新。");
                         }
                     });
                 });

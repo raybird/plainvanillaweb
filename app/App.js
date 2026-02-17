@@ -14,6 +14,8 @@ export class App extends BaseComponent {
     constructor() {
         super();
         this._handleAuthChange = () => this.update();
+        // 將 prefetchService 掛載到 window 以供 inline 事件（如 onmouseover）使用
+        window.prefetchService = prefetchService;
     }
 
     async connectedCallback() {

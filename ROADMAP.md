@@ -40,3 +40,4 @@
 - [x] **使用者個人資料 (Profile)**：整合靜態資源與 LocalStorage 的個人化頁面。
 - [x] **PWA 支援 (Progressive Web App)**：支援離線啟動與桌面安裝 (Manifest/SW)。
 - [x] **原生 i18n 系統 (Internationalization)**：輕量級多語言支援 (JSON/Service)。
+- [x] **SEO 與無障礙優化 (SEO & A11y)**：動態 Meta 標籤管理與 Skip Link 實作。

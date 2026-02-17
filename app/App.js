@@ -35,6 +35,10 @@ export class App extends BaseComponent {
         const nextLang = i18n.locale === 'zh-TW' ? 'en-US' : 'zh-TW';
 
         return html`
+            <a href="#main-content" class="skip-link" style="position: absolute; top: -40px; left: 0; background: var(--primary-color); color: white; padding: 0.5rem; z-index: 100; transition: top 0.3s;">
+                ${t('Skip to Content')}
+            </a>
+
             <app-notification></app-notification>
             <nav>
                 <a href="#/">${t('app.home')}</a> | 
@@ -49,13 +53,13 @@ export class App extends BaseComponent {
                 </div>
             </nav>
             <hr>
-            <main style="min-height: 60vh;">
-                <x-route path="/" exact><page-home></page-home></x-route>
-                <x-route path="/search" exact><page-repo-search></page-repo-search></x-route>
-                <x-route path="/worker" exact><page-worker-demo></page-worker-demo></x-route>
-                <x-route path="/profile" exact><page-profile></page-profile></x-route>
-                <x-route path="/dashboard" exact><page-dashboard></page-dashboard></x-route>
-                <x-route path="/contact" exact>
+            <main id="main-content" style="min-height: 60vh; outline: none;" tabindex="-1">
+                <x-route path="/" exact meta-title="app.home" meta-desc="home.desc"><page-home></page-home></x-route>
+                <x-route path="/search" exact meta-title="app.search"><page-repo-search></page-repo-search></x-route>
+                <x-route path="/worker" exact meta-title="app.worker"><page-worker-demo></page-worker-demo></x-route>
+                <x-route path="/profile" exact meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>
+                <x-route path="/dashboard" exact meta-title="app.dashboard"><page-dashboard></page-dashboard></x-route>
+                <x-route path="/contact" exact meta-title="app.contact">
                     <h2>${t('app.contact')} (Demo)</h2>
                     <form id="demo-form" style="display: grid; gap: 1rem; max-width: 300px;">
                         <input name="name" placeholder="${t('profile.name')}" required style="padding: 0.5rem;">

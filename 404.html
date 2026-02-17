@@ -3,13 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plain Vanilla Web Demo</title>
-    <!-- 使用相對路徑載入 CSS -->
-    <link rel="stylesheet" href="./index.css">
-    <!-- 使用相對路徑載入 JS -->
-    <script type="module" src="./index.js" defer></script>
+    <title>頁面轉向中... | Plain Vanilla Web</title>
+    <script>
+        // GitHub Pages SPA 路由修復 (404 Hack)
+        // 當使用者訪問非 Hash 路徑 (例如 /search) 時，GitHub Pages 會回傳此 404 頁面。
+        // 此腳本會將路徑轉換為 Hash 路由 (/#/search) 並重定向回 index.html。
+        
+        const path = window.location.pathname;
+        const repo = '/plainvanillaweb'; // 您的 Repository 名稱
+        
+        // 移除 repo 前綴以取得實際路由
+        let route = path.replace(repo, '');
+        if (route.startsWith('/')) route = route.substring(1);
+        
+        // 如果還有 query string 或 hash，也一併保留
+        const search = window.location.search;
+        const hash = window.location.hash;
+
+        // 建構新的 Hash URL
+        // 例如：/plainvanillaweb/worker -> /plainvanillaweb/#/worker
+        const newUrl = `${window.location.protocol}//${window.location.host}${repo}/#/${route}${search}${hash}`;
+        
+        console.log(`[404 Fix] Redirecting from ${path} to ${newUrl}`);
+        window.location.replace(newUrl);
+    </script>
 </head>
 <body>
-    <x-app></x-app>
+    <p>正在為您導向至正確頁面...</p>
 </body>
 </html>

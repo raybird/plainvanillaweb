@@ -17,13 +17,14 @@ export class App extends HTMLElement {
                 <a href="#/">首頁</a> | 
                 <a href="#/search">GitHub 搜尋</a> |
                 <a href="#/worker">高效能運算</a> |
-                <a href="#/contact">聯絡我們</a>
+                <a href="#/contact">聯絡我們</a> | <a href="#/dashboard">儀表板</a>
                 <button id="theme-toggle" style="float: right; cursor: pointer;">切換主題</button>
             </nav>
             <hr>
             <x-route path="/" exact><page-home></page-home></x-route>
             <x-route path="/search" exact><page-repo-search></page-repo-search></x-route>
             <x-route path="/worker" exact><page-worker-demo></page-worker-demo></x-route>
+            <x-route path="/dashboard" exact><page-dashboard></page-dashboard></x-route>
             <x-route path="/contact" exact>
                 <h2>聯絡我們 (表單 Demo)</h2>
                 <form id="demo-form" style="display: grid; gap: 1rem; max-width: 300px;">

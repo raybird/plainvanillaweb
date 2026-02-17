@@ -49,6 +49,7 @@
 - [x] **連線與更新管理 (PWA UX)**：即時連線偵測與 SW 版本更新通知。
 - [x] **反應式本地狀態 (Reactive State)**：BaseComponent 支援自動重繪 Proxy 狀態。
 - [x] **原生性能監控 (Performance Metrics)**：利用 PerformanceObserver 追蹤 Web Vitals。
+- [x] **離線動作同步 (Offline Sync)**：利用 IndexedDB 佇列確保數據可靠同步。
 - [x] **原生頁面過渡 (Page Transitions)**：整合 View Transitions API 優化切換體驗。
 - [x] **跨分頁狀態同步 (Cross-tab Sync)**：利用 BroadcastChannel 保持多標籤數據一致。
 - [x] **原生 Canvas 圖表 (Native Charts)**：利用 Canvas API 實作高效能即時性能趨勢圖。

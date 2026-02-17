@@ -8,6 +8,7 @@ import { performanceService } from '../../lib/performance-service.js';
 import { notificationService } from '../../lib/notification-service.js';
 import { broadcastService } from '../../lib/broadcast-service.js';
 import { modalService } from '../../lib/modal-service.js';
+import { syncService } from '../../lib/sync-service.js';
 
 export class Dashboard extends BaseComponent {
     constructor() {
@@ -22,12 +23,14 @@ export class Dashboard extends BaseComponent {
             perfMetrics: performanceService.summary,
             lastSyncTab: '無',
             syncCount: 0,
-            thisTabId: broadcastService.tabId
+            thisTabId: broadcastService.tabId,
+            syncQueueCount: 0
         });
         this.onWorkerDone = this.onResult.bind(this);
         this.onStoreChange = this.onStoreUpdate.bind(this);
         this.onNetworkLog = this.updateNetworkLogs.bind(this);
         this.onPerfUpdate = this.updatePerfMetrics.bind(this);
+        this.onSyncUpdate = () => this.updateQueueCount();
     }
 
     connectedCallback() {
@@ -37,11 +40,14 @@ export class Dashboard extends BaseComponent {
         networkMonitor.addEventListener('log', this.onNetworkLog);
         networkMonitor.addEventListener('clear', this.onNetworkLog);
         performanceService.addEventListener('metric-update', this.onPerfUpdate);
+        syncService.addEventListener('action-queued', this.onSyncUpdate);
+        syncService.addEventListener('action-synced', this.onSyncUpdate);
         
         this.state.networkLogs = networkMonitor.logs;
         this.state.perfMetrics = performanceService.summary;
         
         this.refreshStats();
+        this.updateQueueCount();
 
         this.statsInterval = setInterval(() => {
             if (performance && performance.memory) {
@@ -57,7 +63,14 @@ export class Dashboard extends BaseComponent {
         networkMonitor.removeEventListener('log', this.onNetworkLog);
         networkMonitor.removeEventListener('clear', this.onNetworkLog);
         performanceService.removeEventListener('metric-update', this.onPerfUpdate);
+        syncService.removeEventListener('action-queued', this.onSyncUpdate);
+        syncService.removeEventListener('action-synced', this.onSyncUpdate);
         clearInterval(this.statsInterval);
+    }
+
+    async updateQueueCount() {
+        const queue = await idbService.getAll(idbService.stores.QUEUE);
+        this.state.syncQueueCount = queue.length;
     }
 
     onStoreUpdate(e) {
@@ -98,7 +111,7 @@ export class Dashboard extends BaseComponent {
     render() {
         const lastSearch = appStore.state.lastSearch || '無';
         const stateJson = JSON.stringify(appStore.state, null, 2);
-        const { perfMetrics, lastSyncTab, syncCount, thisTabId } = this.state;
+        const { perfMetrics, lastSyncTab, syncCount, thisTabId, syncQueueCount } = this.state;
         
         const logsHtml = this.state.networkLogs.map(log => {
             const statusColor = log.status >= 400 || log.status === 'Error' ? 'red' : 'green';
@@ -137,6 +150,24 @@ export class Dashboard extends BaseComponent {
             <p>即時監控與除錯中心。最後更新：${this.state.lastUpdate}</p>
 
             <div class="dashboard-grid">
+                <!-- 離線同步資訊 -->
+                <div class="card" style="border-left: 5px solid #ffc107;">
+                    <h3>☁️ 離線同步 (Action Queue)</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <div class="metric" style="color: #ffc107; font-size: 1.5rem;">${syncQueueCount}</div>
+                            <div class="label">待同步項目</div>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <button class="btn btn-secondary" style="font-size:0.8rem; padding:0.4rem 0.8rem;" 
+                                    onclick="import('../../lib/sync-service.js').then(m => m.syncService.processQueue())">立即同步</button>
+                        </div>
+                    </div>
+                    <small style="color: #666; display: block; margin-top: 0.5rem;">
+                        離線時的操作會自動進入排隊，並在恢復連線後同步。
+                    </small>
+                </div>
+
                 <!-- 分頁同步資訊 -->
                 <div class="card" style="border-left: 5px solid var(--primary-color);">
                     <h3>🔗 跨分頁同步 (Multi-tab)</h3>
@@ -151,9 +182,6 @@ export class Dashboard extends BaseComponent {
                             <div class="label">最後來源</div>
                         </div>
                     </div>
-                    <small style="color: #666; display: block; margin-top: 0.5rem;">
-                        利用 BroadcastChannel 達成無感狀態同步。
-                    </small>
                 </div>
 
                 <!-- 系統指標 -->

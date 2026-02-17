@@ -3,6 +3,8 @@ import { BaseComponent } from '../../lib/base-component.js';
 import { appStore } from '../../lib/store.js';
 import { validationService } from '../../lib/validation-service.js';
 import { notificationService } from '../../lib/notification-service.js';
+import { syncService } from '../../lib/sync-service.js';
+import { connectivityService } from '../../lib/connectivity-service.js';
 
 export class UserProfile extends BaseComponent {
     constructor() {
@@ -53,7 +55,14 @@ export class UserProfile extends BaseComponent {
         };
         
         appStore.state.userProfile = newProfile;
-        notificationService.success("個人資料已更新！");
+        
+        // 使用同步服務處理「向伺服器同步」的邏輯
+        syncService.queueAction('update_profile', newProfile);
+        
+        if (connectivityService.isOnline) {
+            notificationService.success("個人資料已更新並同步至雲端。");
+        }
+        
         this.state = { ...this.state, ...newProfile, previewMode: false };
         this.update();
     }

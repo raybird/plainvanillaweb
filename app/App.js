@@ -1,5 +1,6 @@
 import { appStore } from "../lib/store.js";
 import "../components/AppFooter.js"; // 引入 Footer 組件 (自動註冊)
+import "../components/pages/Profile.js"; // 引入 Profile 組件
 
 export class App extends HTMLElement {
     constructor() { super(); this.updateTheme = this.updateTheme.bind(this); }
@@ -18,6 +19,7 @@ export class App extends HTMLElement {
                 <a href="#/">首頁</a> | 
                 <a href="#/search">GitHub 搜尋</a> |
                 <a href="#/worker">高效能運算</a> |
+                <a href="#/profile">個人資料</a> | 
                 <a href="#/contact">聯絡我們</a> | <a href="#/dashboard">儀表板</a>
                 <button id="theme-toggle" style="float: right; cursor: pointer;">切換主題</button>
             </nav>
@@ -26,6 +28,7 @@ export class App extends HTMLElement {
                 <x-route path="/" exact><page-home></page-home></x-route>
                 <x-route path="/search" exact><page-repo-search></page-repo-search></x-route>
                 <x-route path="/worker" exact><page-worker-demo></page-worker-demo></x-route>
+                <x-route path="/profile" exact><page-profile></page-profile></x-route>
                 <x-route path="/dashboard" exact><page-dashboard></page-dashboard></x-route>
                 <x-route path="/contact" exact>
                     <h2>聯絡我們 (表單 Demo)</h2>

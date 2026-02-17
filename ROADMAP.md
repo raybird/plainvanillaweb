@@ -33,3 +33,8 @@
 1. **核心架構**：BaseService / BaseComponent / Store (Observer Pattern)。
 2. **高效能模組**：Web Workers / IndexedDB Caching。
 3. **開發工具**：Sync Script / Scaffolding CLI / Interactive Dashboard。
+
+## 🎁 自主開發 (Bonus Features)
+**AI Agent 主動識別並實作的高價值功能。**
+- [x] **SPA 路由修復 (404 Hack)**：解決 GitHub Pages 的靜態路由問題。
+- [x] **使用者個人資料 (Profile)**：整合靜態資源與 LocalStorage 的個人化頁面。

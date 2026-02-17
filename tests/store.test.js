@@ -10,6 +10,13 @@ const mockStorage = {
 };
 global.localStorage = mockStorage;
 
+// 建立模擬 BroadcastChannel 以防測試掛起
+global.BroadcastChannel = class {
+    constructor() {}
+    postMessage() {}
+    close() {}
+};
+
 // 延遲載入受測模組
 const { Store } = await import('../lib/store.js');
 

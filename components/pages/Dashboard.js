@@ -6,6 +6,8 @@ import { idbService } from '../../lib/idb-service.js';
 import { networkMonitor } from '../../lib/network-monitor.js';
 import { performanceService } from '../../lib/performance-service.js';
 import { notificationService } from '../../lib/notification-service.js';
+import { broadcastService } from '../../lib/broadcast-service.js';
+import { modalService } from '../../lib/modal-service.js';
 
 export class Dashboard extends BaseComponent {
     constructor() {
@@ -17,10 +19,13 @@ export class Dashboard extends BaseComponent {
             showState: false, 
             memoryUsage: 'N/A',
             networkLogs: [],
-            perfMetrics: performanceService.summary
+            perfMetrics: performanceService.summary,
+            lastSyncTab: '無',
+            syncCount: 0,
+            thisTabId: broadcastService.tabId
         });
         this.onWorkerDone = this.onResult.bind(this);
-        this.onStoreChange = this.updateStateView.bind(this);
+        this.onStoreChange = this.onStoreUpdate.bind(this);
         this.onNetworkLog = this.updateNetworkLogs.bind(this);
         this.onPerfUpdate = this.updatePerfMetrics.bind(this);
     }
@@ -33,13 +38,11 @@ export class Dashboard extends BaseComponent {
         networkMonitor.addEventListener('clear', this.onNetworkLog);
         performanceService.addEventListener('metric-update', this.onPerfUpdate);
         
-        // 載入現有數據
         this.state.networkLogs = networkMonitor.logs;
         this.state.perfMetrics = performanceService.summary;
         
         this.refreshStats();
 
-        // 定期刷新記憶體使用量
         this.statsInterval = setInterval(() => {
             if (performance && performance.memory) {
                 const used = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
@@ -55,6 +58,15 @@ export class Dashboard extends BaseComponent {
         networkMonitor.removeEventListener('clear', this.onNetworkLog);
         performanceService.removeEventListener('metric-update', this.onPerfUpdate);
         clearInterval(this.statsInterval);
+    }
+
+    onStoreUpdate(e) {
+        if (e.detail.remote) {
+            this.state.lastSyncTab = e.detail.sender;
+            this.state.syncCount++;
+            notificationService.info(`已從分頁 ${e.detail.sender} 同步數據`);
+        }
+        if (this.state.showState) this.update();
     }
 
     updatePerfMetrics() {
@@ -75,11 +87,6 @@ export class Dashboard extends BaseComponent {
         this.state.workerStatus = `完成! 結果: ${e.detail.result} (耗時: ${e.detail.duration || '未知'}ms)`;
     }
 
-    updateStateView() {
-        // Store 是外部狀態，Proxy 無法偵測，需手動 update
-        if (this.state.showState) this.update();
-    }
-
     toggleStateView() {
         this.state.showState = !this.state.showState;
     }
@@ -91,7 +98,7 @@ export class Dashboard extends BaseComponent {
     render() {
         const lastSearch = appStore.state.lastSearch || '無';
         const stateJson = JSON.stringify(appStore.state, null, 2);
-        const { perfMetrics } = this.state;
+        const { perfMetrics, lastSyncTab, syncCount, thisTabId } = this.state;
         
         const logsHtml = this.state.networkLogs.map(log => {
             const statusColor = log.status >= 400 || log.status === 'Error' ? 'red' : 'green';
@@ -130,6 +137,25 @@ export class Dashboard extends BaseComponent {
             <p>即時監控與除錯中心。最後更新：${this.state.lastUpdate}</p>
 
             <div class="dashboard-grid">
+                <!-- 分頁同步資訊 -->
+                <div class="card" style="border-left: 5px solid var(--primary-color);">
+                    <h3>🔗 跨分頁同步 (Multi-tab)</h3>
+                    <p>當前分頁 ID: <code style="color:var(--primary-color)">${thisTabId}</code></p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <div class="metric" style="font-size:1.5rem">${syncCount}</div>
+                            <div class="label">同步次數</div>
+                        </div>
+                        <div>
+                            <div class="metric" style="font-size:1.5rem; overflow:hidden; text-overflow:ellipsis">${lastSyncTab}</div>
+                            <div class="label">最後來源</div>
+                        </div>
+                    </div>
+                    <small style="color: #666; display: block; margin-top: 0.5rem;">
+                        利用 BroadcastChannel 達成無感狀態同步。
+                    </small>
+                </div>
+
                 <!-- 系統指標 -->
                 <div class="card">
                     <h3>📊 系統指標</h3>
@@ -158,9 +184,6 @@ export class Dashboard extends BaseComponent {
                         <div class="perf-item"><strong>CLS:</strong> ${perfMetrics.cls.toFixed(3)}</div>
                         <div class="perf-item"><strong>Load:</strong> ${perfMetrics.loadTime}ms</div>
                     </div>
-                    <small style="color: #666; display: block; margin-top: 0.5rem;">
-                        數據取自原生 PerformanceObserver API。
-                    </small>
                 </div>
 
                 <!-- 運算狀態 -->
@@ -215,12 +238,30 @@ export class Dashboard extends BaseComponent {
                  <div class="card" style="border-color: #ffc107;">
                     <h3>🐞 穩定性測試 (Error Boundary)</h3>
                     <p>測試組件在崩潰時的恢復能力。</p>
-                    <button class="btn-danger" onclick="this.closest('page-dashboard').triggerError()">
-                        💥 觸發組件崩潰
-                    </button>
+                    <div class="btn-group">
+                        <button class="btn-danger" onclick="this.closest('page-dashboard').triggerError()">
+                            💥 觸發組件崩潰
+                        </button>
+                        <button class="btn-secondary" onclick="this.closest('page-dashboard').showModalDemo()">
+                            📢 對話框示範
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
+    }
+
+    async showModalDemo() {
+        const confirmed = await modalService.confirm(
+            '原生對話框示範',
+            '這是一個利用瀏覽器原生 <dialog> 元素實作的對話框。它具備自動焦點鎖定、背景遮罩以及 Escape 鍵關閉等特性。您確定這很酷嗎？'
+        );
+        
+        if (confirmed) {
+            notificationService.success('感謝您的肯定！這確實很酷。');
+        } else {
+            notificationService.info('沒關係，原生技術的優雅需要時間體會。');
+        }
     }
 
     async clearCache() {
@@ -233,7 +274,6 @@ export class Dashboard extends BaseComponent {
 
     startTask(n) {
         this.state.workerStatus = `運算中 (Fib ${n})...`;
-        const start = performance.now();
         computeService.run('fibonacci', n);
     }
 

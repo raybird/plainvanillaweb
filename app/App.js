@@ -6,6 +6,7 @@ import { prefetchService } from "../lib/prefetch-service.js";
 import { notificationService } from "../lib/notification-service.js";
 import { html } from "../lib/html.js";
 import "../components/AppFooter.js";
+import "../components/Modal.js";
 import "../components/route/switch.js"; 
 
 export class App extends BaseComponent {
@@ -44,6 +45,7 @@ export class App extends BaseComponent {
                 ${t('Skip to Content')}
             </a>
 
+            <app-modal></app-modal>
             <app-notification></app-notification>
             <nav>
                 <a href="#/" onmouseover="prefetchService.preloadModule('./components/pages/HomePage.js')">${t('app.home')}</a> | 

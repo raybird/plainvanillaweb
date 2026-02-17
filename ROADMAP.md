@@ -13,7 +13,7 @@
 ## 🚀 下一階段：AI 協作與開發體驗 (AI & DX)
 **重心：人機友善工具化。**
 - [x] **架構決策紀錄 (ADR)**：建立 `docs/decisions/` 追蹤設計選擇。
-- [x] **AI 專用維護腳本**：自動化測試、清理與同步工具。
+- [x] **AI 專用維護腳本**：自動化測試、清理與同步工具.
 - [x] **動態腳手架 (CLI)**：原生指令快速產生組件。
 
 ## 💎 進階階段：高性能與邊緣情境 (Performance)
@@ -22,7 +22,7 @@
 - [x] **全域錯誤邊界**：增強 SPA 穩定性。
 
 ## 🎓 最終目標：生態與教學 (Education)
-- [ ] **互動式 Dashboard 範例**：整合全技術棧的實戰 Demo (監控 IDB/Store/Worker)。
+- [x] **互動式 Dashboard 範例**：整合全技術棧的實戰 Demo (監控 IDB/Store/Worker)。
 - [x] **Vanilla Manifesto**：撰寫長青代碼開發宣言。
 
 ---
@@ -57,4 +57,6 @@
 - [x] **原生對話框系統 (Modal System)**：利用 <dialog> 實作 A11y 友善的彈窗。
 - [x] **身分驗證與保護 (Auth System)**：實作 Auth Guard 與受保護路由。
 - [x] **操作歷史管理 (History API)**：實作撤銷/重做 (Undo/Redo) 狀態快照。
+- [x] **原生影像處理 (Image Filter)**：利用 Canvas 實作純前端圖片濾鏡。
 - [x] **高效能虛擬列表 (Virtual List)**：支持大數據量下的流暢渲染。
+- [x] **原生影像處理 (Image Filter)**：利用 Canvas 實作純前端圖片濾鏡。

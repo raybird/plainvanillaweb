@@ -5,6 +5,7 @@ import { validationService } from '../../lib/validation-service.js';
 import { notificationService } from '../../lib/notification-service.js';
 import { syncService } from '../../lib/sync-service.js';
 import { connectivityService } from '../../lib/connectivity-service.js';
+import { imageService } from '../../lib/image-service.js';
 
 export class UserProfile extends BaseComponent {
     constructor() {
@@ -14,7 +15,7 @@ export class UserProfile extends BaseComponent {
             bio: appStore.state.userProfile?.bio || '',
             avatar: appStore.state.userProfile?.avatar || 'assets/images/user-profile.jpg',
             previewMode: false,
-            errors: {} // 存放驗證錯誤
+            errors: {} 
         };
         this.handleSubmit = this.handleSubmit.bind(this);
         this.handleValidation = this.handleValidation.bind(this);
@@ -36,11 +37,24 @@ export class UserProfile extends BaseComponent {
         this.update();
     }
 
+    async applyFilter() {
+        if (!this.state.avatar) return;
+        notificationService.info('正在套用濾鏡...');
+        try {
+            const filtered = await imageService.applyGrayscale(this.state.avatar);
+            this.state.avatar = filtered;
+            this.state.previewMode = true;
+            notificationService.success('濾鏡套用成功！');
+            this.update();
+        } catch (err) {
+            notificationService.error('濾鏡處理失敗');
+        }
+    }
+
     handleSubmit(e) {
         e.preventDefault();
         const form = e.target;
         
-        // 提交前進行全表單驗證
         if (!validationService.validateForm(form)) {
             notificationService.warn("表單包含錯誤，請修正後再試。");
             return;
@@ -51,12 +65,10 @@ export class UserProfile extends BaseComponent {
             ...appStore.state.userProfile,
             name: formData.get('name'),
             bio: formData.get('bio'),
-            avatar: this.state.avatar // 保留可能的預覽圖
+            avatar: this.state.avatar
         };
         
         appStore.state.userProfile = newProfile;
-        
-        // 使用同步服務處理「向伺服器同步」的邏輯
         syncService.queueAction('update_profile', newProfile);
         
         if (connectivityService.isOnline) {
@@ -84,27 +96,25 @@ export class UserProfile extends BaseComponent {
         const theme = appStore.state.theme || 'system';
         const primaryColor = appStore.state.primaryColor || '#007bff';
         const { errors } = this.state;
-
         const errorStyle = "color: #dc3545; font-size: 0.8rem; margin-top: 0.25rem; display: block;";
 
         return html`
             <h1>👤 個人資料 (Profile Demo)</h1>
-            <p>展示原生表單處理、驗證機制與靜態資源管理。</p>
+            <p>展示原生表單處理、驗證機制、影像處理與資源管理。</p>
 
             <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
-                <!-- 左側：卡片預覽 -->
                 <div style="flex: 1; min-width: 300px; padding: 2rem; border: 1px solid #ddd; border-radius: 12px; text-align: center; background: var(--nav-bg);">
                     <img src="${this.state.avatar}" alt="Profile" style="width: 150px; height: 150px; object-fit: cover; border-radius: 50%; border: 4px solid var(--primary-color); margin-bottom: 1rem;">
+                    
+                    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+                        <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 10px;" onclick="this.closest('page-profile').applyFilter()">🪄 灰階濾鏡</button>
+                    </div>
+
                     <h2>${this.state.name || '未命名'}</h2>
                     <p style="color: #666; font-style: italic;">${this.state.bio || '這是一個簡介...'}</p>
-                    <div style="margin-top: 1rem;">
-                        <span style="background: #e9ecef; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; color: #495057;">Vanilla User</span>
-                    </div>
                 </div>
 
-                <!-- 右側：編輯表單 -->
                 <div style="flex: 1; min-width: 300px;">
-                    <!-- 外觀設定略 (保持原樣) -->
                     <div style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #eee;">
                         <h3>🎨 外觀設定</h3>
                         <div style="display: grid; gap: 1rem; grid-template-columns: 1fr 1fr;">
@@ -145,13 +155,10 @@ export class UserProfile extends BaseComponent {
                         <label>
                             <strong>更換頭像 (本地預覽)</strong>
                             <input type="file" accept="image/*" id="avatar-input" style="display: block; margin-top: 0.25rem;">
-                            <small style="color: #666;">圖片將轉為 DataURL 進行預覽。</small>
                         </label>
 
                         <div style="margin-top: 1rem;">
-                            <button type="submit" style="background: var(--primary-color); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 1rem;">
-                                儲存變更
-                            </button>
+                            <button type="submit" class="btn btn-primary" style="width: 100%;">儲存變更</button>
                         </div>
                     </form>
                 </div>
@@ -162,8 +169,6 @@ export class UserProfile extends BaseComponent {
     afterFirstRender() {
         const form = this.querySelector('#profile-form');
         form?.addEventListener('submit', this.handleSubmit);
-        
-        // 監聽 input 事件進行即時驗證
         form?.addEventListener('input', (e) => {
             if (e.target.name) validationService.validateField(e.target);
         });

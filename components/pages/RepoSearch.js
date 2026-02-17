@@ -1,7 +1,8 @@
-import { html, escapeHTML } from '../../lib/html.js';
+import { html } from '../../lib/html.js';
 import { appStore } from "../../lib/store.js";
 import { BaseComponent } from '../../lib/base-component.js';
 import { idbService } from '../../lib/idb-service.js';
+import { apiService } from '../../lib/api-service.js'; // 引入 APIService
 
 export class RepoSearch extends BaseComponent {
     constructor() {
@@ -25,8 +26,15 @@ export class RepoSearch extends BaseComponent {
         this.loading = true;
         this.update();
         try {
-            const res = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars`);
-            const data = await res.json();
+            // 使用帶有取消機制的服務，key 為 'github_search'
+            const data = await apiService.fetchWithCancel(
+                'github_search', 
+                `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars`
+            );
+
+            // 如果返回 null 代表請求被取消，不做任何動作
+            if (!data) return;
+
             this.repos = data.items || [];
             
             // 存儲至 IndexedDB，TTL 設定為 30 分鐘
@@ -34,7 +42,8 @@ export class RepoSearch extends BaseComponent {
             
             appStore.state.lastSearch = query;
         } catch (err) {
-            console.error(err);
+            console.error('[RepoSearch] Search Error:', err);
+            appStore.state.notifications = [...appStore.state.notifications, "搜尋失敗，請稍後再試。"];
         } finally {
             this.loading = false;
             this.update();

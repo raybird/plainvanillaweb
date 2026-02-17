@@ -38,3 +38,4 @@
 **AI Agent 主動識別並實作的高價值功能。**
 - [x] **SPA 路由修復 (404 Hack)**：解決 GitHub Pages 的靜態路由問題。
 - [x] **使用者個人資料 (Profile)**：整合靜態資源與 LocalStorage 的個人化頁面。
+- [x] **PWA 支援 (Progressive Web App)**：支援離線啟動與桌面安裝 (Manifest/SW)。

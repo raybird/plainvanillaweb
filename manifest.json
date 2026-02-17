@@ -1,0 +1,21 @@
+{
+  "name": "Plain Vanilla Web",
+  "short_name": "VanillaWeb",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "description": "A modern web application built without frameworks.",
+  "icons": [
+    {
+      "src": "assets/images/user-profile.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "assets/images/user-profile.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

@@ -32,7 +32,7 @@
 所有規劃之基礎架構與範例皆已實作完成。本專案現已進入長期維護與生態推廣階段。
 1. **核心架構**：BaseService / BaseComponent / Store (Observer Pattern)。
 2. **高效能模組**：Web Workers / IndexedDB Caching / Virtual List / Image Processing.
-3. **開發工具**：Sync Script / Scaffolding CLI / Interactive Dashboard / Analytics Hub / Speech Lab.
+3. **開發工具**：Sync Script / Scaffolding CLI / Interactive Dashboard / Analytics Hub / Speech Lab / Code Playground.
 
 ## 🎁 自主開發 (Bonus Features)
 **AI Agent 主動識別並實作的高價值功能。**
@@ -42,3 +42,4 @@
 - [x] **原生影像處理 (Image Filter)**：利用 Canvas 實作純前端圖片濾鏡。
 - [x] **原生語音實驗室 (Speech Lab)**：整合 Web Speech API (TTS & STT)。
 - [x] **進階組件組合 (Slots Simulation)**：支援 Light DOM 內容分發。
+- [x] **原生程式碼遊樂場 (Playground)**：利用 Blob & ObjectURL 實作即時編輯器。

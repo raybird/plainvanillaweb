@@ -18,6 +18,17 @@ export class RouteComponent extends HTMLElement {
     }
 
     update() {
+        const parentSwitch = this.closest('x-switch');
+        
+        // 如果在 x-switch 內，則不自行判斷顯示邏輯，等待 x-switch 設置 active 屬性
+        if (parentSwitch) {
+            // Meta 更新邏輯移至 attributeChangedCallback (監聽 active 變化)
+            // 或者簡單地在此檢查 active
+            // 但 x-switch 的 update 可能在 route-change 之後才跑 (因為 setTimeout)
+            // 所以這裡先不做事，等 x-switch 處理
+            return;
+        }
+
         const path = this.getAttribute('path') || '';
         const exact = this.hasAttribute('exact');
         const currentPath = router.currentPath;
@@ -49,6 +60,26 @@ export class RouteComponent extends HTMLElement {
             this.dispatchEvent(new CustomEvent('match', { detail: { match } }));
         } else {
             this.style.display = 'none';
+        }
+    }
+    
+    static get observedAttributes() {
+        return ['active'];
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (name === 'active') {
+            if (this.hasAttribute('active')) {
+                this.style.display = 'contents';
+                // 更新 Meta 資訊 (SEO & A11y)
+                const metaTitle = this.getAttribute('meta-title');
+                const metaDesc = this.getAttribute('meta-desc');
+                if (metaTitle || metaDesc) {
+                    metaService.update(metaTitle, metaDesc);
+                }
+            } else {
+                this.style.display = 'none';
+            }
         }
     }
 }

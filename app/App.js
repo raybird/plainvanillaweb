@@ -4,6 +4,7 @@ import { i18n } from "../lib/i18n-service.js"; // 引入 i18n
 import { html } from "../lib/html.js";
 import "../components/AppFooter.js";
 import "../components/pages/Profile.js";
+import "../components/route/switch.js"; // 引入 x-switch
 
 export class App extends BaseComponent {
     constructor() {
@@ -54,20 +55,22 @@ export class App extends BaseComponent {
             </nav>
             <hr>
             <main id="main-content" style="min-height: 60vh; outline: none;" tabindex="-1">
-                <x-route path="/" exact meta-title="app.home" meta-desc="home.desc"><page-home></page-home></x-route>
-                <x-route path="/search" exact meta-title="app.search"><page-repo-search></page-repo-search></x-route>
-                <x-route path="/worker" exact meta-title="app.worker"><page-worker-demo></page-worker-demo></x-route>
-                <x-route path="/profile" exact meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>
-                <x-route path="/dashboard" exact meta-title="app.dashboard"><page-dashboard></page-dashboard></x-route>
-                <x-route path="/contact" exact meta-title="app.contact">
-                    <h2>${t('app.contact')} (Demo)</h2>
-                    <form id="demo-form" style="display: grid; gap: 1rem; max-width: 300px;">
-                        <input name="name" placeholder="${t('profile.name')}" required style="padding: 0.5rem;">
-                        <textarea name="msg" placeholder="${t('profile.bio')}" required style="padding: 0.5rem;"></textarea>
-                        <button type="submit" style="padding: 0.5rem; background: #28a745; color: white; border: none; cursor: pointer;">${t('profile.save')}</button>
-                    </form>
-                </x-route>
-                <x-route path="*"><h1>404</h1><p>Page Not Found</p></x-route>
+                <x-switch>
+                    <x-route path="/" exact meta-title="app.home" meta-desc="home.desc"><page-home></page-home></x-route>
+                    <x-route path="/search" exact meta-title="app.search"><page-repo-search></page-repo-search></x-route>
+                    <x-route path="/worker" exact meta-title="app.worker"><page-worker-demo></page-worker-demo></x-route>
+                    <x-route path="/profile" exact meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>
+                    <x-route path="/dashboard" exact meta-title="app.dashboard"><page-dashboard></page-dashboard></x-route>
+                    <x-route path="/contact" exact meta-title="app.contact">
+                        <h2>${t('app.contact')} (Demo)</h2>
+                        <form id="demo-form" style="display: grid; gap: 1rem; max-width: 300px;">
+                            <input name="name" placeholder="${t('profile.name')}" required style="padding: 0.5rem;">
+                            <textarea name="msg" placeholder="${t('profile.bio')}" required style="padding: 0.5rem;"></textarea>
+                            <button type="submit" style="padding: 0.5rem; background: #28a745; color: white; border: none; cursor: pointer;">${t('profile.save')}</button>
+                        </form>
+                    </x-route>
+                    <x-route path="*"><h1>404</h1><p>Page Not Found</p></x-route>
+                </x-switch>
             </main>
             
             <app-footer></app-footer>

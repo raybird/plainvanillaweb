@@ -3,6 +3,7 @@ import { BaseComponent } from '../../lib/base-component.js';
 import { appStore } from '../../lib/store.js';
 import { computeService } from '../../lib/worker-service.js';
 import { idbService } from '../../lib/idb-service.js';
+import { networkMonitor } from '../../lib/network-monitor.js';
 
 export class Dashboard extends BaseComponent {
     constructor() {
@@ -11,20 +12,28 @@ export class Dashboard extends BaseComponent {
             workerStatus: '閒置',
             idbCount: 0,
             lastUpdate: new Date().toLocaleTimeString(),
-            showState: false, // 控制狀態檢視器展開
-            memoryUsage: 'N/A'
+            showState: false, 
+            memoryUsage: 'N/A',
+            networkLogs: []
         };
         this.onWorkerDone = this.onResult.bind(this);
         this.onStoreChange = this.updateStateView.bind(this);
+        this.onNetworkLog = this.updateNetworkLogs.bind(this);
     }
 
     connectedCallback() {
         super.connectedCallback();
         computeService.addEventListener('done', this.onWorkerDone);
         appStore.addEventListener('change', this.onStoreChange);
+        networkMonitor.addEventListener('log', this.onNetworkLog);
+        networkMonitor.addEventListener('clear', this.onNetworkLog);
+        
+        // 載入現有日誌
+        this.state.networkLogs = networkMonitor.logs;
+        
         this.refreshStats();
 
-        // 定期刷新記憶體使用量 (僅 Chrome/Chromium 支援)
+        // 定期刷新記憶體使用量
         this.statsInterval = setInterval(() => {
             if (performance && performance.memory) {
                 const used = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
@@ -37,7 +46,14 @@ export class Dashboard extends BaseComponent {
     disconnectedCallback() {
         computeService.removeEventListener('done', this.onWorkerDone);
         appStore.removeEventListener('change', this.onStoreChange);
+        networkMonitor.removeEventListener('log', this.onNetworkLog);
+        networkMonitor.removeEventListener('clear', this.onNetworkLog);
         clearInterval(this.statsInterval);
+    }
+
+    updateNetworkLogs() {
+        this.state.networkLogs = networkMonitor.logs;
+        this.update();
     }
 
     async refreshStats() {
@@ -53,7 +69,6 @@ export class Dashboard extends BaseComponent {
     }
 
     updateStateView() {
-        // 當 Store 變更時，若檢視器開啟則刷新
         if (this.state.showState) this.update();
     }
 
@@ -62,9 +77,25 @@ export class Dashboard extends BaseComponent {
         this.update();
     }
 
+    clearLogs() {
+        networkMonitor.clear();
+    }
+
     render() {
         const lastSearch = appStore.state.lastSearch || '無';
         const stateJson = JSON.stringify(appStore.state, null, 2);
+        const logsHtml = this.state.networkLogs.map(log => {
+            const statusColor = log.status >= 400 || log.status === 'Error' ? 'red' : 'green';
+            return html`
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 0.5rem; font-size: 0.8rem;">${log.timestamp}</td>
+                    <td style="padding: 0.5rem; font-weight: bold;">${log.method}</td>
+                    <td style="padding: 0.5rem; color: ${statusColor};">${log.status}</td>
+                    <td style="padding: 0.5rem;">${log.duration}ms</td>
+                    <td style="padding: 0.5rem; word-break: break-all; font-family: monospace;">${log.url}</td>
+                </tr>
+            `;
+        }).join('');
 
         return html`
             <style>
@@ -80,6 +111,8 @@ export class Dashboard extends BaseComponent {
                 .btn-primary { background: var(--primary-color); color: white; }
                 .btn-danger { background: #dc3545; color: white; }
                 .btn-secondary { background: #6c757d; color: white; }
+                table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+                th { text-align: left; padding: 0.5rem; border-bottom: 2px solid #ddd; font-size: 0.9rem; }
             </style>
 
             <h1>🎛️ 開發者控制台 (Dev Dashboard)</h1>
@@ -112,6 +145,32 @@ export class Dashboard extends BaseComponent {
                     <div class="btn-group">
                         <button class="btn-primary" onclick="this.closest('page-dashboard').startTask(10)">輕量運算 (Fib 10)</button>
                         <button class="btn-primary" onclick="this.closest('page-dashboard').startTask(35)">重型運算 (Fib 35)</button>
+                    </div>
+                </div>
+
+                <!-- 網路監控 (New) -->
+                <div class="card" style="grid-column: 1 / -1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3>🌐 網路請求 (Network Monitor)</h3>
+                        <button class="btn-secondary" onclick="this.closest('page-dashboard').clearLogs()">🗑️ 清除日誌</button>
+                    </div>
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        ${this.state.networkLogs.length === 0 ? '<p style="color:#666; padding:1rem;">尚無網路請求紀錄。</p>' : html`
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Method</th>
+                                        <th>Status</th>
+                                        <th>Duration</th>
+                                        <th>URL</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${logsHtml}
+                                </tbody>
+                            </table>
+                        `}
                     </div>
                 </div>
 

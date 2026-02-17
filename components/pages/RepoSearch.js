@@ -10,6 +10,12 @@ export class RepoSearch extends BaseComponent {
     }
 
     async search(query) {
+        const cached = appStore.getCache(`repo_${query}`);
+        if (cached) {
+            this.repos = cached;
+            this.update();
+            return;
+        }
         if (!query) return;
         this.loading = true;
         this.update();
@@ -17,6 +23,7 @@ export class RepoSearch extends BaseComponent {
             const res = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars`);
             const data = await res.json();
             this.repos = data.items || [];
+            appStore.setCache(`repo_${query}`, this.repos);
             appStore.state.lastSearch = query;
         } catch (err) {
             console.error(err);

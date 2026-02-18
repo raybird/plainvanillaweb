@@ -27,7 +27,8 @@ export class Documentation extends BaseComponent {
             { id: 'storage-persistence', title: '儲存空間與持久化' },
             { id: 'testing-strategy', title: '原生單元測試策略' },
             { id: 'file-system-access', title: '原生檔案系統存取' },
-            { id: 'webassembly', title: 'WebAssembly 整合' }
+            { id: 'webassembly', title: 'WebAssembly 整合' },
+            { id: 'webgpu', title: 'WebGPU 次世代運算' }
         ];
 
         return html`

@@ -18,6 +18,23 @@
     - [x] 在 `Docs.js` 中新增文件項目。
     - [x] 更新 `ROADMAP.md` 狀態。
 
+# 📋 任務清單：WebGPU 運算與渲染
+
+## 🎯 目標
+展示如何利用次世代 WebGPU API 進行硬體加速運算，突破瀏覽器圖形處理極限。
+
+## 🛠 任務分解
+- [x] **Phase 1: 基礎服務開發**
+    - [x] 實作 `lib/webgpu-service.js`。
+    - [x] 實作設備初始化與可用性檢查邏輯。
+    - [x] 封裝基礎的 Compute Shader 執行接口。
+- [x] **Phase 2: 實驗室整合 (Lab)**
+    - [x] 在 `Lab.js` 新增「次世代圖形 (WebGPU)」單元。
+    - [x] 展示 WebGPU 併行運算範例。
+- [x] **Phase 3: 教學與文件**
+    - [x] 撰寫 `docs/webgpu.md` 教學文件。
+    - [x] 更新 `Docs.js` 與 `ROADMAP.md`。
+
 ---
 *Created: 2026-02-18 by TeleNexus Orchestrator*
 

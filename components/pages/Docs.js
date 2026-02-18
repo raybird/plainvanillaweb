@@ -23,7 +23,9 @@ export class Documentation extends BaseComponent {
             { id: 'state-management', title: '狀態管理與 IDB' },
             { id: 'pwa', title: 'PWA 離線技術' },
             { id: 'i18n', title: '原生國際化實作' },
-            { id: 'api-fetching', title: 'API 非同步處理' }
+            { id: 'api-fetching', title: 'API 非同步處理' },
+            { id: 'storage-persistence', title: '儲存空間與持久化' },
+            { id: 'testing-strategy', title: '原生單元測試策略' }
         ];
 
         return html`

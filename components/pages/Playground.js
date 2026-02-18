@@ -2,6 +2,7 @@ import { html } from '../../lib/html.js';
 import { BaseComponent } from '../../lib/base-component.js';
 import { playgroundService } from '../../lib/playground-service.js';
 import { notificationService } from '../../lib/notification-service.js';
+import { fileSystemService } from '../../lib/file-system-service.js'; // 引入檔案系統服務
 
 export class PlaygroundPage extends BaseComponent {
     constructor() {
@@ -10,7 +11,9 @@ export class PlaygroundPage extends BaseComponent {
             html: `<h1>Hello Vanilla!</h1>\n<button id="btn">Click Me</button>`,
             css: `body { font-family: system-ui; padding: 20px; }\nbutton { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }`,
             js: `document.getElementById("btn").addEventListener("click", () => {\n  alert("Native power!");\n});`,
-            runnerUrl: ''
+            runnerUrl: '',
+            isLocalMode: false,
+            localDirName: ''
         });
         this._currentUrl = '';
     }
@@ -36,6 +39,53 @@ export class PlaygroundPage extends BaseComponent {
         notificationService.success('程式碼已更新！');
     }
 
+    async openLocalProject() {
+        try {
+            const handle = await fileSystemService.openDirectory();
+            this.state.localDirName = handle.name;
+            this.state.isLocalMode = true;
+
+            // 嘗試載入標準檔案
+            const files = await fileSystemService.listFiles();
+            for (const f of files) {
+                if (f.name.toLowerCase() === 'index.html') {
+                    this.state.html = await fileSystemService.readFile(f.handle);
+                } else if (f.name.toLowerCase() === 'style.css' || f.name.toLowerCase() === 'index.css') {
+                    this.state.css = await fileSystemService.readFile(f.handle);
+                } else if (f.name.toLowerCase() === 'app.js' || f.name.toLowerCase() === 'index.js') {
+                    this.state.js = await fileSystemService.readFile(f.handle);
+                }
+            }
+            notificationService.success(`已載入專案: ${handle.name}`);
+            this.run();
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                notificationService.error('無法開啟目錄');
+            }
+        }
+    }
+
+    async saveToLocal() {
+        if (!this.state.isLocalMode) return;
+        try {
+            // 儲存 HTML
+            const hHandle = await fileSystemService.getFileHandle('index.html', true);
+            await fileSystemService.writeFile(hHandle, this.state.html);
+            
+            // 儲存 CSS
+            const cHandle = await fileSystemService.getFileHandle('style.css', true);
+            await fileSystemService.writeFile(cHandle, this.state.css);
+
+            // 儲存 JS
+            const jHandle = await fileSystemService.getFileHandle('app.js', true);
+            await fileSystemService.writeFile(jHandle, this.state.js);
+
+            notificationService.success('本地檔案已儲存！');
+        } catch (err) {
+            notificationService.error('儲存失敗: ' + err.message);
+        }
+    }
+
     handleInput(key, val) {
         this.state[key] = val;
     }
@@ -47,7 +97,7 @@ export class PlaygroundPage extends BaseComponent {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
                     gap: 1rem;
-                    height: calc(100vh - 250px);
+                    height: calc(100vh - 280px);
                     min-height: 500px;
                 }
                 .editor-pane {
@@ -107,6 +157,19 @@ export class PlaygroundPage extends BaseComponent {
                     display: flex;
                     gap: 1rem;
                     align-items: center;
+                    flex-wrap: wrap;
+                }
+                .mode-badge {
+                    font-size: 0.7rem;
+                    padding: 2px 8px;
+                    border-radius: 10px;
+                    background: #e9ecef;
+                    color: #495057;
+                }
+                .mode-badge.local {
+                    background: #d1ecf1;
+                    color: #0c5460;
+                    border: 1px solid #bee5eb;
                 }
             </style>
 
@@ -114,23 +177,31 @@ export class PlaygroundPage extends BaseComponent {
             <p>在這裡直接撰寫原生代碼並即時預覽執行結果。</p>
 
             <div class="toolbar">
-                <button class="btn btn-primary" onclick="this.closest('page-playground').run()">🚀 執行程式碼 (Run)</button>
-                <small style="color:#666;">提示：程式碼完全在您的瀏覽器中透過 Blob URL 執行，保證安全且極速。</small>
+                <button class="btn btn-primary" onclick="this.closest('page-playground').run()">🚀 執行 (Run)</button>
+                <button class="btn btn-secondary" onclick="this.closest('page-playground').openLocalProject()">📂 開啟本地目錄</button>
+                <button class="btn btn-success" 
+                        ?disabled="${!this.state.isLocalMode}"
+                        onclick="this.closest('page-playground').saveToLocal()">💾 儲存至本地</button>
+                
+                ${this.state.isLocalMode 
+                    ? html`<span class="mode-badge local">💻 本地模式: ${this.state.localDirName}</span>` 
+                    : html`<span class="mode-badge">☁️ 雲端暫存模式</span>`
+                }
             </div>
 
             <div class="playground-container">
                 <!-- 編輯區 -->
                 <div class="editor-pane">
                     <div class="editor-block">
-                        <label>HTML</label>
+                        <label>HTML (index.html)</label>
                         <textarea oninput="this.closest('page-playground').handleInput('html', this.value)">${this.state.html}</textarea>
                     </div>
                     <div class="editor-block">
-                        <label>CSS</label>
+                        <label>CSS (style.css)</label>
                         <textarea oninput="this.closest('page-playground').handleInput('css', this.value)">${this.state.css}</textarea>
                     </div>
                     <div class="editor-block">
-                        <label>JavaScript</label>
+                        <label>JavaScript (app.js)</label>
                         <textarea oninput="this.closest('page-playground').handleInput('js', this.value)">${this.state.js}</textarea>
                     </div>
                 </div>
@@ -146,11 +217,11 @@ export class PlaygroundPage extends BaseComponent {
             </div>
 
             <section style="margin-top: 2rem; padding: 1.5rem; background: var(--nav-bg); border-radius: 12px;">
-                <h3>🎓 技術解析：如何實作「遊樂場」？</h3>
+                <h3>🎓 技術解析：如何實作「原生開發環境」？</h3>
                 <ul>
-                    <li><strong>Blob API</strong>：將字串程式碼封裝為二進位物件。</li>
-                    <li><strong>URL.createObjectURL</strong>：為 Blob 建立一個指向本地記憶體的臨時 URL。</li>
-                    <li><strong>Iframe 沙箱</strong>：透過 Iframe 隔離執行環境，避免腳本衝突。</li>
+                    <li><strong>File System Access API</strong>：讓網頁具備請求存取使用者指定目錄的權限。</li>
+                    <li><strong>FileSystemHandle</strong>：保留對檔案或目錄的引用，支援非同步讀寫。</li>
+                    <li><strong>無工具鏈工作流</strong>：無需編譯器，瀏覽器直接將代碼寫入硬碟，實踐真正的 Vanilla 開發。</li>
                 </ul>
             </section>
         `;

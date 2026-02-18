@@ -25,7 +25,8 @@ export class Documentation extends BaseComponent {
             { id: 'i18n', title: '原生國際化實作' },
             { id: 'api-fetching', title: 'API 非同步處理' },
             { id: 'storage-persistence', title: '儲存空間與持久化' },
-            { id: 'testing-strategy', title: '原生單元測試策略' }
+            { id: 'testing-strategy', title: '原生單元測試策略' },
+            { id: 'file-system-access', title: '原生檔案系統存取' }
         ];
 
         return html`

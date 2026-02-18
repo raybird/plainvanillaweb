@@ -15,7 +15,6 @@ const CORE_ASSETS = [
 
 // 安裝階段：快取核心資產
 self.addEventListener('install', (event) => {
-    // 立即接管，不需要等待舊的 SW 關閉
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
@@ -29,9 +28,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         Promise.all([
-            // 立即接管所有頁面
             self.clients.claim(),
-            // 清理舊快取
             caches.keys().then((keys) => {
                 return Promise.all(
                     keys.map((key) => {
@@ -47,9 +44,7 @@ self.addEventListener('activate', (event) => {
 });
 
 // 請求攔截：Stale-While-Revalidate 策略
-// 優先使用快取，同時背景更新快取
 self.addEventListener('fetch', (event) => {
-    // 忽略非 GET 請求或非本域請求
     if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
         return;
     }
@@ -57,7 +52,6 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             const fetchPromise = fetch(event.request).then((networkResponse) => {
-                // 如果網路請求成功，更新快取
                 if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
                     const responseToCache = networkResponse.clone();
                     caches.open(CACHE_NAME).then((cache) => {
@@ -66,9 +60,33 @@ self.addEventListener('fetch', (event) => {
                 }
                 return networkResponse;
             });
-
-            // 如果有快取，直接回傳快取（並在背景更新）；否則等待網路請求
             return cachedResponse || fetchPromise;
         })
     );
+});
+
+// --- 進階 PWA 特性 ---
+
+// 背景同步：當網路恢復時執行
+self.addEventListener('sync', (event) => {
+    if (event.tag === 'sync-actions') {
+        console.log('[Service Worker] Performing background sync for actions');
+        // 在此可以調用 IndexedDB 中的待處理隊列
+        // 由於 SW 不能直接調用 lib，通常透過 postMessage 或直接操作 IDB
+    }
+});
+
+// 定期背景同步：週期性更新數據
+self.addEventListener('periodicsync', (event) => {
+    if (event.tag === 'update-cache') {
+        console.log('[Service Worker] Performing periodic sync to update cache');
+        event.waitUntil(
+            // 範例：重新抓取首頁數據
+            fetch('./').then(response => {
+                if (response.ok) {
+                    return caches.open(CACHE_NAME).then(cache => cache.put('./', response));
+                }
+            })
+        );
+    }
 });

@@ -54,3 +54,4 @@
 - [x] **原生儲存管理 (Storage Service)**：監控配額使用率並請求數據持久化。
 - [x] **原生 Web Crypto 服務 (Security)**：實作高強度數據雜湊與 AES 加解密。
 - [x] **Web Share 與接收整合 (PWA)**：支援系統級內容分享與 Share Target。
+- [x] **PWA 進階功能 (Install & Sync)**：實作自定義安裝引導與背景同步機制。

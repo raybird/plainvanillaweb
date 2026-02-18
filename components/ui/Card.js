@@ -1,4 +1,4 @@
-import { html } from '../../lib/html.js';
+import { html, unsafe } from '../../lib/html.js';
 import { BaseComponent } from '../../lib/base-component.js';
 
 /**
@@ -7,6 +7,8 @@ import { BaseComponent } from '../../lib/base-component.js';
  */
 export class UICard extends BaseComponent {
     render() {
+        const slot = (name) => unsafe(this.$slot(name));
+        
         return html`
             <style>
                 .vanilla-card {
@@ -55,14 +57,14 @@ export class UICard extends BaseComponent {
 
             <div class="vanilla-card">
                 <div class="card-header">
-                    <div class="card-title">${this.$slot('title') || 'Default Title'}</div>
-                    <div class="card-actions">${this.$slot('actions')}</div>
+                    <div class="card-title">${slot('title')}</div>
+                    <div class="card-actions">${slot('actions')}</div>
                 </div>
                 <div class="card-body">
-                    ${this.$slot()}
+                    ${slot()}
                 </div>
                 <div class="card-footer">
-                    ${this.$slot('footer') || html`<em>Vanilla Component 2.2</em>`}
+                    ${this.$slot('footer') ? slot('footer') : html`<em>Vanilla Component 2.2</em>`}
                 </div>
             </div>
         `;

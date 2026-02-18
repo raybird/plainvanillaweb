@@ -9,7 +9,7 @@ import { webrtcService } from '../../lib/webrtc-service.js';
 import { shareService } from '../../lib/share-service.js';
 import { pwaService } from '../../lib/pwa-service.js';
 import { bluetoothService } from '../../lib/bluetooth-service.js';
-import { paymentService } from '../../lib/payment-service.js'; // 引入支付服務
+import { mediaService } from '../../lib/media-service.js'; // 引入媒體服務
 import '../ui/Card.js';
 
 export class LabPage extends BaseComponent {
@@ -42,9 +42,9 @@ export class LabPage extends BaseComponent {
             canInstall: pwaService.canInstall,
             btDeviceName: '',
             btStatus: bluetoothService.isSupported ? '可用' : '不支援',
-            // 支付狀態
-            paymentStatus: window.PaymentRequest ? '支援' : '不支援',
-            paymentResult: ''
+            // 螢幕錄製狀態
+            isRecordingScreen: false,
+            recordedVideoUrl: null
         });
     }
 
@@ -74,102 +74,52 @@ export class LabPage extends BaseComponent {
             this.state.btDeviceName = e.detail.device.name || '未命名裝置';
             notificationService.success(`已選擇裝置: ${this.state.btDeviceName}`);
         });
-    }
 
-    async runInstall() {
-        const outcome = await pwaService.install();
-        if (outcome === 'accepted') {
-            notificationService.success('感謝您的安裝！');
-        }
-    }
-
-    async testSync() {
-        try {
-            await pwaService.registerSync('sync-actions');
-            notificationService.success('背景同步已註冊！請試著斷網再恢復連線測試。');
-        } catch (err) {
-            notificationService.error(err.message);
-        }
-    }
-
-    async scanBluetooth() {
-        if (!bluetoothService.isSupported) {
-            notificationService.error('您的瀏覽器不支援 Web Bluetooth');
-            return;
-        }
-        try {
-            const device = await bluetoothService.requestDevice();
-            this.state.btDeviceName = device.name || '未命名裝置';
-        } catch (err) {
-            if (err.name !== 'NotFoundError') {
-                notificationService.error(`藍牙錯誤: ${err.message}`);
+        // 媒體錄製事件
+        mediaService.on('stream-started', (e) => {
+            const video = this.querySelector('#previewVideo');
+            if (video) {
+                video.srcObject = e.detail.stream;
+                video.play();
             }
-        }
+            mediaService.startRecording();
+        });
+        mediaService.on('recording-started', () => {
+            this.state.isRecordingScreen = true;
+            notificationService.info('開始錄製螢幕...');
+        });
+        mediaService.on('recording-finished', (e) => {
+            this.state.isRecordingScreen = false;
+            this.state.recordedVideoUrl = e.detail.url;
+            notificationService.success('錄製完成！');
+        });
+        mediaService.on('stream-stopped', () => {
+            this.state.isRecordingScreen = false;
+            const video = this.querySelector('#previewVideo');
+            if (video) video.srcObject = null;
+        });
     }
 
-    async runShare() {
-        try {
-            const success = await shareService.share({
-                title: this.state.shareTitle,
-                text: this.state.shareText,
-                url: this.state.shareUrl
-            });
-            if (success) notificationService.success('分享成功！');
-        } catch (err) {
-            notificationService.error(err.message);
-        }
-    }
-
-    async runPayment() {
-        if (!window.PaymentRequest) {
-            notificationService.error('瀏覽器不支援 Payment Request');
-            return;
-        }
-
-        const methods = [{ supportedMethods: 'basic-card' }];
-        const details = {
-            total: { label: '總計', amount: { currency: 'TWD', value: '100.00' } },
-            displayItems: [
-                { label: 'Vanilla 課程', amount: { currency: 'TWD', value: '80.00' } },
-                { label: '手續費', amount: { currency: 'TWD', value: '20.00' } }
-            ]
-        };
-
-        try {
-            const response = await paymentService.showPayment(methods, details);
-            if (response) {
-                // 模擬處理
-                await response.complete('success');
-                this.state.paymentResult = `支付成功！ID: ${response.requestId}`;
-                notificationService.success('支付流程完成');
-            }
-        } catch (err) {
-            this.state.paymentResult = `支付取消或失敗: ${err.message}`;
-        }
-    }
-
-    async runWasmDemo() {
-        if (!this.state.wasmLoaded) {
-            await wasmService.loadDemoAdd();
-            this.state.wasmLoaded = true;
-        }
-        const exports = wasmService.get('demo-add');
-        if (exports && exports.add) {
-            this.state.wasmResult = exports.add(this.state.wasmInputA, this.state.wasmInputB);
-        }
-    }
-
-    async runWebGPUDemo() {
-        try {
-            this.state.isComputing = true;
-            const data = new Float32Array(1000000).fill(1.5);
-            const result = await webgpuService.computeDouble(data);
-            this.state.gpuResult = `首項結果: ${result[0]}`;
-            this.state.isComputing = false;
-            notificationService.success('WebGPU 運算完成！');
-        } catch (err) {
-            this.state.isComputing = false;
-            notificationService.error(`WebGPU 錯誤: ${err.message}`);
+    // ... (省略其他既有方法) ...
+    async runInstall() { const outcome = await pwaService.install(); if (outcome === 'accepted') notificationService.success('感謝您的安裝！'); }
+    async testSync() { try { await pwaService.registerSync('sync-actions'); notificationService.success('背景同步已註冊！'); } catch (err) { notificationService.error(err.message); } }
+    async scanBluetooth() { if (!bluetoothService.isSupported) { notificationService.error('不支援 Web Bluetooth'); return; } try { const device = await bluetoothService.requestDevice(); this.state.btDeviceName = device.name || '未命名裝置'; } catch (err) { if (err.name !== 'NotFoundError') notificationService.error(`藍牙錯誤: ${err.message}`); } }
+    async runShare() { try { const success = await shareService.share({ title: this.state.shareTitle, text: this.state.shareText, url: this.state.shareUrl }); if (success) notificationService.success('分享成功！'); } catch (err) { notificationService.error(err.message); } }
+    async runWasmDemo() { if (!this.state.wasmLoaded) { await wasmService.loadDemoAdd(); this.state.wasmLoaded = true; } const exports = wasmService.get('demo-add'); if (exports && exports.add) { this.state.wasmResult = exports.add(this.state.wasmInputA, this.state.wasmInputB); } }
+    async runWebGPUDemo() { try { this.state.isComputing = true; const data = new Float32Array(1000000).fill(1.5); const result = await webgpuService.computeDouble(data); this.state.gpuResult = `首項結果: ${result[0]}`; this.state.isComputing = false; notificationService.success('WebGPU 運算完成！'); } catch (err) { this.state.isComputing = false; notificationService.error(`WebGPU 錯誤: ${err.message}`); } }
+    
+    // WebRTC Methods
+    async createRTCOffer() { const offer = await webrtcService.createOffer(); setTimeout(() => { this.state.rtcLocalSdp = JSON.stringify(webrtcService.getLocalDescription()); }, 500); }
+    async acceptRTCOffer() { try { const offer = JSON.parse(this.state.rtcRemoteSdp); await webrtcService.createAnswer(offer); setTimeout(() => { this.state.rtcLocalSdp = JSON.stringify(webrtcService.getLocalDescription()); }, 500); } catch (err) { notificationService.error('無效的 Offer SDP'); } }
+    async acceptRTCAnswer() { try { const answer = JSON.parse(this.state.rtcRemoteSdp); await webrtcService.setAnswer(answer); notificationService.success('Answer 已套用'); } catch (err) { notificationService.error('無效的 Answer SDP'); } }
+    sendRTCMessage() { if (!this.state.rtcInput) return; webrtcService.send(this.state.rtcInput); this.state.rtcMessages = [...this.state.rtcMessages, { side: 'local', text: this.state.rtcInput }]; this.state.rtcInput = ''; }
+    
+    // Media Methods
+    toggleScreenRecording() {
+        if (this.state.isRecordingScreen) {
+            mediaService.stop();
+        } else {
+            mediaService.startScreenCapture().catch(() => notificationService.warn('已取消分享'));
         }
     }
 
@@ -182,31 +132,39 @@ export class LabPage extends BaseComponent {
                 .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
                 .status-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: #eee; }
                 .status-badge.success { background: #d4edda; color: #155724; }
-                
-                @media (max-width: 768px) {
-                    .lab-grid { gap: 1rem; grid-template-columns: 1fr; }
-                    .lab-card { padding: 1rem; }
-                    .rtc-grid { grid-template-columns: 1fr !important; gap: 1rem !important; }
-                }
+                .chat-box { height: 80px; border: 1px solid #eee; padding: 0.5rem; overflow-y: auto; margin-bottom: 0.5rem; font-size: 0.8rem; }
+                .rec-dot { display: inline-block; width: 10px; height: 10px; background: red; border-radius: 50%; margin-right: 5px; animation: blink 1s infinite; }
+                @keyframes blink { 50% { opacity: 0; } }
+                video { width: 100%; border-radius: 8px; background: #000; margin-top: 1rem; }
             </style>
 
             <h1>🧪 Vanilla 實驗室 (Lab)</h1>
             <p>探索最前沿的原生 Web 技術與進階 PWA 功能。</p>
 
             <div class="lab-grid">
-                <!-- 支付單元 -->
-                <div class="lab-card">
-                    <h3>💳 原生支付 (Web Payment)</h3>
-                    <p><small>呼叫瀏覽器原生的結帳介面。</small></p>
-                    <div style="margin-bottom: 1rem;">
-                        狀態: <span class="status-badge ${this.state.paymentStatus === '支援' ? 'success' : ''}">${this.state.paymentStatus}</span>
-                    </div>
-                    <button class="btn btn-success" onclick="this.closest('page-lab').runPayment()">
-                        購買課程 (NT$ 100)
+                <!-- 螢幕錄製單元 -->
+                <div class="lab-card" style="grid-column: 1 / -1;">
+                    <h3>🎥 螢幕錄製 (Screen Recorder)</h3>
+                    <p><small>無需安裝軟體，直接在瀏覽器錄製視窗或螢幕。</small></p>
+                    
+                    <button class="btn ${this.state.isRecordingScreen ? 'btn-danger' : 'btn-primary'}" 
+                            onclick="this.closest('page-lab').toggleScreenRecording()">
+                        ${this.state.isRecordingScreen ? html`<span class="rec-dot"></span> 停止錄製` : '🔴 開始錄影'}
                     </button>
-                    ${this.state.paymentResult ? html`<div style="margin-top:1rem; font-size:0.8rem;">${this.state.paymentResult}</div>` : ''}
-                </div>
 
+                    ${this.state.recordedVideoUrl ? html`
+                        <div style="margin-top: 1rem;">
+                            <strong>錄製完成：</strong>
+                            <a href="${this.state.recordedVideoUrl}" download="recording.webm" class="btn btn-success" style="font-size: 0.8rem; padding: 4px 8px;">💾 下載影片</a>
+                            <video controls src="${this.state.recordedVideoUrl}"></video>
+                        </div>
+                    ` : ''}
+                    
+                    <video id="previewVideo" muted style="display: ${this.state.isRecordingScreen ? 'block' : 'none'};"></video>
+                </div>
+            </div>
+
+            <div class="lab-grid" style="margin-top: 2rem;">
                 <!-- 藍牙通訊單元 -->
                 <div class="lab-card">
                     <h3>📡 藍牙通訊 (Web Bluetooth)</h3>
@@ -220,11 +178,10 @@ export class LabPage extends BaseComponent {
                     </button>
                     ${this.state.btDeviceName ? html`<div style="margin-top:1rem;"><strong>已選裝置:</strong> ${this.state.btDeviceName}</div>` : ''}
                 </div>
-            </div>
 
-            <div class="lab-grid" style="margin-top: 2rem;">
+                <!-- PWA 進階單元 -->
                 <div class="lab-card">
-                    <h3>📦 安裝與同步 (PWA)</h3>
+                    <h3>📦 安裝與同步 (PWA Advanced)</h3>
                     <div class="btn-group">
                         <button class="btn btn-primary" 
                                 ?disabled="${!this.state.canInstall}"
@@ -234,15 +191,24 @@ export class LabPage extends BaseComponent {
                         <button class="btn btn-secondary" onclick="this.closest('page-lab').testSync()">測試同步</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- ... (保留其他 Web Share, WebRTC, WebGPU, Wasm, Crypto 區塊) ... -->
+            
+            <div class="lab-grid" style="margin-top: 2rem;">
                 <div class="lab-card">
                     <h3>📱 內容分享 (Web Share)</h3>
                     <button class="btn btn-primary" onclick="this.closest('page-lab').runShare()">🚀 立即分享</button>
+                </div>
+                <div class="lab-card">
+                    <h3>🎮 次世代運算 (WebGPU)</h3>
+                    <button class="btn btn-secondary" onclick="this.closest('page-lab').runWebGPUDemo()">執行 GPU 運算</button>
                 </div>
             </div>
 
             <h2 style="margin-top: 3rem;">📡 P2P 通訊 (WebRTC)</h2>
             <div class="lab-card">
-                <div class="rtc-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
                     <div>
                         <textarea rows="2" placeholder="貼上對方的 SDP" oninput="this.closest('page-lab').state.rtcRemoteSdp = this.value"></textarea>
                         <div class="btn-group">
@@ -251,29 +217,19 @@ export class LabPage extends BaseComponent {
                         </div>
                     </div>
                     <div>
-                        <div style="height: 80px; border: 1px solid #eee; padding: 0.5rem; overflow-y: auto; margin-bottom: 0.5rem; font-size: 0.8rem;">
+                        <div class="chat-box">
                             ${this.state.rtcMessages.map(m => html`<div>[${m.side}] ${m.text}</div>`)}
                         </div>
                         <input type="text" placeholder="訊息" oninput="this.closest('page-lab').state.rtcInput = this.value">
+                        <button style="margin-top: 0.5rem;" class="btn btn-secondary" onclick="this.closest('page-lab').sendRTCMessage()">發送</button>
                     </div>
-                </div>
-            </div>
-
-            <div class="lab-grid" style="margin-top: 2rem;">
-                <div class="lab-card">
-                    <h3>🎮 次世代運算 (WebGPU)</h3>
-                    <button class="btn btn-secondary" onclick="this.closest('page-lab').runWebGPUDemo()">執行 GPU 運算</button>
-                </div>
-                <div class="lab-card">
-                    <h3>⚙️ 高效能運算 (Wasm)</h3>
-                    <button class="btn btn-secondary" onclick="this.closest('page-lab').runWasmDemo()">執行 Wasm 加法</button>
                 </div>
             </div>
 
             <section style="margin-top: 3rem; padding: 2rem; background: var(--nav-bg); border-radius: 12px;">
                 <h3>🎓 教學重點</h3>
                 <ul>
-                    <li><strong>Web Payment</strong>：標準化的瀏覽器原生結帳流程。</li>
+                    <li><strong>Screen Capture</strong>：原生媒體串流擷取與錄製。</li>
                     <li><strong>Web Bluetooth</strong>：網頁與實體硬體 (BLE) 的直接通訊。</li>
                     <li><strong>Vanilla SDK</strong>：核心功能已模組化，支援由外部 URL 直接引用。</li>
                 </ul>

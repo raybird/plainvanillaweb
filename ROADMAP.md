@@ -57,5 +57,6 @@
 - [x] **PWA 進階功能 (Install & Sync)**：實作自定義安裝引導與背景同步機制。
 - [x] **Vanilla SDK 模式轉型**：核心服務解耦，支援由外部 URL 直接引用的 CDN 開發模式。
 - [x] **原生 Web Bluetooth 整合**：支援與 BLE 藍牙裝置直接通訊與數據交換。
+- [x] **原生螢幕錄製與串流**：實作 Screen Capture API 與 MediaRecorder 整合。
 - [x] **響應式設計與手機版面優化**：全面提升行動裝置的閱讀體驗與佈局彈性。
 - [x] **原生 Payment Request 整合**：實作標準化的瀏覽器原生結帳流程。

@@ -44,3 +44,4 @@
 - [x] **進階組件組合 (Slots Simulation)**：支援 Light DOM 內容分發。
 - [x] **原生程式碼遊樂場 (Playground)**：利用 Blob & ObjectURL 實作即時編輯器。
 - [x] **原生儲存管理 (Storage Service)**：監控配額使用率並請求數據持久化。
+- [x] **原生 Web Crypto 服務 (Security)**：實作高強度數據雜湊與 AES 加解密。

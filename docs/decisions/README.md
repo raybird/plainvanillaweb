@@ -48,3 +48,4 @@
 | [0040](./0040-native-slots-system.md) | 原生組件組合與插槽模擬 (Slots) | Accepted |
 | [0041](./0041-native-playground.md) | 原生程式碼遊樂場 (Live Playground) | Accepted |
 | [0042](./0042-native-storage-management.md) | 原生儲存配額監控與持久化 (StorageManager) | Accepted |
+| [0043](./0043-native-web-crypto.md) | 原生 Web Crypto 服務整合 (Native Web Crypto) | Accepted |

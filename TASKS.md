@@ -35,8 +35,26 @@
     - [x] 撰寫 `docs/webgpu.md` 教學文件。
     - [x] 更新 `Docs.js` 與 `ROADMAP.md`。
 
+# 📋 任務清單：WebRTC P2P 無伺服器通訊
+
+## 🎯 目標
+實作基於 DataChannel 的瀏覽器對等連線，展示去中心化數據同步能力。
+
+## 🛠 任務分解
+- [x] **Phase 1: 核心通訊服務**
+    - [x] 實作 `lib/webrtc-service.js` 封裝 PeerConnection 與 DataChannel。
+    - [x] 支援 Offer/Answer 的生成與設置。
+    - [x] 實作 IceCandidate 的收集與注入。
+- [x] **Phase 2: 實驗室整合 (Lab)**
+    - [x] 在 `Lab.js` 新增「P2P 通訊 (WebRTC)」單元。
+    - [x] 實作手動信令交換 UI (複製/貼上 SDP)。
+    - [x] 實作即時文字聊天示範。
+- [x] **Phase 3: 教學與文件**
+    - [x] 撰寫 `docs/webrtc-p2p.md` 教學文件。
+    - [x] 更新 `Docs.js`、`ADR 0048` 與 `ROADMAP.md`。
+
 ---
-*Created: 2026-02-18 by TeleNexus Orchestrator*
+*Updated: 2026-02-18 by TeleNexus Orchestrator*
 
 # 📋 任務清單：WebAssembly (Wasm) 整合
 

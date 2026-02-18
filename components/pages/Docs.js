@@ -28,7 +28,8 @@ export class Documentation extends BaseComponent {
             { id: 'testing-strategy', title: '原生單元測試策略' },
             { id: 'file-system-access', title: '原生檔案系統存取' },
             { id: 'webassembly', title: 'WebAssembly 整合' },
-            { id: 'webgpu', title: 'WebGPU 次世代運算' }
+            { id: 'webgpu', title: 'WebGPU 次世代運算' },
+            { id: 'webrtc-p2p', title: 'WebRTC P2P 通訊' }
         ];
 
         return html`

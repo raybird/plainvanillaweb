@@ -8,6 +8,12 @@
 2.  **與 Worker 協同**: Wasm 模組應優先於 Web Worker 中運行，避免複雜運算阻塞 UI 渲染。
 3.  **零建置接口**: 展示如何透過標準的 JavaScript TypedArrays (Uint8Array 等) 與 Wasm 記憶體進行數據交換。
 
+## 狀態
+**Accepted (2026-02-18)**
+
+## 實作備註
+已建立 `wasm-service.js` 並整合至 `Lab.js` 進行示範。
+
 ## 後果
 - **優點**: 實現了網頁應用的「計算力跨越」，證明了原生標準具備承載高效能軟體的能力。
 - **優點**: 展示了 WebAssembly 與傳統 JS 模組生態的無縫互操作性。

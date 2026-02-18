@@ -3,6 +3,7 @@ import { BaseComponent } from '../../lib/base-component.js';
 import { speechService } from '../../lib/speech-service.js';
 import { notificationService } from '../../lib/notification-service.js';
 import { cryptoService } from '../../lib/crypto-service.js';
+import { wasmService } from '../../lib/wasm-service.js'; // 引入 Wasm 服務
 import '../ui/Card.js';
 
 export class LabPage extends BaseComponent {
@@ -16,7 +17,11 @@ export class LabPage extends BaseComponent {
             cryptoPass: 'password123',
             encryptedData: null,
             decryptedResult: '',
-            hashResult: ''
+            hashResult: '',
+            wasmLoaded: false,
+            wasmResult: null,
+            wasmInputA: 10,
+            wasmInputB: 20
         });
         this.handleResult = this.handleResult.bind(this);
         this.handleEnd = this.handleEnd.bind(this);
@@ -89,6 +94,20 @@ export class LabPage extends BaseComponent {
         }
     }
 
+    async runWasmDemo() {
+        if (!this.state.wasmLoaded) {
+            await wasmService.loadDemoAdd();
+            this.state.wasmLoaded = true;
+            notificationService.success('Wasm 模組已載入 (Simple Add)');
+        }
+        
+        const exports = wasmService.get('demo-add');
+        if (exports && exports.add) {
+            this.state.wasmResult = exports.add(this.state.wasmInputA, this.state.wasmInputB);
+            notificationService.info(`Wasm 運算完成: ${this.state.wasmResult}`);
+        }
+    }
+
     render() {
         return html`
             <style>
@@ -109,6 +128,7 @@ export class LabPage extends BaseComponent {
                 }
                 .code-block { background: #272822; color: #f8f8f2; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; overflow-x: auto; margin: 1rem 0; word-break: break-all; }
                 .btn-group { display: flex; gap: 0.5rem; }
+                .wasm-box { background: #eef; padding: 1rem; border-radius: 8px; margin-top: 1rem; }
             </style>
 
             <h1>🧪 Vanilla 實驗室 (Lab)</h1>
@@ -133,6 +153,39 @@ export class LabPage extends BaseComponent {
                         </button>
                         <div style="min-height: 2.5rem; font-style: italic; color: #666;">
                             ${this.state.transcript || '辨識結果將顯示在此...'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 style="margin-top: 3rem;">⚙️ 高效能運算 (WebAssembly)</h2>
+            <div class="lab-grid">
+                <div class="lab-card" style="grid-column: 1 / -1;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                        <div>
+                            <p>展示如何在不依賴建置工具的情況下，原生加載並執行 Wasm 模組。本範例使用內嵌的二進位碼來執行 32 位元整數加法。</p>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <input type="number" style="margin:0;" value="${this.state.wasmInputA}" oninput="this.closest('page-lab').state.wasmInputA = parseInt(this.value)">
+                                <span>+</span>
+                                <input type="number" style="margin:0;" value="${this.state.wasmInputB}" oninput="this.closest('page-lab').state.wasmInputB = parseInt(this.value)">
+                            </div>
+                            <div class="btn-group" style="margin-top: 1rem;">
+                                <button class="btn btn-primary" onclick="this.closest('page-lab').runWasmDemo()">執行 Wasm 加法</button>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="wasm-box">
+                                <strong>運算結果：</strong>
+                                <span style="font-size: 1.5rem; color: var(--primary-color); margin-left: 1rem;">
+                                    ${this.state.wasmResult !== null ? this.state.wasmResult : '等待執行...'}
+                                </span>
+                            </div>
+                            <div class="code-block" style="font-size: 0.75rem;">
+(module <br>
+&nbsp;&nbsp;(func $add (param i32 i32) (result i32) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;local.get 0 local.get 1 i32.add) <br>
+&nbsp;&nbsp;(export "add" (func $add)))
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -195,7 +248,7 @@ export class LabPage extends BaseComponent {
             <section style="margin-top: 3rem; padding: 2rem; background: var(--nav-bg); border-radius: 12px;">
                 <h3>🎓 教學重點</h3>
                 <ul>
-                    <li><strong>零相依性</strong>：Speech API、Web Crypto 與 Slots 模擬皆為純 JS 實作。</li>
+                    <li><strong>WebAssembly</strong>：展示近乎原生的執行速度與 JS 的互操作性。</li>
                     <li><strong>安全性 (Security)</strong>：Web Crypto API 提供在客戶端安全處理敏感數據的能力。</li>
                     <li><strong>無障礙 (A11y)</strong>：語音技術是輔助科技的核心。</li>
                 </ul>

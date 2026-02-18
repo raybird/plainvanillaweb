@@ -23,21 +23,31 @@
 
 ---
 
+## 🎮 互動式教學中心 (Interactive Hub)
+
+本專案不僅是範例，更是一個互動式實驗室：
+- **[Vanilla 遊樂場 (Playground)](#/playground)**：直接在瀏覽器撰寫原生代碼並即時預覽。
+- **[語音實驗室 (Speech Lab)](#/lab)**：實驗 Web Speech API 的文字轉語音與辨識功能。
+- **[性能分析中心 (Analytics)](#/analytics)**：利用 Canvas API 即時視覺化 Web Vitals 指標。
+- **[開發者儀表板 (Dashboard)](#/dashboard)**：監控 IndexedDB、Network 請求與全域狀態。
+
+---
+
 ## 🚀 核心特色
 
-- **零相依性 (Zero Dependencies)**：純原生，無需 `npm install`。
-- **進階交互範例**：
-    - **Native Charts**: 利用 Canvas API 實作高效能數據視覺化。
-    - **Image Processing**: 純前端圖片濾鏡與縮放。
-    - **Speech Lab**: 整合 Web Speech API (TTS & STT)。
-    - **Live Playground**: 利用 Blob & ObjectURL 實作即時程式碼編輯器。
-- **高效能架構**：
-    - **Virtual List**: 支持大數據量下的流暢渲染。
-    - **Web Workers**: 多線程運算處理耗時任務。
-    - **Lazy & Prefetch**: 模組動態載入與智能資源預載。
-- **現代化組件化**：
-    - **Advanced Slots**: 在不使用 Shadow DOM 下實現強大的內容分發。
-    - **Reactive State**: 基於 Proxy 的反應式組件局部狀態。
+- **進階交互實踐**：
+    - **Native Charts**: 利用 Canvas API 實作零依賴的高效能數據視覺化。
+    - **Image Processing**: 純前端圖片濾鏡 (Grayscale) 與縮放處理。
+    - **Speech Tech**: 整合原生 TTS (語音合成) 與 STT (語音辨識)。
+- **專業級韌性架構**：
+    - **Offline Action Queue**: 斷網時操作自動排隊，恢復連線後自動同步。
+    - **Undo/Redo History**: 實作狀態快照機制的撤銷與重做功能。
+    - **Virtual List**: 支援萬筆數據的高流暢度虛擬捲動。
+    - **Storage Persistence**: 主動申請數據持久化，防止系統清理。
+- **高性能與優化**：
+    - **Lazy & Prefetch**: 路由驅動的模組動態載入與智能資源預載。
+    - **Web Workers**: 邏輯計算與主執行緒解耦，保持介面反應。
+    - **Reactive State 2.2**: 具備 Light DOM 插槽模擬機制的反應式組件。
 
 ---
 
@@ -48,7 +58,7 @@
 ├── app/                # 應用程式進入點 (App.js)
 ├── assets/             # 靜態資源 (images, locales)
 ├── components/         # UI 組件庫 (ui/, pages/, route/)
-├── docs/               # 💡 技術說明文件
+├── docs/               # 💡 技術說明文件 (Markdown)
 ├── lib/                # 核心服務層 (Services)
 │   ├── base-*.js       # 基礎類別 (Component, Service)
 │   ├── store.js        # 全域狀態
@@ -60,9 +70,6 @@
 ├── sw.js               # Service Worker
 └── scripts/            # 自動化維護腳本 (sync.sh, scaffolding...)
 ```
-
-## 🤖 維護工具 (For AI & Human)
-- `scripts/sync.sh`: 自動執行測試、稽核代碼、提交變更並清理系統資源。
 
 ## 🛠 快速啟動
 

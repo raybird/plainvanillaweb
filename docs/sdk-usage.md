@@ -4,18 +4,32 @@
 
 ## 🚀 1. 極速上手 (CDN 模式)
 
-在您的 HTML 中加入以下代碼，立即獲得所有能力：
+您可以選擇兩種方式引入 SDK：
+
+### A. 按需引入 (Named Import) - 推薦
+只引入您需要的模組，清楚且高效。
 
 ```html
 <script type="module">
-    // 使用 GitHub Pages 作為 CDN
     import { cryptoService, notificationService } from 'https://raybird.github.io/plainvanillaweb/lib/vanilla-sdk.js';
 
-    // 範例：計算雜湊並顯示通知
+    // 注意：cryptoService 是一個物件實例，請呼叫其方法
     const text = "Hello Vanilla SDK";
     const hash = await cryptoService.sha256(text);
     
     notificationService.success(`SHA-256: ${hash.slice(0, 8)}...`);
+</script>
+```
+
+### B. 完整引入 (Default Import)
+一次獲取所有功能，適合快速原型開發。
+
+```html
+<script type="module">
+    import VanillaSDK from 'https://raybird.github.io/plainvanillaweb/lib/vanilla-sdk.js';
+
+    // 所有服務都掛載在 VanillaSDK 物件下
+    await VanillaSDK.webrtc.createOffer();
 </script>
 ```
 

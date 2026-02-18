@@ -7,7 +7,8 @@ import { wasmService } from '../../lib/wasm-service.js';
 import { webgpuService } from '../../lib/webgpu-service.js';
 import { webrtcService } from '../../lib/webrtc-service.js';
 import { shareService } from '../../lib/share-service.js';
-import { pwaService } from '../../lib/pwa-service.js'; // 引入 PWA 服務
+import { pwaService } from '../../lib/pwa-service.js';
+import { bluetoothService } from '../../lib/bluetooth-service.js'; // 引入藍牙服務
 import '../ui/Card.js';
 
 export class LabPage extends BaseComponent {
@@ -37,8 +38,10 @@ export class LabPage extends BaseComponent {
             shareTitle: '🍦 Plain Vanilla Web',
             shareText: '來看看這個超酷的現代原生網頁開發教學平台！',
             shareUrl: window.location.origin,
-            // PWA 狀態
-            canInstall: pwaService.canInstall
+            canInstall: pwaService.canInstall,
+            // 藍牙狀態
+            btDeviceName: '',
+            btStatus: bluetoothService.isSupported ? '可用' : '不支援'
         });
     }
 
@@ -55,7 +58,6 @@ export class LabPage extends BaseComponent {
         });
         webrtcService.on('state-change', (state) => this.state.rtcStatus = state);
         
-        // PWA 事件
         pwaService.on('install-available', () => {
             this.state.canInstall = true;
             notificationService.info('應用程式現在可以安裝至桌面！');
@@ -63,6 +65,12 @@ export class LabPage extends BaseComponent {
         pwaService.on('installed', () => {
             this.state.canInstall = false;
             notificationService.success('安裝完成！');
+        });
+
+        // 藍牙事件
+        bluetoothService.on('device-selected', (e) => {
+            this.state.btDeviceName = e.detail.device.name || '未命名裝置';
+            notificationService.success(`已選擇裝置: ${this.state.btDeviceName}`);
         });
     }
 
@@ -79,6 +87,21 @@ export class LabPage extends BaseComponent {
             notificationService.success('背景同步已註冊！請試著斷網再恢復連線測試。');
         } catch (err) {
             notificationService.error(err.message);
+        }
+    }
+
+    async scanBluetooth() {
+        if (!bluetoothService.isSupported) {
+            notificationService.error('您的瀏覽器不支援 Web Bluetooth');
+            return;
+        }
+        try {
+            const device = await bluetoothService.requestDevice();
+            this.state.btDeviceName = device.name || '未命名裝置';
+        } catch (err) {
+            if (err.name !== 'NotFoundError') {
+                notificationService.error(`藍牙錯誤: ${err.message}`);
+            }
         }
     }
 
@@ -135,28 +158,43 @@ export class LabPage extends BaseComponent {
             <p>探索最前沿的原生 Web 技術與進階 PWA 功能。</p>
 
             <div class="lab-grid">
+                <!-- 藍牙通訊單元 -->
+                <div class="lab-card">
+                    <h3>📡 藍牙通訊 (Web Bluetooth)</h3>
+                    <p><small>搜尋並連線鄰近的 BLE 裝置。</small></p>
+                    <div style="margin-bottom: 1rem;">
+                        狀態: <span class="status-badge ${bluetoothService.isSupported ? 'success' : ''}">${this.state.btStatus}</span>
+                    </div>
+                    <button class="btn btn-primary" 
+                            ?disabled="${!bluetoothService.isSupported}"
+                            onclick="this.closest('page-lab').scanBluetooth()">
+                        🔍 掃描藍牙裝置
+                    </button>
+                    ${this.state.btDeviceName ? html`<div style="margin-top:1rem;"><strong>已選裝置:</strong> ${this.state.btDeviceName}</div>` : ''}
+                </div>
+
                 <!-- PWA 進階單元 -->
                 <div class="lab-card">
                     <h3>📦 安裝與同步 (PWA Advanced)</h3>
-                    <p><small>體驗自定義安裝 UI 與背景資料同步。</small></p>
                     <div class="btn-group">
                         <button class="btn btn-primary" 
                                 ?disabled="${!this.state.canInstall}"
                                 onclick="this.closest('page-lab').runInstall()">
-                            ${this.state.canInstall ? '📥 安裝至桌面' : '已安裝或不支援'}
+                            📥 安裝應用
                         </button>
-                        <button class="btn btn-secondary" onclick="this.closest('page-lab').testSync()">測試背景同步</button>
+                        <button class="btn btn-secondary" onclick="this.closest('page-lab').testSync()">測試同步</button>
                     </div>
                 </div>
+            </div>
 
-                <!-- Web Share 單元 -->
+            <div class="lab-grid" style="margin-top: 2rem;">
                 <div class="lab-card">
                     <h3>📱 內容分享 (Web Share)</h3>
-                    <button class="btn btn-primary" 
-                            ?disabled="${!shareService.isSupported}"
-                            onclick="this.closest('page-lab').runShare()">
-                        🚀 立即分享
-                    </button>
+                    <button class="btn btn-primary" onclick="this.closest('page-lab').runShare()">🚀 立即分享</button>
+                </div>
+                <div class="lab-card">
+                    <h3>🎮 次世代運算 (WebGPU)</h3>
+                    <button class="btn btn-secondary" onclick="this.closest('page-lab').runWebGPUDemo()">執行 GPU 運算</button>
                 </div>
             </div>
 
@@ -164,6 +202,7 @@ export class LabPage extends BaseComponent {
             <div class="lab-card">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
                     <div>
+                        <p><small>連線狀態: <strong>${this.state.rtcStatus}</strong></small></p>
                         <textarea rows="2" placeholder="貼上對方的 SDP" oninput="this.closest('page-lab').state.rtcRemoteSdp = this.value"></textarea>
                         <div class="btn-group">
                             <button class="btn btn-primary" onclick="this.closest('page-lab').createRTCOffer()">發起 Offer</button>
@@ -179,24 +218,12 @@ export class LabPage extends BaseComponent {
                 </div>
             </div>
 
-            <div class="lab-grid" style="margin-top: 2rem;">
-                <div class="lab-card">
-                    <h3>🎮 次世代運算 (WebGPU)</h3>
-                    <button class="btn btn-secondary" onclick="this.closest('page-lab').runWebGPUDemo()">執行 GPU 運算</button>
-                </div>
-                <div class="lab-card">
-                    <h3>⚙️ 高效能運算 (Wasm)</h3>
-                    <button class="btn btn-secondary" onclick="this.closest('page-lab').runWasmDemo()">執行 Wasm 加法</button>
-                </div>
-            </div>
-
             <section style="margin-top: 3rem; padding: 2rem; background: var(--nav-bg); border-radius: 12px;">
                 <h3>🎓 教學重點</h3>
                 <ul>
+                    <li><strong>Web Bluetooth</strong>：網頁與實體硬體 (BLE) 的直接通訊。</li>
                     <li><strong>Vanilla SDK</strong>：核心功能已模組化，支援由外部 URL 直接引用。</li>
                     <li><strong>PWA Lifecycle</strong>：自定義安裝提示與背景同步機制。</li>
-                    <li><strong>Background Sync</strong>：當網路恢復時自動重試操作。</li>
-                    <li><strong>Web Share</strong>：實現網頁與原生應用的內容互通。</li>
                 </ul>
             </section>
         `;

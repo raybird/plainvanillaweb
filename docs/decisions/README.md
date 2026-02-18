@@ -57,3 +57,4 @@
 | [0049](./0049-web-share-integration.md) | 原生 Web Share 與 Web Share Target 整合 | Accepted |
 | [0050](./0050-pwa-advanced-features.md) | 原生 PWA 安裝引導與進階同步機制 | Accepted |
 | [0051](./0051-sdk-oriented-distribution.md) | SDK 導向的分發策略與模組純化 | Accepted |
+| [0052](./0052-web-bluetooth-integration.md) | 原生 Web Bluetooth 與裝置通訊整合 | Accepted |

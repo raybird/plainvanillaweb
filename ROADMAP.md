@@ -56,3 +56,4 @@
 - [x] **Web Share 與接收整合 (PWA)**：支援系統級內容分享與 Share Target。
 - [x] **PWA 進階功能 (Install & Sync)**：實作自定義安裝引導與背景同步機制。
 - [x] **Vanilla SDK 模式轉型**：核心服務解耦，支援由外部 URL 直接引用的 CDN 開發模式。
+- [x] **原生 Web Bluetooth 整合**：支援與 BLE 藍牙裝置直接通訊與數據交換。

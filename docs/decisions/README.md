@@ -49,3 +49,8 @@
 | [0041](./0041-native-playground.md) | 原生程式碼遊樂場 (Live Playground) | Accepted |
 | [0042](./0042-native-storage-management.md) | 原生儲存配額監控與持久化 (StorageManager) | Accepted |
 | [0043](./0043-native-web-crypto.md) | 原生 Web Crypto 服務整合 (Native Web Crypto) | Accepted |
+| [0044](./0044-wasm-integration.md) | WebAssembly (Wasm) 整合策略 | Accepted |
+| [0045](./0045-webgpu-integration.md) | 次世代 WebGPU 運算與渲染架構 | Accepted |
+| [0046](./0046-file-system-access.md) | File System Access API 本地開發環境整合 | Accepted |
+| [0047](./0047-compression-streams.md) | 原生 Compression Streams 數據優化 | Accepted |
+| [0048](./0048-webrtc-p2p-sync.md) | WebRTC P2P 無伺服器通訊架構 | Accepted |

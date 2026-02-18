@@ -25,6 +25,14 @@
 - [x] **互動式 Dashboard 範例**：整合全技術棧的實戰 Demo (監控 IDB/Store/Worker)。
 - [x] **Vanilla Manifesto**：撰寫長青代碼開發宣言。
 
+## 🔮 未來願景 (Cutting Edge)
+**重心：突破瀏覽器應用的極限能力。**
+- [ ] **WebAssembly (Wasm) 整合**：實作流式載入高效能機器碼模組。
+- [ ] **次世代 WebGPU 運算**：探索硬體加速的 GPU 計算與渲染。
+- [ ] **File System 原生編輯**：整合本地檔案系統存取，打造原生開發體驗。
+- [ ] **原生數據壓縮 (Gzip/Deflate)**：實作儲存與傳輸的流式壓縮優化。
+- [ ] **WebRTC P2P 通訊**：實作無伺服器的去中心化數據交換。
+
 ---
 *最後更新：2026-02-18 (By TeleNexus Orchestrator)*
 

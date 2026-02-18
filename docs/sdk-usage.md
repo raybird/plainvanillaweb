@@ -1,34 +1,96 @@
-# 🍦 Vanilla SDK 使用指南
+# 🍦 Vanilla SDK 實戰指南
 
-本專案不僅是一個應用範本，更是一套**工業級的原生 Web 功能 SDK**。您可以直接在任何網頁中引用我們的核心模組，無需下載整個專案，也無需任何建置工具。
+本 SDK 旨在將瀏覽器原生的強大能力（如加密、P2P、檔案系統）封裝為零相依、即插即用的模組。您無需安裝 Node.js，無需 Webpack，只需一個 URL 即可賦予您的網頁工業級能力。
 
-## 1. 快速接入
+## 🚀 1. 極速上手 (CDN 模式)
 
-在您的 HTML 中透過 `<script type="module">` 引入統一入口：
+在您的 HTML 中加入以下代碼，立即獲得所有能力：
 
-```javascript
-import { cryptoService, compressionService } from 'https://raybird.github.io/plainvanillaweb/lib/vanilla-sdk.js';
+```html
+<script type="module">
+    // 使用 GitHub Pages 作為 CDN
+    import { cryptoService, notificationService } from 'https://raybird.github.io/plainvanillaweb/lib/vanilla-sdk.js';
 
-// 立即使用強大的原生功能
-const hash = await cryptoService.sha256("Hello World");
+    // 範例：計算雜湊並顯示通知
+    const text = "Hello Vanilla SDK";
+    const hash = await cryptoService.sha256(text);
+    
+    notificationService.success(`SHA-256: ${hash.slice(0, 8)}...`);
+</script>
 ```
 
-## 2. 核心服務概覽
+## 🛠 2. 實戰場景範例
 
-| 模組名稱 | 功能說明 |
-|---------|----------|
-| `cryptoService` | AES-GCM 加解密、SHA-256 雜湊。 |
-| `compressionService` | 原生 Gzip / Deflate 數據壓縮。 |
-| `webrtcService` | 無伺服器 P2P 通訊（DataChannel）。 |
-| `wasmService` | WebAssembly 模組流式加載。 |
-| `fileSystemService` | 本地檔案系統讀寫存取。 |
-| `shareService` | 原生 Web Share 與接收。 |
+### 場景 A：安全資料傳輸 (Crypto + Compression)
+將敏感數據先壓縮、再加密，最後轉為 Base64 方便傳輸。
 
-## 3. 為什麼選擇 SDK 模式？
+```javascript
+import { cryptoService, compressionService } from '.../vanilla-sdk.js';
 
-1.  **零打包體積**：只引用您需要的模組，利用瀏覽器原生 ESM 緩存。
-2.  **極速開發**：不需要 `npm install` 或 `webpack` 配置，打開編輯器就能寫。
-3.  **長期穩定**：基於 Web 標準封裝，程式碼具備極強的向下相容性。
+async function securePackage(dataString, password) {
+    // 1. 壓縮數據 (String -> Gzip Stream -> Blob)
+    const stream = new Blob([dataString]).stream();
+    const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
+    const compressedBlob = await new Response(compressedStream).blob();
+    
+    // 2. 加密數據 (Blob -> ArrayBuffer -> Encrypted)
+    const buffer = await compressedBlob.arrayBuffer();
+    // 注意：cryptoService 目前接受字串，若需處理二進位需使用底層 encryptBuffer (若有實作)
+    // 這裡示範字串加密流程：
+    const encrypted = await cryptoService.encrypt(dataString, password);
+    
+    return encrypted; // { ciphertext, iv, salt }
+}
+```
+
+### 場景 B：無伺服器 P2P 聊天 (WebRTC)
+兩瀏覽器間直接連線，不經過後端資料庫。
+
+```javascript
+import { webrtcService } from '.../vanilla-sdk.js';
+
+// 發起端 (Alice)
+const offer = await webrtcService.createOffer();
+console.log("請將此 SDP 傳給 Bob:", JSON.stringify(offer));
+
+// 接收端 (Bob)
+await webrtcService.createAnswer(offer);
+
+// 雙方連線後
+webrtcService.on('message', msg => console.log("收到:", msg));
+webrtcService.send("嗨！這是 P2P 訊息");
+```
+
+### 場景 C：本地檔案編輯器 (File System)
+直接讀寫使用者硬碟中的檔案，像原生 App 一樣。
+
+```javascript
+import { fileSystemService } from '.../vanilla-sdk.js';
+
+document.querySelector('#openBtn').onclick = async () => {
+    // 1. 選擇目錄
+    const handle = await fileSystemService.showDirectoryPicker();
+    
+    // 2. 讀取檔案列表
+    const files = await fileSystemService.readDirectory(handle);
+    console.log("檔案清單:", files);
+    
+    // 3. 讀取特定檔案
+    const content = await fileSystemService.readFile(handle, 'README.md');
+    document.querySelector('textarea').value = content;
+};
+```
+
+## 📚 3. 核心 API 速查
+
+| 服務 | 方法 | 參數 | 回傳 |
+|------|------|------|------|
+| **Crypto** | `encrypt` | `(text, password)` | `{ ciphertext, iv, salt }` |
+| | `decrypt` | `(ciphertext, iv, password)` | `string` (明文) |
+| **WebRTC** | `createOffer` | - | `RTCSessionDescription` |
+| | `send` | `(data)` | - |
+| **PWA** | `install` | - | `Promise<'accepted'|'dismissed'>` |
+| **Share** | `share` | `{ title, text, url }` | `boolean` (成功與否) |
 
 ---
-*詳細範例請參考專案根目錄下的 [sdk-demo.html](../sdk-demo.html)。*
+*更多詳細實作請參考專案源碼 `lib/` 目錄。*

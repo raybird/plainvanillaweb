@@ -127,6 +127,42 @@
     - [x] 建立 `ADR 0053`。
     - [x] 更新 `Docs.js` 與 `ROADMAP.md`。
 
+# 📋 任務清單：原生螢幕錄製與串流整合
+
+## 🎯 目標
+實作基於 Screen Capture API 與 MediaRecorder 的原生螢幕錄製功能。
+
+## 🛠 任務分解
+- [x] **Phase 1: 基礎服務開發**
+    - [x] 實作 `lib/media-service.js`。
+    - [x] 封裝 `getDisplayMedia` 與串流預覽。
+    - [x] 實作 `MediaRecorder` 錄製與 Blob 下載。
+- [x] **Phase 2: 實驗室整合 (Lab)**
+    - [x] 在 `Lab.js` 新增「螢幕錄製 (Screen Capture)」單元。
+    - [x] 實作錄影控制 UI 與即時預覽。
+- [x] **Phase 3: 教學與文件**
+    - [x] 撰寫 `docs/media-streams.md` 教學文件。
+    - [x] 建立 `ADR 0055`。
+    - [x] 更新 `Docs.js` 與 `ROADMAP.md`。
+
+# 📋 任務清單：原生 Payment Request 整合
+
+## 🎯 目標
+引入標準化的網頁支付介面，提供流暢的結帳體驗。
+
+## 🛠 任務分解
+- [x] **Phase 1: 基礎服務開發**
+    - [x] 實作 `lib/payment-service.js`。
+    - [x] 封裝 `PaymentRequest` 與可用性偵測。
+    - [x] 實作支付回應處理與事件發布。
+- [x] **Phase 2: 實驗室整合 (Lab)**
+    - [x] 在 `Lab.js` 新增「原生支付 (Web Payment)」單元。
+    - [x] 實作模擬商品與結帳流程。
+- [x] **Phase 3: 教學與文件**
+    - [x] 撰寫 `docs/web-payment.md` 教學文件。
+    - [x] 建立 `ADR 0053`。
+    - [x] 更新 `Docs.js` 與 `ROADMAP.md`。
+
 # 📋 任務清單：手機閱讀體驗與響應式優化
 
 ## 🎯 目標

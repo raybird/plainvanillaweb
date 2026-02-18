@@ -10,6 +10,7 @@ import { broadcastService } from '../../lib/broadcast-service.js';
 import { modalService } from '../../lib/modal-service.js';
 import { syncService } from '../../lib/sync-service.js';
 import { historyService } from '../../lib/history-service.js';
+import { storageService } from '../../lib/storage-service.js'; // 引入儲存服務
 
 export class Dashboard extends BaseComponent {
     constructor() {
@@ -27,7 +28,8 @@ export class Dashboard extends BaseComponent {
             thisTabId: broadcastService.tabId,
             syncQueueCount: 0,
             canUndo: false,
-            canRedo: false
+            canRedo: false,
+            storageMetrics: { usage: 0, quota: 0, percent: 0, persisted: false }
         });
         this.onWorkerDone = this.onResult.bind(this);
         this.onStoreChange = this.onStoreUpdate.bind(this);
@@ -37,6 +39,9 @@ export class Dashboard extends BaseComponent {
         this.onHistoryChange = (e) => {
             this.state.canUndo = e.detail.canUndo;
             this.state.canRedo = e.detail.canRedo;
+        };
+        this.onStorageUpdate = (m) => {
+            this.state.storageMetrics = m;
         };
     }
 
@@ -50,6 +55,7 @@ export class Dashboard extends BaseComponent {
         syncService.addEventListener('action-queued', this.onSyncUpdate);
         syncService.addEventListener('action-synced', this.onSyncUpdate);
         historyService.addEventListener('change', this.onHistoryChange);
+        storageService.addEventListener('update', (e) => this.onStorageUpdate(e.detail));
         
         this.state.networkLogs = networkMonitor.logs;
         this.state.perfMetrics = performanceService.summary;
@@ -58,6 +64,7 @@ export class Dashboard extends BaseComponent {
         
         this.refreshStats();
         this.updateQueueCount();
+        storageService.updateEstimate();
 
         this.statsInterval = setInterval(() => {
             if (performance && performance.memory) {
@@ -86,7 +93,6 @@ export class Dashboard extends BaseComponent {
 
     onStoreUpdate(e) {
         if (!e.detail.isSnapshot && !e.detail.remote) {
-            // 只有本地的手動變更才紀錄歷史
             historyService.push(appStore._baseState);
         }
 
@@ -110,6 +116,16 @@ export class Dashboard extends BaseComponent {
         const stats = await idbService.getStats();
         this.state.idbCount = stats.count;
         this.state.lastUpdate = new Date().toLocaleTimeString();
+        await storageService.updateEstimate();
+    }
+
+    async requestStoragePersistence() {
+        const success = await storageService.requestPersistence();
+        if (success) {
+            notificationService.success("持久化儲存已啟用！數據將不再被自動清理。");
+        } else {
+            notificationService.warn("無法取得持久化權限。這可能取決於瀏覽器策略。");
+        }
     }
 
     onResult(e) {
@@ -137,7 +153,7 @@ export class Dashboard extends BaseComponent {
     render() {
         const lastSearch = appStore.state.lastSearch || '無';
         const stateJson = JSON.stringify(appStore.state, null, 2);
-        const { perfMetrics, lastSyncTab, syncCount, thisTabId, syncQueueCount, canUndo, canRedo } = this.state;
+        const { perfMetrics, lastSyncTab, syncCount, thisTabId, syncQueueCount, canUndo, canRedo, storageMetrics } = this.state;
         
         const logsHtml = this.state.networkLogs.map(log => {
             const statusColor = log.status >= 400 || log.status === 'Error' ? 'red' : 'green';
@@ -171,12 +187,41 @@ export class Dashboard extends BaseComponent {
                 .btn-secondary { background: #6c757d; color: white; }
                 table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
                 th { text-align: left; padding: 0.5rem; border-bottom: 2px solid #ddd; font-size: 0.9rem; }
+                .progress-bar { height: 8px; background: #eee; border-radius: 4px; margin-top: 0.5rem; overflow: hidden; }
+                .progress-fill { height: 100%; background: var(--primary-color); transition: width 0.3s; }
             </style>
 
             <h1>🎛️ 開發者控制台 (Dev Dashboard)</h1>
             <p>即時監控與除錯中心。最後更新：${this.state.lastUpdate}</p>
 
             <div class="dashboard-grid">
+                <!-- 儲存管理 -->
+                <div class="card" style="border-left: 5px solid #28a745;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <h3>💾 儲存配額 (Storage)</h3>
+                        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:${storageMetrics.persisted ? '#d4edda' : '#fff3cd'}; color:${storageMetrics.persisted ? '#155724' : '#856404'};">
+                            ${storageMetrics.persisted ? '🛡️ 已持久化' : '⚠️ 暫時性'}
+                        </span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <div class="metric" style="color: #28a745; font-size: 1.5rem;">${storageService.formatBytes(storageMetrics.usage)}</div>
+                            <div class="label">已使用空間</div>
+                        </div>
+                        <div>
+                            <div class="metric" style="color: #666; font-size: 1.5rem;">${storageMetrics.percent}%</div>
+                            <div class="label">佔配額比例</div>
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${storageMetrics.percent}%"></div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" style="flex:1; font-size:0.8rem;" ?disabled="${storageMetrics.persisted}"
+                                onclick="this.closest('page-dashboard').requestStoragePersistence()">請求持久化</button>
+                    </div>
+                </div>
+
                 <!-- 離線同步資訊 -->
                 <div class="card" style="border-left: 5px solid #ffc107;">
                     <h3>☁️ 離線同步 (Action Queue)</h3>

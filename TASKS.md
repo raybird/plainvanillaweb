@@ -56,6 +56,23 @@
 ---
 *Updated: 2026-02-18 by TeleNexus Orchestrator*
 
+# 📋 任務清單：手機閱讀體驗與響應式優化
+
+## 🎯 目標
+確保所有實驗室、文件與遊樂場頁面在行動裝置 (Mobile/Tablet) 上具備卓越的閱讀性與操作體驗。
+
+## 🛠 任務分解
+- [x] **Phase 1: 基礎版面調整 (Layout)**
+    - [x] 檢視 `index.css`，優化全域字體大小與行高 (Line-height)。
+    - [x] 調整 `.lab-grid` 與 `.docs-container` 的 Flex/Grid 斷點，確保單欄流式佈局。
+    - [x] 優化導覽列 (Navbar) 在小螢幕上的呈現 (如漢堡選單或水平滾動)。
+- [x] **Phase 2: 元件適配 (Components)**
+    - [x] 優化 `Playground` 的編輯器與預覽視窗在直立螢幕下的堆疊方式。
+    - [x] 調整 `Lab` 卡片的按鈕尺寸與間距，符合觸控目標 (Touch Target) 規範。
+- [x] **Phase 3: 驗證與文件**
+    - [x] 使用 `agent-browser` 進行多尺寸模擬測試。
+    - [x] 更新 `ROADMAP.md` 狀態。
+
 # 📋 任務清單：SDK 導向的分發與模組純化
 
 ## 🎯 目標

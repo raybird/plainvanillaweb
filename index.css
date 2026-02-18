@@ -3,6 +3,8 @@
     --text-color: #333333;
     --primary-color: #007bff;
     --nav-bg: #f8f9fa;
+    --spacing-unit: 1rem;
+    --border-radius: 8px;
 }
 
 [data-theme="dark"] {
@@ -16,92 +18,101 @@ body {
     font-family: system-ui, -apple-system, sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
-    padding: 2rem;
+    padding: var(--spacing-unit);
     max-width: 1200px;
     margin: 0 auto;
     line-height: 1.6;
+    /* 使用 clamp 實現流體字體，最小值 16px，最大值 18px */
+    font-size: clamp(16px, 2vw, 18px);
     transition: background-color 0.3s, color 0.3s;
 }
 
-/* 響應式基礎設定 */
-@media (max-width: 768px) {
-    body {
-        padding: 1rem;
-    }
-    
-    h1 { font-size: 1.8rem; }
-    h2 { font-size: 1.5rem; }
-    
-    nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        justify-content: center;
-    }
-    
-    nav a {
-        margin: 0.2rem;
-        font-size: 0.9rem;
-    }
-}
-
+/* 導覽列優化 */
 nav {
     background: var(--nav-bg);
     padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
 }
 
-a { color: var(--primary-color); text-decoration: none; margin: 0 0.5rem; }
+/* 按鈕與連結基礎樣式 */
+a { color: var(--primary-color); text-decoration: none; }
 a:hover { text-decoration: underline; }
-hr { border: 0; border-top: 1px solid #ddd; margin: 1.5rem 0; }
 
-/* 組件封裝樣式規範實踐 */
-page-home {
-    --home-card-bg: var(--nav-bg);
-    display: block;
-    padding: 1rem;
-    background: var(--home-card-bg);
-    border-radius: 12px;
-    border: 1px solid rgba(0,0,0,0.1);
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: filter 0.2s;
+    /* 確保觸控熱區 */
+    min-height: 44px;
+    min-width: 44px;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--primary-color); color: white; }
+.btn-secondary { background: #6c757d; color: white; }
+.btn-success { background: #28a745; color: white; }
+.btn-danger { background: #dc3545; color: white; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* 表單元素優化 */
+input, textarea, select {
+    font-size: 16px; /* 防止 iOS Safari 自動縮放 */
+    padding: 0.8rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg-color);
+    color: var(--text-color);
 }
 
-page-repo-search {
-    --search-input-width: 100%;
-    display: block;
+/* 響應式佈局斷點 */
+@media (max-width: 768px) {
+    body { padding: 0.8rem; }
+    
+    nav {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    nav a {
+        display: block;
+        padding: 0.5rem 0;
+        width: 100%;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    /* 強制 Playground 與 Docs 垂直堆疊 */
+    .playground-container, .docs-container {
+        grid-template-columns: 1fr !important;
+        flex-direction: column !important;
+    }
+    
+    .docs-nav {
+        width: 100% !important;
+        position: static !important;
+        margin-bottom: 1rem;
+    }
 }
 
-page-repo-search input {
-    width: var(--search-input-width);
-    max-width: 400px;
-}
+hr { border: 0; border-top: 1px solid #ddd; margin: 2rem 0; }
 
-/* Accessibility: Skip Link */
-.skip-link:focus {
-    top: 0 !important;
-}
+/* Skip Link */
+.skip-link:focus { top: 0 !important; }
 
-/* Page Transitions (View Transitions API) */
-::view-transition-old(root),
-::view-transition-new(root) {
-    animation-duration: 0.3s;
-    animation-timing-function: ease-in-out;
-}
-
-::view-transition-old(root) {
-    animation-name: fade-out;
-}
-
-::view-transition-new(root) {
-    animation-name: fade-in;
-}
-
-@keyframes fade-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fade-out {
-    from { opacity: 1; }
-    to { opacity: 0; }
+/* Page Transitions */
+::view-transition-old(root), ::view-transition-new(root) {
+    animation-duration: 0.2s;
 }

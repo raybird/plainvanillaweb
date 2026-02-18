@@ -193,6 +193,7 @@ export class LabPage extends BaseComponent {
             <section style="margin-top: 3rem; padding: 2rem; background: var(--nav-bg); border-radius: 12px;">
                 <h3>🎓 教學重點</h3>
                 <ul>
+                    <li><strong>Vanilla SDK</strong>：核心功能已模組化，支援由外部 URL 直接引用。</li>
                     <li><strong>PWA Lifecycle</strong>：自定義安裝提示與背景同步機制。</li>
                     <li><strong>Background Sync</strong>：當網路恢復時自動重試操作。</li>
                     <li><strong>Web Share</strong>：實現網頁與原生應用的內容互通。</li>

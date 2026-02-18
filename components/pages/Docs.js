@@ -31,7 +31,8 @@ export class Documentation extends BaseComponent {
             { id: 'webgpu', title: 'WebGPU 次世代運算' },
             { id: 'webrtc-p2p', title: 'WebRTC P2P 通訊' },
             { id: 'web-share', title: 'Web 分享與接收' },
-            { id: 'pwa-advanced', title: 'PWA 進階安裝與同步' }
+            { id: 'pwa-advanced', title: 'PWA 進階安裝與同步' },
+            { id: 'sdk-usage', title: 'Vanilla SDK 使用指南' }
         ];
 
         return html`

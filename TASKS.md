@@ -56,6 +56,23 @@
 ---
 *Updated: 2026-02-18 by TeleNexus Orchestrator*
 
+# 📋 任務清單：SDK 導向的分發與模組純化
+
+## 🎯 目標
+將 `lib/` 服務轉化為獨立、可由外部 URL 直接引用（CDN 風格）的工業級原生模組。
+
+## 🛠 任務分解
+- [x] **Phase 1: 服務純化與解耦**
+    - [x] 檢視並修修核心服務，確保不依賴內部全域變數。
+    - [x] 實作 `lib/vanilla-sdk.js` 作為統一入口。
+- [x] **Phase 2: 外部引用範例**
+    - [x] 實作 `sdk-demo.html` 展示外部引用。
+    - [x] 在 `Lab.js` 補充教學重點。
+- [x] **Phase 3: 教學與文件**
+    - [x] 撰寫 `docs/sdk-usage.md` 教學文件。
+    - [x] 建立 `ADR 0051: SDK 導向的分發策略`。
+    - [x] 更新 `Docs.js` 與 `ROADMAP.md`。
+
 # 📋 任務清單：WebAssembly (Wasm) 整合
 
 ## 🎯 目標

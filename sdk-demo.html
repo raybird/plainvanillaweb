@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vanilla SDK 接入示範</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+        .card { border: 1px solid #eee; padding: 1.5rem; border-radius: 12px; background: #fafafa; margin-top: 2rem; }
+        pre { background: #272822; color: #f8f8f2; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.9rem; }
+        code { font-family: 'Fira Code', monospace; }
+        button { background: #007bff; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
+        .success { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🍦 Vanilla SDK 接入示範</h1>
+    <p>這是一個獨立的 HTML 檔案，展示了如何像使用 CDN 庫一樣引用 <code>plainvanillaweb</code> 的核心模組。</p>
+
+    <div class="card">
+        <h3>1. 引入 SDK</h3>
+        <pre><code>import { cryptoService } from './lib/vanilla-sdk.js';</code></pre>
+    </div>
+
+    <div class="card">
+        <h3>2. 即時測試：原生加密</h3>
+        <p>點擊按鈕，使用 <code>Web Crypto API</code> (AES-GCM) 進行加密：</p>
+        <button id="testBtn">執行加密測試</button>
+        <div id="result" style="margin-top: 1rem;"></div>
+    </div>
+
+    <script type="module">
+        // 模擬外部引用
+        import { cryptoService } from './lib/vanilla-sdk.js';
+
+        document.getElementById('testBtn').addEventListener('click', async () => {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '正在加密...';
+
+            try {
+                const text = "這是來自 SDK 的秘密訊息";
+                const pass = "sdk-password-123";
+                
+                const { ciphertext } = await cryptoService.encrypt(text, pass);
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✅ 加密成功！</p>
+                    <p><strong>密文 (Base64):</strong></p>
+                    <pre><code>${ciphertext}</code></pre>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `<span style="color:red">錯誤: ${err.message}</span>`;
+            }
+        });
+    </script>
+</body>
+</html>

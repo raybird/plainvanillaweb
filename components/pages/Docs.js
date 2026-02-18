@@ -34,8 +34,8 @@ export class Documentation extends BaseComponent {
             { id: 'pwa-advanced', title: 'PWA 進階安裝與同步' },
             { id: 'sdk-usage', title: 'Vanilla SDK 使用指南' },
             { id: 'web-bluetooth', title: 'Web 藍牙裝置通訊' },
-            { id: 'media-capture', title: '螢幕錄製與串流' },
-            { id: 'web-payment', title: 'Web 原生支付整合' }
+            { id: 'web-payment', title: 'Web 原生支付整合' },
+            { id: 'media-streams', title: '螢幕錄製與串流' }
         ];
 
         return html`

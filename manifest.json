@@ -8,14 +8,19 @@
   "description": "A modern web application built without frameworks.",
   "icons": [
     {
-      "src": "assets/images/user-profile.jpg",
-      "sizes": "192x192",
-      "type": "image/jpeg"
-    },
-    {
-      "src": "assets/images/user-profile.jpg",
-      "sizes": "512x512",
-      "type": "image/jpeg"
+      "src": "assets/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "#/lab",
+    "method": "GET",
+    "params": {
+      "title": "share_title",
+      "text": "share_text",
+      "url": "share_url"
+    }
+  }
 }

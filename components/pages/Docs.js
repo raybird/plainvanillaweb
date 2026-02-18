@@ -29,7 +29,8 @@ export class Documentation extends BaseComponent {
             { id: 'file-system-access', title: '原生檔案系統存取' },
             { id: 'webassembly', title: 'WebAssembly 整合' },
             { id: 'webgpu', title: 'WebGPU 次世代運算' },
-            { id: 'webrtc-p2p', title: 'WebRTC P2P 通訊' }
+            { id: 'webrtc-p2p', title: 'WebRTC P2P 通訊' },
+            { id: 'web-share', title: 'Web 分享與接收' }
         ];
 
         return html`

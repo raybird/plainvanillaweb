@@ -54,3 +54,4 @@
 | [0046](./0046-file-system-access.md) | File System Access API 本地開發環境整合 | Accepted |
 | [0047](./0047-compression-streams.md) | 原生 Compression Streams 數據優化 | Accepted |
 | [0048](./0048-webrtc-p2p-sync.md) | WebRTC P2P 無伺服器通訊架構 | Accepted |
+| [0049](./0049-web-share-integration.md) | 原生 Web Share 與 Web Share Target 整合 | Accepted |

@@ -7,12 +7,20 @@ export class HomePage extends BaseComponent {
         
         return html`
             <style>
-                .hero { padding: 3rem 0; text-align: center; background: linear-gradient(135deg, var(--primary-color), #0056b3); color: white; border-radius: 16px; margin-bottom: 3rem; }
+                .hero { padding: 3rem 1.5rem; text-align: center; background: linear-gradient(135deg, var(--primary-color), #0056b3); color: white; border-radius: 16px; margin-bottom: 3rem; }
                 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
                 .feature-card { padding: 1.5rem; border: 1px solid #eee; border-radius: 12px; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; text-decoration: none; color: inherit; display: block; }
                 .feature-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-color: var(--primary-color); }
                 .feature-card h3 { color: var(--primary-color); margin-top: 0; }
                 .tag { font-size: 0.75rem; background: #e7f3ff; color: var(--primary-color); padding: 0.2rem 0.5rem; border-radius: 4px; margin-right: 0.5rem; font-weight: bold; }
+                
+                @media (max-width: 768px) {
+                    .hero { padding: 2rem 1rem; margin-bottom: 2rem; }
+                    .hero h1 { font-size: 1.8rem; }
+                    .hero p { font-size: 1rem !important; }
+                    .grid { gap: 1rem; grid-template-columns: 1fr; }
+                    section { padding: 1.5rem !important; }
+                }
             </style>
 
             <section class="hero">

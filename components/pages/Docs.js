@@ -37,9 +37,24 @@ export class Documentation extends BaseComponent {
         ];
 
         return html`
-            <div style="display: flex; gap: 2rem; align-items: flex-start;">
+            <style>
+                .docs-container { display: flex; gap: 2rem; align-items: flex-start; }
+                .docs-nav { width: 250px; background: var(--nav-bg); padding: 1rem; border-radius: 8px; position: sticky; top: 1rem; }
+                .docs-content { flex: 1; padding: 2rem; border: 1px solid #eee; border-radius: 12px; background: white; min-height: 60vh; overflow-x: auto; }
+                
+                @media (max-width: 768px) {
+                    .docs-container { flex-direction: column; gap: 1rem; }
+                    .docs-nav { width: 100%; position: static; }
+                    .docs-content { padding: 1rem; width: 100%; box-sizing: border-box; }
+                    .docs-nav ul { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+                    .docs-nav li { margin-bottom: 0 !important; }
+                    .docs-nav button { background: #eee !important; font-size: 0.85rem; padding: 0.4rem 0.8rem !important; }
+                }
+            </style>
+            
+            <div class="docs-container">
                 <!-- 左側導覽 -->
-                <nav style="width: 250px; background: var(--nav-bg); padding: 1rem; border-radius: 8px; position: sticky; top: 1rem;">
+                <nav class="docs-nav">
                     <h3 style="margin-top: 0;">📚 技術手冊</h3>
                     <ul style="list-style: none; padding: 0;">
                         ${docs.map(d => html`
@@ -54,7 +69,7 @@ export class Documentation extends BaseComponent {
                 </nav>
 
                 <!-- 右側內容 -->
-                <article style="flex: 1; padding: 2rem; border: 1px solid #eee; border-radius: 12px; background: white; min-height: 60vh;">
+                <article class="docs-content">
                     ${unsafe(this.state.content)}
                 </article>
             </div>

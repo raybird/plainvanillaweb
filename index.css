@@ -17,8 +17,32 @@ body {
     background-color: var(--bg-color);
     color: var(--text-color);
     padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
     line-height: 1.6;
     transition: background-color 0.3s, color 0.3s;
+}
+
+/* 響應式基礎設定 */
+@media (max-width: 768px) {
+    body {
+        padding: 1rem;
+    }
+    
+    h1 { font-size: 1.8rem; }
+    h2 { font-size: 1.5rem; }
+    
+    nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+    
+    nav a {
+        margin: 0.2rem;
+        font-size: 0.9rem;
+    }
 }
 
 nav {

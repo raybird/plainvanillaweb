@@ -152,6 +152,12 @@ export class LabPage extends BaseComponent {
                 .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
                 .status-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: #eee; }
                 .status-badge.success { background: #d4edda; color: #155724; }
+                
+                @media (max-width: 768px) {
+                    .lab-grid { gap: 1rem; grid-template-columns: 1fr; }
+                    .lab-card { padding: 1rem; }
+                    .rtc-grid { grid-template-columns: 1fr !important; gap: 1rem !important; }
+                }
             </style>
 
             <h1>🧪 Vanilla 實驗室 (Lab)</h1>
@@ -200,7 +206,7 @@ export class LabPage extends BaseComponent {
 
             <h2 style="margin-top: 3rem;">📡 P2P 通訊 (WebRTC)</h2>
             <div class="lab-card">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <div class="rtc-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
                     <div>
                         <p><small>連線狀態: <strong>${this.state.rtcStatus}</strong></small></p>
                         <textarea rows="2" placeholder="貼上對方的 SDP" oninput="this.closest('page-lab').state.rtcRemoteSdp = this.value"></textarea>

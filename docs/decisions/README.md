@@ -60,5 +60,3 @@
 | [0052](./0052-web-bluetooth-integration.md) | 原生 Web Bluetooth 與裝置通訊整合 | Accepted |
 | [0053](./0053-payment-request-integration.md) | 原生 Payment Request API 整合 | Accepted |
 | [0055](./0055-screen-capture-integration.md) | 原生螢幕錄製與串流整合 | Accepted |
-| [0053](./0053-payment-request-integration.md) | 原生 Payment Request API 整合 | Accepted |
-| [0055](./0055-screen-capture-integration.md) | 原生螢幕錄製與串流整合 | Accepted |

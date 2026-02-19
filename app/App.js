@@ -9,7 +9,6 @@ import { html } from "../lib/html.js";
 import "../components/AppFooter.js";
 import "../components/Modal.js";
 import "../components/route/switch.js"; 
-import "../components/pages/Lab.js";
 
 export class App extends BaseComponent {
     constructor() {

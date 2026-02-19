@@ -5,28 +5,36 @@
 ---
 
 ## 📅 當前階段：架構標準化 (Standardization)
+
 **重心：定義標準接口，提升代碼一致性。**
+
 - [x] **Base Service 抽象化**：實作 `lib/base-service.js` 規範事件與狀態。
 - [x] **Base Component 強化**：提供生命週期鉤子與渲染優化.
 - [x] **CSS 變數封裝規範**：定義原生 Scoped CSS 實作模式。
 
 ## 🚀 下一階段：AI 協作與開發體驗 (AI & DX)
+
 **重心：人機友善工具化。**
+
 - [x] **架構決策紀錄 (ADR)**：建立 `docs/decisions/` 追蹤設計選擇。
 - [x] **AI 專用維護腳本**：自動化測試、清理與同步工具。
 - [x] **動態腳手架 (CLI)**：原生指令快速產生組件。
 
 ## 💎 進階階段：高性能與邊緣情境 (Performance)
+
 - [x] **Web Workers 服務化**：多線程運算整合。
 - [x] **智能快取策略**：IndexedDB 離線支援。
 - [x] **全域錯誤邊界**：增強 SPA 穩定性。
 
 ## 🎓 最終目標：生態與教學 (Education)
+
 - [x] **互動式 Dashboard 範例**：整合全技術棧的實戰 Demo (監控 IDB/Store/Worker)。
 - [x] **Vanilla Manifesto**：撰寫長青代碼開發宣言。
 
 ## 🔮 未來願景 (Cutting Edge)
+
 **重心：突破瀏覽器應用的極限能力。**
+
 - [x] **WebAssembly (Wasm) 整合**：實作流式載入高效能機器碼模組。
 - [x] **次世代 WebGPU 運算**：探索硬體加速的 GPU 計算與渲染。
 - [x] **File System 原生編輯**：整合本地檔案系統存取，打造原生開發體驗。
@@ -34,10 +42,13 @@
 - [x] **WebRTC P2P 通訊**：實作無伺服器的去中心化數據交換。
 
 ---
-*最後更新：2026-02-19 (By TeleNexus Orchestrator)*
+
+_最後更新：2026-02-19 (By TeleNexus Orchestrator)_
 
 ## 🎉 專案里程碑達成 (2026/02/19)
+
 本專案已完成從「範例集合」向「工業級 SDK」的全面轉型，並實作了多項尖端 Web 硬體與數據技術。
+
 1. **Vanilla SDK v1.0.0**：重構 `VanillaSDK` 入口，提供單例化、自動配置與完整的 JSDoc 型別提示。
 2. **WebRTC 穩定性增強**：內建 Google/Twilio STUN Server，優化 HTTPS 與 GitHub Pages 下的連線表現。
 3. **實驗室架構重構**：實作巢狀路由 (Nested Routing)，將 10+ 項實驗功能模組化隔離，提升系統穩定性。
@@ -51,7 +62,9 @@
 11. **原生生物辨識整合**：實作 WebAuthn 流程，支援 FaceID 與實體安全金鑰驗證。
 
 ## 🎁 自主開發 (Bonus Features)
+
 **AI Agent 主動識別並實作的高價值功能。**
+
 - [x] **身分驗證與保護 (Auth System)**：實作 Auth Guard 與受保護路由。
 - [x] **操作歷史管理 (History API)**：實作撤銷/重做 (Undo/Redo) 狀態快照。
 - [x] **高效能虛擬列表 (Virtual List)**：支持大數據量下的流暢渲染。
@@ -74,3 +87,4 @@
 - [x] **原生 Web NFC 整合**：實作與實體 NDEF 標籤的讀寫通訊。
 - [x] **原生掃碼與視覺辨識**：利用 Barcode Detection API 實作高效能、零相依的條碼與 QR 碼辨識。
 - [x] **原生生物辨識整合**：利用 WebAuthn API 實作基於硬體（FaceID/TouchID）的身分驗證流程。
+- [x] **原生 Popover API 互動層**：以宣告式與程式式雙模式實作輕量彈出層體驗。

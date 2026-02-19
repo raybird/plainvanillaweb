@@ -15,11 +15,27 @@ export class MediaPage extends BaseComponent {
     });
     this._inputStream = null;
     this._processedStream = null;
+    this._isStartingStream = false;
+    this._resumeStreamTimer = null;
+    this._onVisibilityChange = () => this._handleVisibilityChange();
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener("visibilitychange", this._onVisibilityChange);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    document.removeEventListener("visibilitychange", this._onVisibilityChange);
     this.stopLiveStream();
+  }
+
+  update() {
+    super.update();
+    if (this.state.isProcessingStream && this._processedStream) {
+      this._syncProcessedVideo();
+    }
   }
 
   async _requestCameraStream() {
@@ -57,6 +73,9 @@ export class MediaPage extends BaseComponent {
       return;
     }
 
+    if (this._isStartingStream) return;
+    this._isStartingStream = true;
+
     try {
       const stream = await this._requestCameraStream();
       this._inputStream = stream;
@@ -73,21 +92,25 @@ export class MediaPage extends BaseComponent {
 
       const videoEl = this.querySelector("#processedVideo");
       if (videoEl) {
-        videoEl.setAttribute("playsinline", "");
-        videoEl.setAttribute("autoplay", "");
-        videoEl.muted = true;
-        videoEl.srcObject = processedStream;
-        await videoEl.play();
+        await this._syncProcessedVideo();
       }
 
       this.state.isProcessingStream = true;
+      this._syncProcessedVideo();
     } catch (err) {
       this.stopLiveStream();
       notificationService.error(err.message || "啟動鏡頭失敗");
+    } finally {
+      this._isStartingStream = false;
     }
   }
 
   stopLiveStream() {
+    if (this._resumeStreamTimer) {
+      clearTimeout(this._resumeStreamTimer);
+      this._resumeStreamTimer = null;
+    }
+
     streamProcessorService.stop();
     [this._processedStream, this._inputStream].forEach((stream) => {
       stream?.getTracks().forEach((track) => track.stop());
@@ -102,6 +125,53 @@ export class MediaPage extends BaseComponent {
     }
 
     this.state.isProcessingStream = false;
+  }
+
+  _hasLiveInputTrack() {
+    const track = this._inputStream?.getVideoTracks?.()[0];
+    return !!track && track.readyState === "live" && track.enabled;
+  }
+
+  _handleVisibilityChange() {
+    if (!this.state.isProcessingStream) return;
+    if (document.visibilityState !== "visible") return;
+
+    if (this._resumeStreamTimer) {
+      clearTimeout(this._resumeStreamTimer);
+    }
+
+    this._resumeStreamTimer = setTimeout(async () => {
+      this._resumeStreamTimer = null;
+      if (!this.state.isProcessingStream) return;
+
+      if (!this._hasLiveInputTrack()) {
+        this.stopLiveStream();
+        await this.toggleLiveFilter();
+        return;
+      }
+
+      await this._syncProcessedVideo();
+    }, 120);
+  }
+
+  async _syncProcessedVideo() {
+    if (!this._processedStream) return;
+    const videoEl = this.querySelector("#processedVideo");
+    if (!videoEl) return;
+
+    videoEl.setAttribute("playsinline", "");
+    videoEl.setAttribute("autoplay", "");
+    videoEl.muted = true;
+
+    if (videoEl.srcObject !== this._processedStream) {
+      videoEl.srcObject = this._processedStream;
+    }
+
+    try {
+      await videoEl.play();
+    } catch (e) {
+      // 忽略瞬時中斷，避免中斷整體流程
+    }
   }
 
   render() {

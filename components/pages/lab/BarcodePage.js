@@ -14,15 +14,28 @@ export class BarcodePage extends BaseComponent {
         : "不支援 (限 Chrome/Edge)",
     });
     this._scanLoop = null;
+    this._cameraStream = null;
+    this._isStartingScan = false;
+    this._resumeScanTimer = null;
+    this._onVisibilityChange = () => this._handleVisibilityChange();
   }
 
   async connectedCallback() {
     super.connectedCallback();
+    document.addEventListener("visibilitychange", this._onVisibilityChange);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    document.removeEventListener("visibilitychange", this._onVisibilityChange);
     this.stopScan();
+  }
+
+  update() {
+    super.update();
+    if (this.state.isScanning && this._cameraStream) {
+      this._syncScannerVideo();
+    }
   }
 
   async _requestCameraStream() {
@@ -55,7 +68,8 @@ export class BarcodePage extends BaseComponent {
   }
 
   async startScan() {
-    if (this.state.isScanning) return;
+    if (this.state.isScanning || this._isStartingScan) return;
+    this._isStartingScan = true;
 
     try {
       const video = this.querySelector("#scannerVideo");
@@ -63,32 +77,41 @@ export class BarcodePage extends BaseComponent {
 
       this.stopScan();
       const stream = await this._requestCameraStream();
-      video.setAttribute("playsinline", "");
-      video.setAttribute("autoplay", "");
-      video.muted = true;
-      video.srcObject = stream;
-      await video.play();
+      this._cameraStream = stream;
+      await this._syncScannerVideo();
 
       this.state.isScanning = true;
-      this._runDetection(video);
+      this._syncScannerVideo();
+      this._runDetection();
       notificationService.success("掃描器已啟動");
     } catch (err) {
       this.stopScan();
       notificationService.error(
         "無法啟動攝像頭: " + (err.message || "未知錯誤"),
       );
+    } finally {
+      this._isStartingScan = false;
     }
   }
 
   stopScan() {
+    if (this._resumeScanTimer) {
+      clearTimeout(this._resumeScanTimer);
+      this._resumeScanTimer = null;
+    }
+
     if (this._scanLoop) {
       cancelAnimationFrame(this._scanLoop);
       this._scanLoop = null;
     }
 
+    if (this._cameraStream) {
+      this._cameraStream.getTracks().forEach((t) => t.stop());
+      this._cameraStream = null;
+    }
+
     const video = this.querySelector("#scannerVideo");
-    if (video && video.srcObject) {
-      video.srcObject.getTracks().forEach((t) => t.stop());
+    if (video) {
       video.pause();
       video.srcObject = null;
     }
@@ -96,23 +119,86 @@ export class BarcodePage extends BaseComponent {
     this.state.isScanning = false;
   }
 
-  async _runDetection(video) {
+  _hasLiveCameraTrack() {
+    const track = this._cameraStream?.getVideoTracks?.()[0];
+    return !!track && track.readyState === "live" && track.enabled;
+  }
+
+  _handleVisibilityChange() {
     if (!this.state.isScanning) return;
+    if (document.visibilityState !== "visible") return;
+
+    if (this._resumeScanTimer) {
+      clearTimeout(this._resumeScanTimer);
+    }
+
+    this._resumeScanTimer = setTimeout(async () => {
+      this._resumeScanTimer = null;
+      if (!this.state.isScanning) return;
+
+      if (!this._hasLiveCameraTrack()) {
+        await this.startScan();
+        return;
+      }
+
+      await this._syncScannerVideo();
+    }, 120);
+  }
+
+  async _runDetection() {
+    if (!this.state.isScanning) return;
+    const video = this.querySelector("#scannerVideo");
+    if (!video) {
+      this._scanLoop = requestAnimationFrame(() => this._runDetection());
+      return;
+    }
 
     try {
       const barcodes = await barcodeService.detect(video);
       if (barcodes.length > 0) {
-        this.state.results = barcodes.map((b) => ({
+        const nextResults = barcodes.map((b) => ({
           rawValue: b.rawValue,
           format: b.format,
           timestamp: new Date().toLocaleTimeString(),
         }));
+
+        const currentFingerprint = this.state.results
+          .map((r) => `${r.format}:${r.rawValue}`)
+          .join("|");
+        const nextFingerprint = nextResults
+          .map((r) => `${r.format}:${r.rawValue}`)
+          .join("|");
+
+        if (currentFingerprint !== nextFingerprint) {
+          this.state.results = nextResults;
+          this._syncScannerVideo();
+        }
       }
     } catch (e) {
       // 忽略檢測過程中的暫時性錯誤
     }
 
-    this._scanLoop = requestAnimationFrame(() => this._runDetection(video));
+    this._scanLoop = requestAnimationFrame(() => this._runDetection());
+  }
+
+  async _syncScannerVideo() {
+    if (!this._cameraStream) return;
+    const video = this.querySelector("#scannerVideo");
+    if (!video) return;
+
+    video.setAttribute("playsinline", "");
+    video.setAttribute("autoplay", "");
+    video.muted = true;
+
+    if (video.srcObject !== this._cameraStream) {
+      video.srcObject = this._cameraStream;
+    }
+
+    try {
+      await video.play();
+    } catch (e) {
+      // 忽略短暫中斷，讓下一次 user gesture 或重新渲染再嘗試
+    }
   }
 
   render() {

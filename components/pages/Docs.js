@@ -82,6 +82,7 @@ export class Documentation extends BaseComponent {
       { id: "popover-api", title: "Popover API 原生彈出層" },
       { id: "eye-dropper", title: "EyeDropper API 原生取色" },
       { id: "web-locks", title: "Web Locks API 併發協調" },
+      { id: "screen-wake-lock", title: "Screen Wake Lock 保持喚醒" },
     ];
 
     return html`

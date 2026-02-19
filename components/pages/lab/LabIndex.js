@@ -38,6 +38,11 @@ export class LabIndex extends BaseComponent {
         title: "🔐 Web Locks API",
         desc: "跨流程互斥與非阻塞併發協調",
       },
+      {
+        id: "wakelock",
+        title: "💡 Wake Lock API",
+        desc: "保持螢幕常亮與前景恢復策略",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

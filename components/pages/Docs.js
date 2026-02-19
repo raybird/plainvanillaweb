@@ -76,7 +76,8 @@ export class Documentation extends BaseComponent {
             { id: 'web-serial', title: 'Web 序列通訊' },
             { id: 'reactive-forms', title: '原生響應式表單' },
             { id: 'crdt-sync', title: 'CRDT 數據同步' },
-            { id: 'web-nfc', title: 'Web NFC 近場通訊' }
+            { id: 'web-nfc', title: 'Web NFC 近場通訊' },
+            { id: 'barcode-detection', title: '原生掃碼辨識' }
         ];
 
         return html`

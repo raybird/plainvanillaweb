@@ -38,7 +38,8 @@ export class LabPage extends BaseComponent {
                 import('./lab/FormsPage.js'),
                 import('./lab/CollabPage.js'),
                 import('./lab/MediaPage.js'),
-                import('./lab/NFCPage.js')
+                import('./lab/NFCPage.js'),
+                import('./lab/BarcodePage.js')
             ]);
             
             // 載入完成後手動觸發一次渲染與更新
@@ -83,6 +84,7 @@ export class LabPage extends BaseComponent {
                     <x-route path="/lab/collab" exact><page-lab-collab></page-lab-collab></x-route>
                     <x-route path="/lab/media" exact><page-lab-media></page-lab-media></x-route>
                     <x-route path="/lab/nfc" exact><page-lab-nfc></page-lab-nfc></x-route>
+                    <x-route path="/lab/barcode" exact><page-lab-barcode></page-lab-barcode></x-route>
 
                     <!-- 通配符 fallback -->
                     <x-route path="/lab/*"><page-lab-index></page-lab-index></x-route>

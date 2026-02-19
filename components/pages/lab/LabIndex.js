@@ -7,13 +7,15 @@ export class LabIndex extends BaseComponent {
             { id: 'speech', title: '🗣️ 原生語音', desc: '文字轉語音與語音辨識實驗' },
             { id: 'webrtc', title: '📡 P2P 通訊', desc: 'WebRTC 無伺服器數據交換' },
             { id: 'crypto', title: '🔐 原生加密', desc: 'SubtleCrypto 高強度加解密' },
-            { id: 'wasm', title: '⚡ WebAssembly', desc: '高效能 C/Rust 模組運算' },
+            { id: 'wasm', title: '⚡ WebAssembly', desc: '高效能 C/Rust模組運算' },
             { id: 'serial', title: '🔌 序列通訊', desc: 'Web Serial 硬體存取實驗' },
             { id: 'forms', title: '📝 響應式表單', desc: '專業級表單驗證引擎展示' },
             { id: 'collab', title: '🤝 CRDT 協作', desc: '零衝突即時協作數據同步' },
             { id: 'media', title: '🎥 媒體擷取', desc: '螢幕錄製與即時影像處理' },
             { id: 'nfc', title: '📡 近場通訊', desc: 'Web NFC 標籤讀寫實驗' }
         ];
+
+        if (!experiments || !Array.isArray(experiments)) return '';
 
         return html`
             <style>

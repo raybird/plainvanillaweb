@@ -11,6 +11,10 @@ import { notificationService } from "./lib/notification-service.js"; // 引入�
 // 啟動網路監控
 networkMonitor.enable();
 
+// 預先加載核心頁面組件 (不阻塞啟動)
+import('./components/pages/Lab.js').catch(() => {});
+import('./components/pages/HomePage.js').catch(() => {});
+
 registerRoute();
 registerApp();
 

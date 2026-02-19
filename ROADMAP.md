@@ -45,6 +45,7 @@
 5. **原生數據可視化**：實作基於 SVG 的輕量級圖表引擎與 Dashboard 整合。
 6. **原生即時串流處理**：實作 Insertable Streams 濾鏡機制，展示高效能影像運算。
 7. **原生 Web Serial 整合**：實作序列通訊服務與終端機模擬介面。
+8. **原生響應式表單**：實作零相依的表單驗證引擎與 Lab 註冊範例。
 
 ## 🎁 自主開發 (Bonus Features)
 **AI Agent 主動識別並實作的高價值功能。**
@@ -68,3 +69,4 @@
 - [x] **原生圖表引擎 (SVG Charting)**：實作零相依的反應式動態圖表，展示 CSS 路徑過渡動畫。
 - [x] **原生即時串流處理 (Live Media Processing)**：利用 Insertable Streams 實現低延遲影像濾鏡，挑戰媒體處理性能邊界。
 - [x] **原生 Web Serial 整合**：支援與硬體裝置（如 Arduino）的直接序列埠通訊，擴展 IoT 應用場景。
+- [x] **原生響應式表單引擎**：實作具備狀態追蹤 (Touched/Dirty) 與非同步驗證的專業表單系統。

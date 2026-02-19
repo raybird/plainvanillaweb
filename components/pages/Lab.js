@@ -12,6 +12,7 @@ import { bluetoothService } from '../../lib/bluetooth-service.js';
 import { mediaService } from '../../lib/media-service.js';
 import { paymentService } from '../../lib/payment-service.js'; 
 import { compressionService } from '../../lib/compression-service.js';
+import { FormGroup, FormControl, Validators } from '../../lib/form-engine.js';
 import '../ui/Card.js';
 import '../ui/IsolatedCard.js';
 
@@ -55,13 +56,51 @@ export class LabPage extends BaseComponent {
             cartItems: [
                 { label: 'Vanilla JS 課程', amount: { currency: 'USD', value: '10.00' } },
                 { label: '進階 PWA 指南', amount: { currency: 'USD', value: '5.00' } }
-            ]
+            ],
+            // 新增：表單引擎狀態
+            registrationForm: {
+                username: { valid: true, pending: false, touched: false, errors: null },
+                email: { valid: true, touched: false, errors: null },
+                formValid: false
+            },
+            isProcessingStream: false,
+            currentFilter: 'none',
+            streamStatus: streamProcessorService.isSupported ? '支援' : '不支援',
+            // 新增：序列埠狀態
+            isSerialConnected: false,
+            serialLogs: [],
+            serialBaud: 9600,
+            serialInput: '',
+            serialStatus: serialService.isSupported ? '支援' : '不支援'
         });
+
+        // 初始化表單模型 (Model-driven)
+        this.form = new FormGroup({
+            username: new FormControl('', [Validators.required, Validators.minLen(3)], [
+                // 模擬非同步驗證：檢查使用者名稱是否重複
+                async (val) => {
+                    await new Promise(r => setTimeout(r, 1000));
+                    return val === 'admin' ? { duplicated: true } : null;
+                }
+            ]),
+            email: new FormControl('', [Validators.required, Validators.email]),
+            password: new FormControl('', [Validators.required, Validators.minLen(6)])
+        });
+
         this.videoRef = null;
     }
 
     connectedCallback() {
         super.connectedCallback();
+        
+        // 監聽表單狀態變動並更新組件 UI
+        this.form.on('status-change', (data) => {
+            this.state.registrationForm = {
+                username: this.form.controls.username.state,
+                email: this.form.controls.email.state,
+                formValid: data.valid
+            };
+        });
         
         speechService.on('result', (data) => { this.state.transcript = data.text; notificationService.success(`辨識結果: ${data.text}`); });
         webrtcService.on('message', (data) => { this.state.rtcMessages = [...this.state.rtcMessages, { side: 'remote', text: data }]; notificationService.info('收到 P2P 訊息'); });
@@ -267,6 +306,25 @@ export class LabPage extends BaseComponent {
         if (!this.state.serialInput) return;
         await serialService.write(this.state.serialInput + '\n');
         this.state.serialInput = '';
+    }
+
+    handleFormInput(field, value) {
+        this.form.controls[field].value = value;
+    }
+
+    submitForm() {
+        this.form.validateAll();
+        if (this.form.valid) {
+            notificationService.success('表單驗證成功！數據已準備好發送。');
+            console.log('[Form Success]', this.form.value);
+        } else {
+            notificationService.error('表單包含錯誤，請檢查紅框欄位。');
+        }
+    }
+
+    resetForm() {
+        // 簡單重置實作
+        window.location.reload();
     }
 
     render() {
@@ -550,9 +608,47 @@ export class LabPage extends BaseComponent {
                 </div>
             </div>
 
+            <h2 style="margin-top: 3rem;">📝 響應式表單 (Reactive Forms)</h2>
+            <div class="lab-card">
+                <p><small>基於模型驅動的驗證引擎，支援狀態追蹤與非同步檢查。</small></p>
+                
+                <div style="max-width: 400px; margin: 0 auto; text-align: left;">
+                    <div style="margin-bottom: 1rem;">
+                        <label>使用者名稱 (min 3 chars)</label>
+                        <input type="text" placeholder="輸入 admin 測試重複"
+                               style="border-color: ${this.state.registrationForm.username.invalid ? 'red' : '#ccc'}; margin-bottom: 5px;"
+                               oninput="this.closest('page-lab').handleFormInput('username', this.value)"
+                               onblur="this.closest('page-lab').form.controls.username.markAsTouched()">
+                        ${this.state.registrationForm.username.pending ? html`<div style="font-size: 0.7rem; color: #666;">⏳ 正在檢查唯一性...</div>` : ''}
+                        ${this.state.registrationForm.username.errors?.duplicated ? html`<div style="font-size: 0.7rem; color: red;">❌ 此名稱已被佔用</div>` : ''}
+                        ${this.state.registrationForm.username.errors?.minlen ? html`<div style="font-size: 0.7rem; color: red;">❌ 長度不足</div>` : ''}
+                    </div>
+
+                    <div style="margin-bottom: 1rem;">
+                        <label>電子郵件</label>
+                        <input type="email" placeholder="example@mail.com"
+                               style="border-color: ${this.state.registrationForm.email.invalid ? 'red' : '#ccc'}; margin-bottom: 5px;"
+                               oninput="this.closest('page-lab').handleFormInput('email', this.value)"
+                               onblur="this.closest('page-lab').form.controls.email.markAsTouched()">
+                        ${this.state.registrationForm.email.errors?.email ? html`<div style="font-size: 0.7rem; color: red;">❌ 格式不正確</div>` : ''}
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="this.closest('page-lab').submitForm()">送出註冊</button>
+                        <button class="btn btn-secondary" onclick="this.closest('page-lab').resetForm()">重置</button>
+                    </div>
+                    
+                    <div style="margin-top: 1rem; font-size: 0.8rem; color: ${this.state.registrationForm.formValid ? 'green' : '#666'};">
+                        ● 表單狀態: <strong>${this.state.registrationForm.formValid ? 'VALID' : 'INVALID'}</strong>
+                    </div>
+                </div>
+            </div>
+
             <section style="margin-top: 3rem; padding: 2rem; background: var(--nav-bg); border-radius: 12px;">
                 <h3>🎓 教學重點</h3>
                 <ul>
+                    <li><strong>Reactive Forms</strong>：模型驅動的表單驗證，支援 Dirty/Touched 狀態追蹤。</li>
+                    <li><strong>Async Validation</strong>：實作非同步的伺服器端唯一性檢查。</li>
                     <li><strong>Payment Request</strong>：標準化的瀏覽器原生結帳流程。</li>
                     <li><strong>Screen Capture</strong>：原生媒體串流擷取與錄製。</li>
                     <li><strong>Web Bluetooth</strong>：網頁與實體硬體 (BLE) 的直接通訊。</li>

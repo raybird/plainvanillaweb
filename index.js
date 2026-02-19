@@ -35,7 +35,14 @@ if ('serviceWorker' in navigator) {
                     const newWorker = reg.installing;
                     newWorker.addEventListener('statechange', () => {
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            notificationService.info("✨ 應用程式有新版本，請重新整理頁面以套用更新。");
+                            // 跨分頁防抖機制：利用 localStorage 確保 10 秒內只通知一次
+                            const lastUpdateNotify = localStorage.getItem('sw-update-notified-at');
+                            const now = Date.now();
+                            
+                            if (!lastUpdateNotify || (now - parseInt(lastUpdateNotify)) > 10000) {
+                                notificationService.info("✨ 應用程式有新版本，請重新整理頁面以套用更新。");
+                                localStorage.setItem('sw-update-notified-at', now.toString());
+                            }
                         }
                     });
                 });

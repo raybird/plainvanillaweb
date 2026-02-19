@@ -11,6 +11,7 @@ import { modalService } from '../../lib/modal-service.js';
 import { syncService } from '../../lib/sync-service.js';
 import { historyService } from '../../lib/history-service.js';
 import { storageService } from '../../lib/storage-service.js'; // 引入儲存服務
+import '../ui/NativeChart.js';
 
 export class Dashboard extends BaseComponent {
     constructor() {
@@ -29,7 +30,8 @@ export class Dashboard extends BaseComponent {
             syncQueueCount: 0,
             canUndo: false,
             canRedo: false,
-            storageMetrics: { usage: 0, quota: 0, percent: 0, persisted: false }
+            storageMetrics: { usage: 0, quota: 0, percent: 0, persisted: false },
+            liveData: [10, 20, 15, 30, 25, 40, 35, 50, 45, 60] // 新增：圖表即時數據
         });
         this.onWorkerDone = this.onResult.bind(this);
         this.onStoreChange = this.onStoreUpdate.bind(this);
@@ -71,6 +73,10 @@ export class Dashboard extends BaseComponent {
                 const used = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
                 this.state.memoryUsage = `${used} MB`;
             }
+
+            // 更新即時圖表數據 (平滑捲動模擬)
+            const newData = [...this.state.liveData.slice(1), Math.floor(Math.random() * 50) + 20];
+            this.state.liveData = newData;
         }, 2000);
     }
 
@@ -285,6 +291,16 @@ export class Dashboard extends BaseComponent {
                         <div class="perf-item"><strong>CLS:</strong> ${perfMetrics.cls.toFixed(3)}</div>
                         <div class="perf-item"><strong>Load:</strong> ${perfMetrics.loadTime}ms</div>
                     </div>
+                </div>
+
+                <!-- 即時監控圖表 (SVG) -->
+                <div class="card" style="grid-column: span 2;">
+                    <x-chart title="即時監控趨勢 (SVG Reactive)" 
+                             data="${JSON.stringify(this.state.liveData)}">
+                        <div slot="controls">
+                            <span class="status-badge success">LIVE</span>
+                        </div>
+                    </x-chart>
                 </div>
 
                 <!-- 運算狀態 -->

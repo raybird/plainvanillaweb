@@ -70,7 +70,8 @@ export class Documentation extends BaseComponent {
             { id: 'sdk-usage', title: 'Vanilla SDK 使用指南' },
             { id: 'web-bluetooth', title: 'Web 藍牙裝置通訊' },
             { id: 'payment-request', title: 'Web 原生支付整合' },
-            { id: 'media-capture', title: '螢幕錄製與串流' }
+            { id: 'media-capture', title: '螢幕錄製與串流' },
+            { id: 'native-visualization', title: '原生數據可視化' }
         ];
 
         return html`

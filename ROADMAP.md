@@ -42,6 +42,7 @@
 2. **WebRTC 穩定性增強**：內建 Google/Twilio STUN Server，優化 HTTPS 與 GitHub Pages 下的連線表現。
 3. **SDK 使用指南升級**：重寫 `docs/sdk-usage.md`，提供具備實戰價值的快速上手範例與 API 細節。
 4. **語音服務補全**：修復並導出 `speechService`，整合至全域 SDK 入口。
+5. **原生數據可視化**：實作基於 SVG 的輕量級圖表引擎與 Dashboard 整合。
 
 ## 🎁 自主開發 (Bonus Features)
 **AI Agent 主動識別並實作的高價值功能。**
@@ -62,3 +63,4 @@
 - [x] **原生螢幕錄製與串流**：實作 Screen Capture API 與 MediaRecorder 整合。
 - [x] **響應式設計與手機版面優化**：全面提升行動裝置的閱讀體驗與佈局彈性。
 - [x] **原生 Payment Request 整合**：實作標準化的瀏覽器原生結帳流程。
+- [x] **原生圖表引擎 (SVG Charting)**：實作零相依的反應式動態圖表，展示 CSS 路徑過渡動畫。

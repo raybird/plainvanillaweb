@@ -28,6 +28,11 @@ export class LabIndex extends BaseComponent {
         title: "🪟 Popover API",
         desc: "原生彈出層與宣告式互動",
       },
+      {
+        id: "eyedropper",
+        title: "🎨 EyeDropper API",
+        desc: "從畫面取色並建立主題色票",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

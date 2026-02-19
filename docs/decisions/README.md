@@ -74,3 +74,4 @@
 | [0067](./0067-barcode-detection-integration.md)  | 原生 Barcode Detection API 整合              | Accepted                        |
 | [0068](./0068-webauthn-integration.md)           | 原生 WebAuthn 生物辨識支援                   | Accepted                        |
 | [0069](./0069-popover-api-integration.md)        | 原生 Popover API 互動層                      | Accepted                        |
+| [0070](./0070-eye-dropper-integration.md)        | 原生 EyeDropper API 取色體驗                 | Accepted                        |

@@ -80,6 +80,7 @@ export class Documentation extends BaseComponent {
       { id: "barcode-detection", title: "原生掃碼辨識" },
       { id: "webauthn", title: "原生生物辨識驗證" },
       { id: "popover-api", title: "Popover API 原生彈出層" },
+      { id: "eye-dropper", title: "EyeDropper API 原生取色" },
     ];
 
     return html`

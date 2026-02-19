@@ -88,3 +88,4 @@ _最後更新：2026-02-19 (By TeleNexus Orchestrator)_
 - [x] **原生掃碼與視覺辨識**：利用 Barcode Detection API 實作高效能、零相依的條碼與 QR 碼辨識。
 - [x] **原生生物辨識整合**：利用 WebAuthn API 實作基於硬體（FaceID/TouchID）的身分驗證流程。
 - [x] **原生 Popover API 互動層**：以宣告式與程式式雙模式實作輕量彈出層體驗。
+- [x] **原生 EyeDropper API 取色體驗**：以零相依方式實作畫面取色與主題色票預覽流程。

@@ -18,6 +18,7 @@ export class MediaPage extends BaseComponent {
     this._isStartingStream = false;
     this._resumeStreamTimer = null;
     this._onVisibilityChange = () => this._handleVisibilityChange();
+    this._onInputTrackEnded = () => this._recoverLiveStream();
   }
 
   connectedCallback() {
@@ -79,16 +80,28 @@ export class MediaPage extends BaseComponent {
     try {
       const stream = await this._requestCameraStream();
       this._inputStream = stream;
+      this._bindInputTrackLifecycle();
 
-      const videoTrack = stream.getVideoTracks()[0];
-      const transformer = streamProcessorService.createCanvasTransformer(
-        this.state.currentFilter,
-      );
-      const processedStream = streamProcessorService.process(
-        videoTrack,
-        transformer,
-      );
-      this._processedStream = processedStream;
+      let outputStream = stream;
+      try {
+        if (streamProcessorService.isSupported) {
+          const videoTrack = stream.getVideoTracks()[0];
+          const transformer = streamProcessorService.createCanvasTransformer(
+            this.state.currentFilter,
+          );
+          outputStream = streamProcessorService.process(
+            videoTrack,
+            transformer,
+          );
+        } else {
+          notificationService.warn("目前瀏覽器不支援即時濾鏡，已切換原始預覽");
+        }
+      } catch (processErr) {
+        outputStream = stream;
+        notificationService.warn("即時濾鏡初始化失敗，已切換原始預覽");
+      }
+
+      this._processedStream = outputStream;
 
       const videoEl = this.querySelector("#processedVideo");
       if (videoEl) {
@@ -112,6 +125,7 @@ export class MediaPage extends BaseComponent {
     }
 
     streamProcessorService.stop();
+    this._unbindInputTrackLifecycle();
     [this._processedStream, this._inputStream].forEach((stream) => {
       stream?.getTracks().forEach((track) => track.stop());
     });
@@ -130,6 +144,24 @@ export class MediaPage extends BaseComponent {
   _hasLiveInputTrack() {
     const track = this._inputStream?.getVideoTracks?.()[0];
     return !!track && track.readyState === "live" && track.enabled;
+  }
+
+  _bindInputTrackLifecycle() {
+    const track = this._inputStream?.getVideoTracks?.()[0];
+    if (!track) return;
+    track.removeEventListener("ended", this._onInputTrackEnded);
+    track.addEventListener("ended", this._onInputTrackEnded);
+  }
+
+  _unbindInputTrackLifecycle() {
+    const track = this._inputStream?.getVideoTracks?.()[0];
+    track?.removeEventListener("ended", this._onInputTrackEnded);
+  }
+
+  async _recoverLiveStream() {
+    if (!this.state.isProcessingStream) return;
+    this.stopLiveStream();
+    await this.toggleLiveFilter();
   }
 
   _handleVisibilityChange() {

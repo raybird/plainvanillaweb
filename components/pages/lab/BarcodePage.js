@@ -18,6 +18,7 @@ export class BarcodePage extends BaseComponent {
     this._isStartingScan = false;
     this._resumeScanTimer = null;
     this._onVisibilityChange = () => this._handleVisibilityChange();
+    this._onCameraTrackEnded = () => this._recoverScannerStream();
   }
 
   async connectedCallback() {
@@ -78,6 +79,7 @@ export class BarcodePage extends BaseComponent {
       this.stopScan();
       const stream = await this._requestCameraStream();
       this._cameraStream = stream;
+      this._bindCameraTrackLifecycle();
       await this._syncScannerVideo();
 
       this.state.isScanning = true;
@@ -106,6 +108,7 @@ export class BarcodePage extends BaseComponent {
     }
 
     if (this._cameraStream) {
+      this._unbindCameraTrackLifecycle();
       this._cameraStream.getTracks().forEach((t) => t.stop());
       this._cameraStream = null;
     }
@@ -122,6 +125,24 @@ export class BarcodePage extends BaseComponent {
   _hasLiveCameraTrack() {
     const track = this._cameraStream?.getVideoTracks?.()[0];
     return !!track && track.readyState === "live" && track.enabled;
+  }
+
+  _bindCameraTrackLifecycle() {
+    const track = this._cameraStream?.getVideoTracks?.()[0];
+    if (!track) return;
+    track.removeEventListener("ended", this._onCameraTrackEnded);
+    track.addEventListener("ended", this._onCameraTrackEnded);
+  }
+
+  _unbindCameraTrackLifecycle() {
+    const track = this._cameraStream?.getVideoTracks?.()[0];
+    track?.removeEventListener("ended", this._onCameraTrackEnded);
+  }
+
+  async _recoverScannerStream() {
+    if (!this.state.isScanning) return;
+    this.stopScan();
+    await this.startScan();
   }
 
   _handleVisibilityChange() {
@@ -147,6 +168,7 @@ export class BarcodePage extends BaseComponent {
 
   async _runDetection() {
     if (!this.state.isScanning) return;
+    if (!barcodeService.isSupported) return;
     const video = this.querySelector("#scannerVideo");
     if (!video) {
       this._scanLoop = requestAnimationFrame(() => this._runDetection());

@@ -45,6 +45,7 @@ export class LabPage extends BaseComponent {
         import("./lab/BarcodePage.js"),
         import("./lab/WebAuthnPage.js"),
         import("./lab/PopoverPage.js"),
+        import("./lab/EyeDropperPage.js"),
       ]);
 
       // 載入完成後手動觸發一次渲染與更新
@@ -123,6 +124,9 @@ export class LabPage extends BaseComponent {
           ></x-route>
           <x-route path="/lab/popover" exact
             ><page-lab-popover></page-lab-popover
+          ></x-route>
+          <x-route path="/lab/eyedropper" exact
+            ><page-lab-eyedropper></page-lab-eyedropper
           ></x-route>
 
           <!-- 通配符 fallback -->

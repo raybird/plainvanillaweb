@@ -1,118 +1,65 @@
-# 🍦 Vanilla SDK 實戰指南
+# 🍦 Vanilla SDK: 工業級原生 Web API 快速上手
 
-本 SDK 旨在將瀏覽器原生的強大能力（如加密、P2P、檔案系統）封裝為零相依、即插即用的模組。您無需安裝 Node.js，無需 Webpack，只需一個 URL 即可賦予您的網頁工業級能力。
+`VanillaSDK` 是本專案的核心成果，它將分散的瀏覽器 API 聚合為一組強大、一致且型別安全的工業級服務。
 
-## 🚀 1. 極速上手 (CDN 模式)
+## 🚀 快速開始 (Quick Start)
 
-您可以選擇兩種方式引入 SDK：
-
-### A. 按需引入 (Named Import) - 推薦
-只引入您需要的模組，清楚且高效。
-
-```html
-<script type="module">
-    import { cryptoService, notificationService } from 'https://raybird.github.io/plainvanillaweb/lib/vanilla-sdk.js';
-
-    // 注意：cryptoService 是一個物件實例，請呼叫其方法
-    const text = "Hello Vanilla SDK";
-    const hash = await cryptoService.sha256(text);
-    
-    notificationService.success(`SHA-256: ${hash.slice(0, 8)}...`);
-</script>
-```
-
-### B. 完整引入 (Default Import)
-一次獲取所有功能，適合快速原型開發。
-
-```html
-<script type="module">
-    import VanillaSDK from 'https://raybird.github.io/plainvanillaweb/lib/vanilla-sdk.js';
-
-    // 所有服務都掛載在 VanillaSDK 物件下
-    await VanillaSDK.webrtc.createOffer();
-</script>
-```
-
-## 🛠 2. 實戰場景範例
-
-### 場景 A：安全資料傳輸 (Crypto + Compression)
-將敏感數據先壓縮、再加密，最後轉為 Base64 方便傳輸。
+無需任何建置工具，直接引用 ESM 模組即可開始使用。
 
 ```javascript
-import { cryptoService, compressionService } from '.../vanilla-sdk.js';
+import { VanillaSDK } from 'https://raybird.github.io/plainvanillaweb/lib/vanilla-sdk.js';
 
-async function securePackage(dataString, password) {
-    // 1. 壓縮數據 (String -> Gzip Stream -> Blob)
-    const stream = new Blob([dataString]).stream();
-    const compressedStream = stream.pipeThrough(new CompressionStream('gzip'));
-    const compressedBlob = await new Response(compressedStream).blob();
-    
-    // 2. 加密數據 (Blob -> ArrayBuffer -> Encrypted)
-    const buffer = await compressedBlob.arrayBuffer();
-    // 注意：cryptoService 目前接受字串，若需處理二進位需使用底層 encryptBuffer (若有實作)
-    // 這裡示範字串加密流程：
-    const encrypted = await cryptoService.encrypt(dataString, password);
-    
-    return encrypted; // { ciphertext, iv, salt }
-}
+// 1. 初始化 SDK (自動配置 WebRTC 與 國際化)
+const sdk = await VanillaSDK.init();
+
+// 2. 立即使用：原生通知
+sdk.notification.success('Vanilla SDK 已就緒！');
+
+// 3. 立即使用：原生語音 (TTS)
+sdk.speech.speak('歡迎使用 Vanilla 原生開發模式。');
 ```
 
-### 場景 B：無伺服器 P2P 聊天 (WebRTC)
-兩瀏覽器間直接連線，不經過後端資料庫。
+## 💎 核心服務範例 (Core Services)
+
+### 📡 1. P2P 通訊 (WebRTC)
+支援無伺服器數據交換，內建穩定 STUN Server。
 
 ```javascript
-import { webrtcService } from '.../vanilla-sdk.js';
+// A 方：發起者
+const offer = await sdk.webrtc.createOffer();
+console.log('請將此 SDP 傳給 B 方:', JSON.stringify(offer));
 
-// 發起端 (Alice)
-const offer = await webrtcService.createOffer();
-console.log("請將此 SDP 傳給 Bob:", JSON.stringify(offer));
+// B 方：接收者
+const answer = await sdk.webrtc.createAnswer(offerSdp);
+console.log('請將此 Answer 傳回 A 方:', JSON.stringify(answer));
 
-// 接收端 (Bob)
-await webrtcService.createAnswer(offer);
-
-// 雙方連線後
-webrtcService.on('message', msg => console.log("收到:", msg));
-webrtcService.send("嗨！這是 P2P 訊息");
+// 雙方：傳送訊息
+sdk.webrtc.send('Hello from Vanilla SDK!');
+sdk.webrtc.on('message', (data) => console.log('收到訊息:', data));
 ```
 
-### 場景 C：本地檔案編輯器 (File System)
-直接讀寫使用者硬碟中的檔案，像原生 App 一樣。
+### 🔐 2. 資料安全性 (Crypto)
+高強度 AES-GCM 加解密與雜湊。
 
 ```javascript
-import { fileSystemService } from '.../vanilla-sdk.js';
-
-document.querySelector('#openBtn').onclick = async () => {
-    // 1. 選擇目錄
-    const handle = await fileSystemService.showDirectoryPicker();
-    
-    // 2. 讀取檔案列表
-    const files = await fileSystemService.readDirectory(handle);
-    console.log("檔案清單:", files);
-    
-    // 3. 讀取特定檔案
-    const content = await fileSystemService.readFile(handle, 'README.md');
-    document.querySelector('textarea').value = content;
-};
+const pass = 'my-secret-key';
+const encrypted = await sdk.crypto.encrypt('機密資料', pass);
+const decrypted = await sdk.crypto.decrypt(encrypted, pass);
+console.log('還原資料:', decrypted);
 ```
 
-## 📚 3. 核心 API 速查
+### 🗜️ 3. 數據壓縮 (Compression)
+利用瀏覽器原生 Gzip 串流進行高效壓縮。
 
-| 服務 | 方法 | 參數 | 回傳 |
-|------|------|------|------|
-| **Crypto** | `encrypt` | `(text, password)` | `{ ciphertext, iv, salt }` |
-| | `decrypt` | `(ciphertext, iv, password)` | `string` (明文) |
-| **Speech** | `speak` | `(text, lang?)` | - (語音輸出) |
-| | `startListening` | `(lang?)` | - (發布 `result` 事件) |
-| **WebRTC** | `createOffer` | - | `RTCSessionDescription` |
-| | `send` | `(data)` | - |
-| **FileSystem** | `readFile` | `(handle, fileName)` | `string` |
-| **WebGPU** | `computeDouble` | `(float32Array)` | `Float32Array` |
-| **Bluetooth** | `requestDevice` | `(options?)` | `BluetoothDevice` |
-| **Payment** | `showPayment` | `(methods, details)` | `Promise<PaymentResponse>` |
-| **Media** | `startScreenShare` | - | `MediaStream` |
-| **PWA** | `install` | - | `Promise<'accepted'|'dismissed'>` |
-| **Share** | `share` | `{ title, text, url }` | `boolean` (成功與否) |
+```javascript
+const longText = '...'.repeat(100);
+const compressed = await sdk.compression.compress(longText);
+console.log(`壓縮率: ${Math.round((compressed.length / longText.length) * 100)}%`);
+```
 
+## 🛠️ 開發建議
+- **型別提示**：在支援 JSDoc 的編輯器（如 VS Code）中，您將能看到完整的 API 自動補全。
+- **環境要求**：大多數功能（如 Crypto, WebRTC, Bluetooth）要求在 **HTTPS** 或 **localhost** 安全上下文下執行。
 
 ---
-*更多詳細實作請參考專案源碼 `lib/` 目錄。*
+*文件版本：v1.0.0 (2026-02-19)*

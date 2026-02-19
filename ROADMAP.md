@@ -36,11 +36,12 @@
 ---
 *最後更新：2026-02-18 (By TeleNexus Orchestrator)*
 
-## 🎉 專案里程碑達成 (2026/02/17)
-所有規劃之基礎架構與範例皆已實作完成。本專案現已進入長期維護與生態推廣階段。
-1. **核心架構**：BaseService / BaseComponent / Store (Observer Pattern)。
-2. **高效能模組**：Web Workers / IndexedDB Caching / Virtual List / Image Processing.
-3. **開發工具**：Sync Script / Scaffolding CLI / Interactive Dashboard / Analytics Hub / Speech Lab / Code Playground.
+## 🎉 專案里程碑達成 (2026/02/19)
+本專案已完成從「範例集合」向「工業級 SDK」的全面轉型。
+1. **Vanilla SDK v1.0.0**：重構 `VanillaSDK` 入口，提供單例化、自動配置與完整的 JSDoc 型別提示。
+2. **WebRTC 穩定性增強**：內建 Google/Twilio STUN Server，優化 HTTPS 與 GitHub Pages 下的連線表現。
+3. **SDK 使用指南升級**：重寫 `docs/sdk-usage.md`，提供具備實戰價值的快速上手範例與 API 細節。
+4. **語音服務補全**：修復並導出 `speechService`，整合至全域 SDK 入口。
 
 ## 🎁 自主開發 (Bonus Features)
 **AI Agent 主動識別並實作的高價值功能。**

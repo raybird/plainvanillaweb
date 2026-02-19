@@ -77,7 +77,8 @@ export class Documentation extends BaseComponent {
             { id: 'reactive-forms', title: '原生響應式表單' },
             { id: 'crdt-sync', title: 'CRDT 數據同步' },
             { id: 'web-nfc', title: 'Web NFC 近場通訊' },
-            { id: 'barcode-detection', title: '原生掃碼辨識' }
+            { id: 'barcode-detection', title: '原生掃碼辨識' },
+            { id: 'webauthn', title: '原生生物辨識驗證' }
         ];
 
         return html`

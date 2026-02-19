@@ -4,10 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Plain Vanilla Web Demo</title>
+    <script>
+        window.__LAB_DEBUG__ = { errors: [], logs: [] };
+        const originalError = console.error;
+        console.error = (...args) => {
+            window.__LAB_DEBUG__.errors.push(args.join(' '));
+            originalError.apply(console, args);
+        };
+        window.addEventListener('error', (e) => {
+            window.__LAB_DEBUG__.errors.push(`${e.message} at ${e.filename}:${e.lineno}`);
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+            window.__LAB_DEBUG__.errors.push(`Unhandled Rejection: ${e.reason}`);
+        });
+    </script>
     <!-- 使用相對路徑載入 CSS -->
+
     <link rel="stylesheet" href="./index.css">
     <!-- 使用相對路徑載入 JS -->
-    <script type="module" src="./index.js?v=202602190730" defer></script>
+    <script type="module" src="./index.js?v=202602190800" defer></script>
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
     <!-- PWA Manifest -->

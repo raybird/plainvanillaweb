@@ -27,12 +27,18 @@ export class App extends BaseComponent {
         themeService.init();
         authService.addEventListener('auth-change', this._handleAuthChange);
         prefetchService.observeLinks(this);
+        
+        // 監聽 hash 變化以更新側邊欄 Active 狀態
+        this._handleHashChange = () => this.update();
+        window.addEventListener('hashchange', this._handleHashChange);
+
         if (!i18n.isInitialized) await i18n.init();
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
         authService.removeEventListener('auth-change', this._handleAuthChange);
+        window.removeEventListener('hashchange', this._handleHashChange);
     }
 
     toggleMenu() {
@@ -56,81 +62,91 @@ export class App extends BaseComponent {
         }[currentTheme];
 
         const { isAuthenticated, user } = authService;
+        const currentHash = window.location.hash || '#/';
 
-        // 定義導覽連結 (方便重複使用)
-        const navLinks = html`
-            <a href="#/" class="nav-link" onclick="this.closest('x-app').closeMenu()" onmouseover="prefetchService.preloadModule('./components/pages/HomePage.js')">${t('app.home')}</a>
-            <a href="#/search" class="nav-link" onclick="this.closest('x-app').closeMenu()" onmouseover="prefetchService.preloadModule('./components/pages/RepoSearch.js')">${t('app.search')}</a>
-            <a href="#/worker" class="nav-link" onclick="this.closest('x-app').closeMenu()" onmouseover="prefetchService.preloadModule('./components/pages/WorkerDemo.js')">${t('app.worker')}</a>
-            <a href="#/profile" class="nav-link" onclick="this.closest('x-app').closeMenu()" onmouseover="prefetchService.preloadModule('./components/pages/Profile.js')">${t('app.profile')}</a>
-            <a href="#/docs" class="nav-link" onclick="this.closest('x-app').closeMenu()" onmouseover="prefetchService.preloadModule('./components/pages/Docs.js')">${t('app.docs')}</a>
-            <a href="#/analytics" class="nav-link" onclick="this.closest('x-app').closeMenu()" onmouseover="prefetchService.preloadModule('./components/pages/Analytics.js')">${t('app.analytics')}</a>
-            <a href="#/lab" class="nav-link" onclick="this.closest('x-app').closeMenu()" onmouseover="prefetchService.preloadModule('./components/pages/Lab.js')">${t('app.lab')}</a>
-            <a href="#/playground" class="nav-link" onclick="this.closest('x-app').closeMenu()" onmouseover="prefetchService.preloadModule('./components/pages/Playground.js')">${t('app.playground')}</a>
-            <a href="#/dashboard" class="nav-link" onclick="this.closest('x-app').closeMenu()" onmouseover="prefetchService.preloadModule('./components/pages/Dashboard.js')">${t('app.dashboard')}</a>
-        `;
+        // 定義導覽連結 (包含圖示與 Active 狀態偵測)
+        const navLinks = [
+            { href: '#/', label: t('app.home'), icon: '🏠', module: './components/pages/HomePage.js' },
+            { href: '#/dashboard', label: t('app.dashboard'), icon: '📊', module: './components/pages/Dashboard.js' },
+            { href: '#/search', label: t('app.search'), icon: '🔍', module: './components/pages/RepoSearch.js' },
+            { href: '#/worker', label: t('app.worker'), icon: '⚡', module: './components/pages/WorkerDemo.js' },
+            { href: '#/docs', label: t('app.docs'), icon: '📚', module: './components/pages/Docs.js' },
+            { href: '#/analytics', label: t('app.analytics'), icon: '📈', module: './components/pages/Analytics.js' },
+            { href: '#/lab', label: t('app.lab'), icon: '🧪', module: './components/pages/Lab.js' },
+            { href: '#/playground', label: t('app.playground'), icon: '🎡', module: './components/pages/Playground.js' },
+            { href: '#/profile', label: t('app.profile'), icon: '👤', module: './components/pages/Profile.js' },
+        ].map(link => html`
+            <a href="${link.href}" 
+               class="nav-link ${currentHash === link.href ? 'active' : ''}" 
+               onclick="this.closest('x-app').closeMenu()" 
+               onmouseover="prefetchService.preloadModule('${link.module}')">
+               <span>${link.icon}</span> ${link.label}
+            </a>
+        `);
 
         return html`
-            <a href="#main-content" class="skip-link" style="position: absolute; top: -40px; left: 0; background: var(--primary-color); color: white; padding: 0.5rem; z-index: 100; transition: top 0.3s;">
-                ${t('Skip to Content')}
-            </a>
+            <div class="app-container">
+                <a href="#main-content" class="skip-link" style="position: absolute; top: -40px; left: 0; background: var(--primary-color); color: white; padding: 0.5rem; z-index: 2000; transition: top 0.3s;">
+                    ${t('Skip to Content')}
+                </a>
 
-            <app-modal></app-modal>
-            <app-notification></app-notification>
-            
-            <nav class="navbar">
-                <div class="nav-brand">
-                    <a href="#/" class="brand-link" onclick="this.closest('x-app').closeMenu()">🍦 VanillaWeb</a>
-                </div>
-
-                <!-- 漢堡選單按鈕 (手機版顯示) -->
+                <app-modal></app-modal>
+                <app-notification></app-notification>
+                
+                <!-- 手機版漢堡按鈕 -->
                 <button class="hamburger-btn" aria-label="Toggle Menu" onclick="this.closest('x-app').toggleMenu()">
-                    <span class="bar"></span>
-                    <span class="bar"></span>
-                    <span class="bar"></span>
+                    <span style="font-size: 1.2rem;">${this.state.isMenuOpen ? '✕' : '☰'}</span>
                 </button>
 
-                <!-- 桌面選單 (大螢幕顯示) -->
-                <div class="nav-menu desktop-menu">
-                    ${navLinks}
-                </div>
+                <!-- 手機版遮罩層 -->
+                <div class="menu-overlay ${this.state.isMenuOpen ? 'open' : ''}" onclick="this.closest('x-app').closeMenu()"></div>
 
-                <!-- 右側控制區 -->
-                <div class="nav-controls">
-                    ${isAuthenticated ? html`
-                        <span class="user-greeting">Hi, <strong>${user.username}</strong></span>
-                        <button id="logout-btn" class="control-btn">登出</button>
-                    ` : html`
-                        <a href="#/login" class="login-link" onclick="this.closest('x-app').closeMenu()">登入</a>
-                    `}
-                    <div class="divider"></div>
-                    <button id="lang-toggle" data-lang="${nextLang}" class="control-btn" aria-label="Switch Language">${currentLang}</button>
-                    <button id="theme-toggle" class="control-btn" aria-label="Switch Theme">${themeLabel}</button>
-                </div>
-            </nav>
+                <!-- 側邊欄 (Sidebar) -->
+                <nav class="navbar ${this.state.isMenuOpen ? 'open' : ''}">
+                    <div class="nav-brand">
+                        <a href="#/" class="brand-link" onclick="this.closest('x-app').closeMenu()">🍦 VanillaWeb</a>
+                    </div>
 
-            <!-- 手機版下拉選單 (小螢幕且開啟時顯示) -->
-            <div class="mobile-menu ${this.state.isMenuOpen ? 'open' : ''}">
-                ${navLinks}
+                    <div class="nav-menu">
+                        ${navLinks}
+                    </div>
+
+                    <!-- 底部控制區 -->
+                    <div class="nav-controls">
+                        <div class="user-info">
+                            ${isAuthenticated ? html`
+                                <span class="user-greeting">Hi, <strong>${user.username}</strong></span>
+                                <button id="logout-btn" class="control-btn" style="color: #dc3545; border-color: #dc3545;">登出</button>
+                            ` : html`
+                                <a href="#/login" class="login-link btn btn-primary" style="min-height: 36px;" onclick="this.closest('x-app').closeMenu()">登入</a>
+                            `}
+                        </div>
+                        <div class="control-group">
+                            <button id="lang-toggle" data-lang="${nextLang}" class="control-btn" aria-label="Switch Language">${currentLang}</button>
+                            <button id="theme-toggle" class="control-btn" aria-label="Switch Theme">${themeLabel}</button>
+                        </div>
+                    </div>
+                </nav>
+
+                <!-- 主內容區 -->
+                <main id="main-content" tabindex="-1">
+                    <x-switch>
+                        <x-route path="/" exact module="./components/pages/HomePage.js" meta-title="app.home" meta-desc="home.desc"><page-home></page-home></x-route>
+                        <x-route path="/search" exact module="./components/pages/RepoSearch.js" meta-title="app.search"><page-repo-search></page-repo-search></x-route>
+                        <x-route path="/worker" exact module="./components/pages/WorkerDemo.js" meta-title="app.worker"><page-worker-demo></page-worker-demo></x-route>
+                        <x-route path="/profile" exact auth-required module="./components/pages/Profile.js" meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>
+                        <x-route path="/analytics" auth-required module="./components/pages/Analytics.js" meta-title="app.analytics"><page-analytics></page-analytics></x-route>
+                        <x-route path="/docs" module="./components/pages/Docs.js" meta-title="app.docs"><page-docs></page-docs></x-route>
+                        <x-route path="/lab" module="./components/pages/Lab.js" meta-title="app.lab"><page-lab></page-lab></x-route>
+                        <x-route path="/playground" module="./components/pages/Playground.js" meta-title="app.playground"><page-playground></page-playground></x-route>
+                        <x-route path="/dashboard" exact module="./components/pages/Dashboard.js" meta-title="app.dashboard"><page-dashboard></page-dashboard></x-route>
+                        <x-route path="/login" module="./components/pages/Login.js" meta-title="登入系統"><page-login></page-login></x-route>
+                        <x-route path="*"><h1>404</h1><p>Page Not Found</p></x-route>
+                    </x-switch>
+                    
+                    <app-footer></app-footer>
+                </main>
             </div>
-
-            <main id="main-content" style="min-height: 60vh; outline: none; padding-top: 1rem;" tabindex="-1">
-                <x-switch>
-                    <x-route path="/" exact module="./components/pages/HomePage.js" meta-title="app.home" meta-desc="home.desc"><page-home></page-home></x-route>
-                    <x-route path="/search" exact module="./components/pages/RepoSearch.js" meta-title="app.search"><page-repo-search></page-repo-search></x-route>
-                    <x-route path="/worker" exact module="./components/pages/WorkerDemo.js" meta-title="app.worker"><page-worker-demo></page-worker-demo></x-route>
-                    <x-route path="/profile" exact auth-required module="./components/pages/Profile.js" meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>
-                    <x-route path="/analytics" auth-required module="./components/pages/Analytics.js" meta-title="app.analytics"><page-analytics></page-analytics></x-route>
-                    <x-route path="/docs" module="./components/pages/Docs.js" meta-title="app.docs"><page-docs></page-docs></x-route>
-                    <x-route path="/lab" module="./components/pages/Lab.js" meta-title="app.lab"><page-lab></page-lab></x-route>
-                    <x-route path="/playground" module="./components/pages/Playground.js" meta-title="app.playground"><page-playground></page-playground></x-route>
-                    <x-route path="/dashboard" exact module="./components/pages/Dashboard.js" meta-title="app.dashboard"><page-dashboard></page-dashboard></x-route>
-                    <x-route path="/login" module="./components/pages/Login.js" meta-title="登入系統"><page-login></page-login></x-route>
-                    <x-route path="*"><h1>404</h1><p>Page Not Found</p></x-route>
-                </x-switch>
-            </main>
-            
-            <app-footer></app-footer>
         `;
     }
 

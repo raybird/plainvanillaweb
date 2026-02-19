@@ -13,6 +13,7 @@ import { mediaService } from '../../lib/media-service.js';
 import { paymentService } from '../../lib/payment-service.js'; 
 import { compressionService } from '../../lib/compression-service.js';
 import '../ui/Card.js';
+import '../ui/IsolatedCard.js';
 
 export class LabPage extends BaseComponent {
     constructor() {
@@ -389,13 +390,44 @@ export class LabPage extends BaseComponent {
                 </div>
             </div>
 
+            <h2 style="margin-top: 3rem;">🧩 元件封裝 (Shadow DOM Encapsulation)</h2>
+            <div class="lab-grid">
+                <div class="lab-card">
+                    <h3>🛡️ 樣式隔離示範</h3>
+                    <p><small>左側為啟用了 Shadow DOM 的組件，右側為一般的 Light DOM 組件。注意它們如何處理 <code>.title</code> 樣式衝突。</small></p>
+                    
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <!-- Shadow DOM 組件 -->
+                        <div style="flex: 1; min-width: 250px;">
+                            <p><strong>Isolated (Shadow)</strong></p>
+                            <x-isolated-card title="隔離的標題">
+                                這段文字位在 Shadow DOM 內部，其樣式完全獨立。
+                                <div slot="footer">📍 狀態：樣式受保護</div>
+                            </x-isolated-card>
+                        </div>
+
+                        <!-- Light DOM 組件範例 -->
+                        <div style="flex: 1; min-width: 250px; border: 2px solid #ddd; border-radius: 12px; padding: 1.5rem;">
+                            <p><strong>Standard (Light)</strong></p>
+                            <div class="title">普通的標題</div>
+                            <div class="content">
+                                這段文字會受到全域 CSS 影響。
+                                <div style="margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid #ddd; font-size: 0.8rem; color: #666;">
+                                    📍 狀態：無隔離
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <section style="margin-top: 3rem; padding: 2rem; background: var(--nav-bg); border-radius: 12px;">
                 <h3>🎓 教學重點</h3>
                 <ul>
                     <li><strong>Payment Request</strong>：標準化的瀏覽器原生結帳流程。</li>
                     <li><strong>Screen Capture</strong>：原生媒體串流擷取與錄製。</li>
                     <li><strong>Web Bluetooth</strong>：網頁與實體硬體 (BLE) 的直接通訊。</li>
-                    <li><strong>Compression Streams</strong>：高效的前端數據壓縮。</li>
+                    <li><strong>Shadow DOM</strong>：實現組件樣式與結構的真正物理隔離。</li>
                 </ul>
             </section>
         `;

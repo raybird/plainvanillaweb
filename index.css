@@ -27,118 +27,164 @@ body {
     transition: background-color 0.3s, color 0.3s;
 }
 
-/* 導覽列優化 (Responsive Navbar) */
-.navbar {
-    background: var(--nav-bg);
-    padding: 0.8rem 1rem;
-    border-radius: var(--border-radius);
-    margin-bottom: 1rem;
+/* 佈局容器 */
+.app-container {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: relative;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    min-height: 100vh;
+    flex-direction: row;
 }
 
-.nav-brand { font-size: 1.2rem; font-weight: bold; }
-.brand-link { color: var(--primary-color); text-decoration: none; }
+/* 側邊欄優化 (Sidebar) */
+.navbar {
+    width: 260px;
+    height: 100vh;
+    background: var(--nav-bg);
+    padding: 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    top: 0;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+    z-index: 1000;
+    border-radius: 0; /* 側邊欄不需要圓角 */
+    margin-bottom: 0;
+    transition: transform 0.3s ease;
+}
+
+.nav-brand { 
+    font-size: 1.4rem; 
+    font-weight: bold; 
+    margin-bottom: 2rem;
+    padding: 0 0.6rem;
+}
 
 .nav-menu {
     display: flex;
-    gap: 1rem;
-    align-items: center;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .nav-link {
     color: var(--text-color);
     text-decoration: none;
-    padding: 0.4rem 0.6rem;
-    border-radius: 4px;
-    font-size: 0.95rem;
-    transition: background-color 0.2s;
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
 }
-.nav-link:hover { background-color: rgba(0,0,0,0.05); text-decoration: none; }
+
+.nav-link:hover { 
+    background-color: rgba(0,123,255,0.1); 
+    color: var(--primary-color);
+    text-decoration: none; 
+}
+
+/* 啟動狀態樣式 */
+.nav-link.active {
+    background-color: var(--primary-color);
+    color: white;
+}
 
 .nav-controls {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.user-info {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.control-group {
+    display: flex;
     gap: 0.5rem;
 }
 
 .control-btn {
-    background: none;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 2px 8px;
+    flex: 1;
+    background: var(--bg-color);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 8px;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 主內容區偏移 */
+main#main-content {
+    flex: 1;
+    margin-left: 260px;
+    padding: 2rem;
+    max-width: calc(100vw - 260px);
+    transition: margin-left 0.3s ease;
 }
 
 .hamburger-btn {
     display: none;
-    flex-direction: column;
-    justify-content: space-around;
-    width: 30px;
-    height: 25px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 0;
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1100;
+    background: var(--primary-color);
+    color: white;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
 }
 
 .hamburger-btn .bar {
-    width: 100%;
-    height: 3px;
-    background-color: var(--text-color);
-    border-radius: 2px;
-    transition: all 0.3s linear;
+    background-color: white;
 }
-
-.mobile-menu {
-    display: none;
-    flex-direction: column;
-    background: var(--nav-bg);
-    padding: 0 1rem;
-    border-radius: 0 0 8px 8px;
-    overflow: hidden;
-    max-height: 0;
-    transition: max-height 0.3s ease-out;
-    margin-top: -1rem;
-    margin-bottom: 1rem;
-}
-
-.mobile-menu.open {
-    max-height: 500px; /* 足夠容納所有連結的高度 */
-    padding: 1rem;
-    border: 1px solid rgba(0,0,0,0.05);
-    border-top: none;
-}
-
-.mobile-menu .nav-link {
-    display: block;
-    padding: 0.8rem 0;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-}
-
-.divider { width: 1px; height: 20px; background: #ddd; margin: 0 0.5rem; }
 
 /* 響應式佈局斷點 (Desktop First) */
 @media (max-width: 1024px) {
-    .desktop-menu { display: none; }
-    .hamburger-btn { display: flex; }
-    .mobile-menu { display: flex; }
-    
     .navbar {
-        padding: 0.5rem 1rem;
+        transform: translateX(-100%);
+        width: 280px;
     }
     
-    .nav-controls {
-        margin-left: auto;
-        margin-right: 0.5rem;
+    .navbar.open {
+        transform: translateX(0);
     }
     
-    .user-greeting { display: none; } /* 手機版隱藏歡迎詞節省空間 */
+    main#main-content {
+        margin-left: 0;
+        max-width: 100%;
+        padding: 1rem;
+        padding-top: 4rem;
+    }
+    
+    .hamburger-btn { display: flex; }
+    
+    /* 遮罩層 */
+    .menu-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 900;
+    }
+    .menu-overlay.open { display: block; }
 }
 
 @media (max-width: 480px) {

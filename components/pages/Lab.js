@@ -346,7 +346,18 @@ export class LabPage extends BaseComponent {
     }
 
     render() {
-        // ... (保持前面 HTML 內容)
+        // 二次保險：防止因快取或初始化失敗導致的陣列缺失
+        if (!this.state.cartItems) this.state.cartItems = [];
+        if (!this.state.rtcMessages) this.state.rtcMessages = [];
+        if (!this.state.serialLogs) this.state.serialLogs = [];
+        if (!this.state.registrationForm) {
+            this.state.registrationForm = {
+                username: { valid: true, pending: false, touched: false, errors: null },
+                email: { valid: true, touched: false, errors: null },
+                formValid: false
+            };
+        }
+
         return html`
             <style>
                 .lab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }

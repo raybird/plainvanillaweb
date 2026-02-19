@@ -41,7 +41,7 @@ export class LabPage extends BaseComponent {
             rtcLocalSdp: '',
             rtcRemoteSdp: '',
             rtcStatus: 'Disconnected',
-            rtcMessages: [], // 補全
+            rtcMessages: [],
             rtcInput: '',
             shareTitle: '🍦 Plain Vanilla Web',
             shareText: '來看看這個超酷的現代原生網頁開發教學平台！',
@@ -51,19 +51,15 @@ export class LabPage extends BaseComponent {
             btStatus: bluetoothService.isSupported ? '可用' : '不支援',
             isRecordingScreen: false,
             recordedVideoUrl: null,
-            // 壓縮狀態
             compressInput: '這是一段需要被壓縮的長文字，原生 API 支援 Gzip, Deflate 等格式。'.repeat(5),
             compressedBlob: null,
             compressionRatio: 0,
-            // 支付狀態
-            cartItems: [ // 補全
+            cartItems: [
                 { label: 'Vanilla JS 課程', amount: { currency: 'USD', value: '10.00' } },
                 { label: '進階 PWA 指南', amount: { currency: 'USD', value: '5.00' } }
             ],
-            // 協作狀態
             collabNote: '',
             crdtStatus: 'Active (Node: ' + crdtService.nodeId + ')',
-            // 表單引擎狀態
             registrationForm: {
                 username: { valid: true, pending: false, touched: false, errors: null },
                 email: { valid: true, touched: false, errors: null },
@@ -72,15 +68,25 @@ export class LabPage extends BaseComponent {
             isProcessingStream: false,
             currentFilter: 'none',
             streamStatus: streamProcessorService.isSupported ? '支援' : '不支援',
-            // 序列埠狀態
             isSerialConnected: false,
-            serialLogs: [], // 補全
+            serialLogs: [],
             serialBaud: 9600,
             serialInput: '',
             serialStatus: serialService.isSupported ? '支援' : '不支援'
         });
-        
-        // ... (FormGroup 初始化保持不變)
+
+        this.form = new FormGroup({
+            username: new FormControl('', [Validators.required, Validators.minLen(3)], [
+                async (val) => {
+                    await new Promise(r => setTimeout(r, 1000));
+                    return val === 'admin' ? { duplicated: true } : null;
+                }
+            ]),
+            email: new FormControl('', [Validators.required, Validators.email]),
+            password: new FormControl('', [Validators.required, Validators.minLen(6)])
+        });
+
+        this.videoRef = null;
     }
 
     connectedCallback() {

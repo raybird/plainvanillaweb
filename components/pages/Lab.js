@@ -11,6 +11,7 @@ import './lab/SerialPage.js';
 import './lab/FormsPage.js';
 import './lab/CollabPage.js';
 import './lab/MediaPage.js';
+import './lab/NFCPage.js';
 
 /**
  * LabPage - 實驗室佈局容器
@@ -52,6 +53,7 @@ export class LabPage extends BaseComponent {
                     <x-route path="/lab/forms"><page-lab-forms></page-lab-forms></x-route>
                     <x-route path="/lab/collab"><page-lab-collab></page-lab-collab></x-route>
                     <x-route path="/lab/media"><page-lab-media></page-lab-media></x-route>
+                    <x-route path="/lab/nfc"><page-lab-nfc></page-lab-nfc></x-route>
                 </x-switch>
             </div>
 

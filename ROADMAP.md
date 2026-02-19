@@ -34,22 +34,19 @@
 - [x] **WebRTC P2P 通訊**：實作無伺服器的去中心化數據交換。
 
 ---
-*最後更新：2026-02-18 (By TeleNexus Orchestrator)*
+*最後更新：2026-02-19 (By TeleNexus Orchestrator)*
 
 ## 🎉 專案里程碑達成 (2026/02/19)
-本專案已完成從「範例集合」向「工業級 SDK」的全面轉型。
+本專案已完成從「範例集合」向「工業級 SDK」的全面轉型，並實作了多項尖端 Web 硬體與數據技術。
 1. **Vanilla SDK v1.0.0**：重構 `VanillaSDK` 入口，提供單例化、自動配置與完整的 JSDoc 型別提示。
 2. **WebRTC 穩定性增強**：內建 Google/Twilio STUN Server，優化 HTTPS 與 GitHub Pages 下的連線表現。
-3. **SDK 使用指南升級**：重寫 `docs/sdk-usage.md`，提供具備實戰價值的快速上手範例與 API 細節。
-4. **語音服務補全**：修復並導出 `speechService`，整合至全域 SDK 入口。
-5. **原生數據可視化**：實作基於 SVG 的輕量級圖表引擎與 Dashboard 整合。
-6. **實驗室架構重構**：實作巢狀路由 (Nested Routing)，將 8+ 項實驗功能模組化隔離，提升系統穩定性。
-6. **原生即時串流處理**：實作 Insertable Streams 濾鏡機制，展示高效能影像運算。
-7. **原生 Web Serial 整合**：實作序列通訊服務與終端機模擬介面。
-8. **原生響應式表單**：實作零相依的表單驗證引擎與 Lab 註冊範例。
-9. **原生 CRDT 數據同步**：實作 LWW-Register 衝突解決機制與即時協作筆記。
-8. **原生響應式表單**：實作零相依的表單驗證引擎與 Lab 註冊範例。
-9. **原生 CRDT 數據同步**：實作 LWW-Register 衝突解決機制與即時協作筆記。
+3. **實驗室架構重構**：實作巢狀路由 (Nested Routing)，將 10+ 項實驗功能模組化隔離，提升系統穩定性。
+4. **原生數據可視化**：實作基於 SVG 的輕量級圖表引擎與 Dashboard 整合。
+5. **原生即時串流處理**：實作 Insertable Streams 濾鏡機制，展示高效能影像運算。
+6. **原生 Web Serial 整合**：實作序列通訊服務與終端機模擬介面。
+7. **原生響應式表單**：實作零相依的表單驗證引擎與 Lab 註冊範例。
+8. **原生 CRDT 數據同步**：實作 LWW-Register 衝突解決機制與即時協作筆記。
+9. **原生 Web NFC 整合**：實作與實體 NDEF 標籤的讀寫通訊，解鎖近場感應應用。
 
 ## 🎁 自主開發 (Bonus Features)
 **AI Agent 主動識別並實作的高價值功能。**
@@ -58,22 +55,18 @@
 - [x] **高效能虛擬列表 (Virtual List)**：支持大數據量下的流暢渲染。
 - [x] **原生影像處理 (Image Filter)**：利用 Canvas 實作純前端圖片濾鏡。
 - [x] **原生語音實驗室 (Speech Lab)**：整合 Web Speech API (TTS & STT)。
-- [x] **語音功能全域整合**：在教學文件新增「朗讀模式」與搜尋頁面新增「語音搜尋」。
-- [x] **原生組件組合 (Slots Simulation)**：支援 Light DOM 內容分發。
 - [x] **原生程式碼遊樂場 (Playground)**：利用 Blob & ObjectURL 實作即時編輯器。
 - [x] **原生儲存管理 (Storage Service)**：監控配額使用率並請求數據持久化。
 - [x] **原生 Web Crypto 服務 (Security)**：實作高強度數據雜湊與 AES 加解密。
 - [x] **Web Share 與接收整合 (PWA)**：支援系統級內容分享與 Share Target。
 - [x] **PWA 進階功能 (Install & Sync)**：實作自定義安裝引導與背景同步機制。
-- [x] **Vanilla SDK 模式轉型**：核心服務解耦，支援由外部 URL 直接引用的 CDN 開發模式。
 - [x] **原生 Web Bluetooth 整合**：支援與 BLE 藍牙裝置直接通訊與數據交換。
 - [x] **原生螢幕錄製與串流**：實作 Screen Capture API 與 MediaRecorder 整合。
 - [x] **響應式設計與手機版面優化**：全面提升行動裝置的閱讀體驗與佈局彈性。
 - [x] **原生 Payment Request 整合**：實作標準化的瀏覽器原生結帳流程。
-- [x] **原生圖表引擎 (SVG Charting)**：實作零相依的反應式動態圖表，展示 CSS 路徑過渡動畫。
-- [x] **原生即時串流處理 (Live Media Processing)**：利用 Insertable Streams 實現低延遲影像濾鏡，挑戰媒體處理性能邊界。
-- [x] **原生 Web Serial 整合**：支援與硬體裝置（如 Arduino）的直接序列埠通訊，擴展 IoT 應用場景。
+- [x] **原生圖表引擎 (SVG Charting)**：實作零相依的反應式動態圖表。
+- [x] **原生即時串流處理 (Live Media Processing)**：利用 Insertable Streams 實現低延遲影像濾鏡。
+- [x] **原生 Web Serial 整合**：支援與硬體裝置（如 Arduino）的直接序列埠通訊。
 - [x] **原生響應式表單引擎**：實作具備狀態追蹤 (Touched/Dirty) 與非同步驗證的專業表單系統。
 - [x] **原生 CRDT 數據同步**：實作基於 LWW-Register 的最終一致性算法，支援零衝突跨分頁協作。
-- [x] **原生響應式表單引擎**：實作具備狀態追蹤 (Touched/Dirty) 與非同步驗證的專業表單系統。
-- [x] **原生 CRDT 數據同步**：實作基於 LWW-Register 的最終一致性算法，支援零衝突跨分頁協作。
+- [x] **原生 Web NFC 整合**：實作與實體 NDEF 標籤的讀寫通訊。

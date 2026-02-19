@@ -75,7 +75,8 @@ export class Documentation extends BaseComponent {
             { id: 'live-stream-processing', title: '即時串流處理' },
             { id: 'web-serial', title: 'Web 序列通訊' },
             { id: 'reactive-forms', title: '原生響應式表單' },
-            { id: 'crdt-sync', title: 'CRDT 數據同步' }
+            { id: 'crdt-sync', title: 'CRDT 數據同步' },
+            { id: 'web-nfc', title: 'Web NFC 近場通訊' }
         ];
 
         return html`

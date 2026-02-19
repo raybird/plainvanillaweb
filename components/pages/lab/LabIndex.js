@@ -11,7 +11,8 @@ export class LabIndex extends BaseComponent {
             { id: 'serial', title: '🔌 序列通訊', desc: 'Web Serial 硬體存取實驗' },
             { id: 'forms', title: '📝 響應式表單', desc: '專業級表單驗證引擎展示' },
             { id: 'collab', title: '🤝 CRDT 協作', desc: '零衝突即時協作數據同步' },
-            { id: 'media', title: '🎥 媒體擷取', desc: '螢幕錄製與即時影像處理' }
+            { id: 'media', title: '🎥 媒體擷取', desc: '螢幕錄製與即時影像處理' },
+            { id: 'nfc', title: '📡 近場通訊', desc: 'Web NFC 標籤讀寫實驗' }
         ];
 
         return html`

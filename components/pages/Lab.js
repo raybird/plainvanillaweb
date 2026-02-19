@@ -17,6 +17,14 @@ import './lab/MediaPage.js';
  * 負責處理 /lab/* 巢狀路由
  */
 export class LabPage extends BaseComponent {
+    afterFirstRender() {
+        // 強制觸發內部的 x-switch 更新，確保子路由被正確渲染
+        const sw = this.querySelector('x-switch');
+        if (sw && typeof sw.update === 'function') {
+            sw.update();
+        }
+    }
+
     render() {
         return html`
             <style>
@@ -31,8 +39,9 @@ export class LabPage extends BaseComponent {
 
             <div class="lab-content">
                 <x-switch>
-                    <!-- 預設首頁 -->
+                    <!-- 預設首頁：支援 /lab 與 /lab/ -->
                     <x-route path="/lab" exact><page-lab-index></page-lab-index></x-route>
+                    <x-route path="/lab/" exact><page-lab-index></page-lab-index></x-route>
                     
                     <!-- 功能隔離子路由 -->
                     <x-route path="/lab/speech"><page-lab-speech></page-lab-speech></x-route>

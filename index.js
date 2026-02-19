@@ -8,6 +8,18 @@ import { connectivityService } from "./lib/connectivity-service.js";
 import { appStore } from "./lib/store.js";
 import { notificationService } from "./lib/notification-service.js"; // 引入通知服務
 
+// 預先載入核心頁面組件以確保定義存在
+import "./components/pages/HomePage.js";
+import "./components/pages/Lab.js";
+import "./components/pages/Dashboard.js";
+import "./components/pages/Docs.js";
+import "./components/pages/RepoSearch.js";
+import "./components/pages/WorkerDemo.js";
+import "./components/pages/Profile.js";
+import "./components/pages/Analytics.js";
+import "./components/pages/Playground.js";
+import "./components/pages/Login.js";
+
 // 啟動網路監控
 networkMonitor.enable();
 

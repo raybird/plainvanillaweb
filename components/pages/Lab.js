@@ -12,6 +12,8 @@ import { bluetoothService } from '../../lib/bluetooth-service.js';
 import { mediaService } from '../../lib/media-service.js';
 import { paymentService } from '../../lib/payment-service.js'; 
 import { compressionService } from '../../lib/compression-service.js';
+import { streamProcessorService } from '../../lib/stream-processor-service.js';
+import { serialService } from '../../lib/serial-service.js';
 import { FormGroup, FormControl, Validators } from '../../lib/form-engine.js';
 import '../ui/Card.js';
 import '../ui/IsolatedCard.js';

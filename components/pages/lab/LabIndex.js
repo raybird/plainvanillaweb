@@ -33,6 +33,11 @@ export class LabIndex extends BaseComponent {
         title: "🎨 EyeDropper API",
         desc: "從畫面取色並建立主題色票",
       },
+      {
+        id: "weblocks",
+        title: "🔐 Web Locks API",
+        desc: "跨流程互斥與非阻塞併發協調",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

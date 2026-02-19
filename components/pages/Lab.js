@@ -46,6 +46,7 @@ export class LabPage extends BaseComponent {
         import("./lab/WebAuthnPage.js"),
         import("./lab/PopoverPage.js"),
         import("./lab/EyeDropperPage.js"),
+        import("./lab/WebLocksPage.js"),
       ]);
 
       // 載入完成後手動觸發一次渲染與更新
@@ -127,6 +128,9 @@ export class LabPage extends BaseComponent {
           ></x-route>
           <x-route path="/lab/eyedropper" exact
             ><page-lab-eyedropper></page-lab-eyedropper
+          ></x-route>
+          <x-route path="/lab/weblocks" exact
+            ><page-lab-weblocks></page-lab-weblocks
           ></x-route>
 
           <!-- 通配符 fallback -->

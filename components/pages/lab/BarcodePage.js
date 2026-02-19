@@ -16,9 +16,14 @@ export class BarcodePage extends BaseComponent {
     this._scanLoop = null;
     this._cameraStream = null;
     this._isStartingScan = false;
+    this._isStoppingScan = false;
+    this._isRecoveringScan = false;
     this._resumeScanTimer = null;
     this._onVisibilityChange = () => this._handleVisibilityChange();
-    this._onCameraTrackEnded = () => this._recoverScannerStream();
+    this._onCameraTrackEnded = () => {
+      if (this._isStoppingScan || this._isStartingScan) return;
+      void this._recoverScannerStream();
+    };
   }
 
   async connectedCallback() {
@@ -97,6 +102,8 @@ export class BarcodePage extends BaseComponent {
   }
 
   stopScan() {
+    this._isStoppingScan = true;
+
     if (this._resumeScanTimer) {
       clearTimeout(this._resumeScanTimer);
       this._resumeScanTimer = null;
@@ -120,6 +127,7 @@ export class BarcodePage extends BaseComponent {
     }
 
     this.state.isScanning = false;
+    this._isStoppingScan = false;
   }
 
   _hasLiveCameraTrack() {
@@ -141,8 +149,15 @@ export class BarcodePage extends BaseComponent {
 
   async _recoverScannerStream() {
     if (!this.state.isScanning) return;
-    this.stopScan();
-    await this.startScan();
+    if (this._isRecoveringScan || this._isStartingScan) return;
+    this._isRecoveringScan = true;
+
+    try {
+      this.stopScan();
+      await this.startScan();
+    } finally {
+      this._isRecoveringScan = false;
+    }
   }
 
   _handleVisibilityChange() {
@@ -158,7 +173,7 @@ export class BarcodePage extends BaseComponent {
       if (!this.state.isScanning) return;
 
       if (!this._hasLiveCameraTrack()) {
-        await this.startScan();
+        await this._recoverScannerStream();
         return;
       }
 

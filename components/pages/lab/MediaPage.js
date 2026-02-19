@@ -16,9 +16,14 @@ export class MediaPage extends BaseComponent {
     this._inputStream = null;
     this._processedStream = null;
     this._isStartingStream = false;
+    this._isStoppingStream = false;
+    this._isRecoveringStream = false;
     this._resumeStreamTimer = null;
     this._onVisibilityChange = () => this._handleVisibilityChange();
-    this._onInputTrackEnded = () => this._recoverLiveStream();
+    this._onInputTrackEnded = () => {
+      if (this._isStoppingStream || this._isStartingStream) return;
+      void this._recoverLiveStream();
+    };
   }
 
   connectedCallback() {
@@ -119,6 +124,8 @@ export class MediaPage extends BaseComponent {
   }
 
   stopLiveStream() {
+    this._isStoppingStream = true;
+
     if (this._resumeStreamTimer) {
       clearTimeout(this._resumeStreamTimer);
       this._resumeStreamTimer = null;
@@ -139,6 +146,7 @@ export class MediaPage extends BaseComponent {
     }
 
     this.state.isProcessingStream = false;
+    this._isStoppingStream = false;
   }
 
   _hasLiveInputTrack() {
@@ -160,8 +168,15 @@ export class MediaPage extends BaseComponent {
 
   async _recoverLiveStream() {
     if (!this.state.isProcessingStream) return;
-    this.stopLiveStream();
-    await this.toggleLiveFilter();
+    if (this._isRecoveringStream || this._isStartingStream) return;
+    this._isRecoveringStream = true;
+
+    try {
+      this.stopLiveStream();
+      await this.toggleLiveFilter();
+    } finally {
+      this._isRecoveringStream = false;
+    }
   }
 
   _handleVisibilityChange() {
@@ -177,8 +192,7 @@ export class MediaPage extends BaseComponent {
       if (!this.state.isProcessingStream) return;
 
       if (!this._hasLiveInputTrack()) {
-        this.stopLiveStream();
-        await this.toggleLiveFilter();
+        await this._recoverLiveStream();
         return;
       }
 

@@ -101,10 +101,18 @@ document.querySelector('#openBtn').onclick = async () => {
 |------|------|------|------|
 | **Crypto** | `encrypt` | `(text, password)` | `{ ciphertext, iv, salt }` |
 | | `decrypt` | `(ciphertext, iv, password)` | `string` (明文) |
+| **Speech** | `speak` | `(text, lang?)` | - (語音輸出) |
+| | `startListening` | `(lang?)` | - (發布 `result` 事件) |
 | **WebRTC** | `createOffer` | - | `RTCSessionDescription` |
 | | `send` | `(data)` | - |
+| **FileSystem** | `readFile` | `(handle, fileName)` | `string` |
+| **WebGPU** | `computeDouble` | `(float32Array)` | `Float32Array` |
+| **Bluetooth** | `requestDevice` | `(options?)` | `BluetoothDevice` |
+| **Payment** | `showPayment` | `(methods, details)` | `Promise<PaymentResponse>` |
+| **Media** | `startScreenShare` | - | `MediaStream` |
 | **PWA** | `install` | - | `Promise<'accepted'|'dismissed'>` |
 | **Share** | `share` | `{ title, text, url }` | `boolean` (成功與否) |
+
 
 ---
 *更多詳細實作請參考專案源碼 `lib/` 目錄。*

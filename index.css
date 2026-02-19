@@ -123,17 +123,29 @@ body {
 
 .divider { width: 1px; height: 20px; background: #ddd; margin: 0 0.5rem; }
 
-/* 響應式佈局斷點 */
-@media (max-width: 900px) {
+/* 響應式佈局斷點 (Desktop First) */
+@media (max-width: 1024px) {
     .desktop-menu { display: none; }
     .hamburger-btn { display: flex; }
     .mobile-menu { display: flex; }
     
-    .nav-controls {
-        /* 在手機版，將控制區移到右側或整合進選單 */
-        margin-left: auto;
-        margin-right: 1rem;
+    .navbar {
+        padding: 0.5rem 1rem;
     }
+    
+    .nav-controls {
+        margin-left: auto;
+        margin-right: 0.5rem;
+    }
+    
+    .user-greeting { display: none; } /* 手機版隱藏歡迎詞節省空間 */
+}
+
+@media (max-width: 480px) {
+    .nav-brand { font-size: 1rem; }
+    .nav-controls { gap: 0.2rem; }
+    .control-btn { padding: 2px 4px; font-size: 0.75rem; }
+    .divider { margin: 0 0.2rem; }
 }
 
 /* 按鈕與連結基礎樣式 */
@@ -149,10 +161,11 @@ a:hover { text-decoration: underline; }
     border: none;
     font-size: 1rem;
     cursor: pointer;
-    transition: filter 0.2s;
-    /* 確保觸控熱區 */
+    transition: filter 0.2s, transform 0.1s;
+    /* 確保觸控熱區符合 A11y 標準 */
     min-height: 44px;
     min-width: 44px;
+    box-sizing: border-box;
 }
 .btn:active { transform: scale(0.98); }
 .btn-primary { background: var(--primary-color); color: white; }
@@ -171,36 +184,37 @@ input, textarea, select {
     box-sizing: border-box;
     background: var(--bg-color);
     color: var(--text-color);
+    margin-bottom: 0.5rem;
 }
 
-/* 響應式佈局斷點 */
+/* 內容區塊響應式 */
 @media (max-width: 768px) {
-    body { padding: 0.8rem; }
+    body { padding: 0.5rem; }
     
-    nav {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
-    }
-    
-    nav a {
-        display: block;
-        padding: 0.5rem 0;
-        width: 100%;
-        border-bottom: 1px solid rgba(0,0,0,0.05);
-    }
-
-    /* 強制 Playground 與 Docs 垂直堆疊 */
-    .playground-container, .docs-container {
+    /* 強制大型容器垂直堆疊 */
+    .playground-container, 
+    .docs-container, 
+    .lab-grid, 
+    .rtc-grid {
         grid-template-columns: 1fr !important;
+        display: flex !important;
         flex-direction: column !important;
+        gap: 1rem !important;
     }
     
     .docs-nav {
         width: 100% !important;
         position: static !important;
-        margin-bottom: 1rem;
+        margin-bottom: 1.5rem;
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #eee;
+        padding: 0.5rem;
     }
+    
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.3rem; }
+    h3 { font-size: 1.1rem; }
 }
 
 hr { border: 0; border-top: 1px solid #ddd; margin: 2rem 0; }

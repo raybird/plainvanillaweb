@@ -1,4 +1,4 @@
-# ADR 0053: 原生 Payment Request API 整合
+# ADR 0056: 原生 Payment Request API 整合
 
 ## 上下文
 在電子商務網站中，結帳流程往往是流失率最高的環節。傳統的表單填寫繁瑣且體驗不一。W3C 推出的 `Payment Request API` 旨在提供一個標準化、瀏覽器原生的支付介面，讓使用者能快速選取已儲存的地址與信用卡資訊進行結帳。

@@ -58,5 +58,7 @@
 | [0050](./0050-pwa-advanced-features.md) | 原生 PWA 安裝引導與進階同步機制 | Accepted |
 | [0051](./0051-sdk-oriented-distribution.md) | SDK 導向的分發策略與模組純化 | Accepted |
 | [0052](./0052-web-bluetooth-integration.md) | 原生 Web Bluetooth 與裝置通訊整合 | Accepted |
-| [0053](./0053-payment-request-integration.md) | 原生 Payment Request API 整合 | Accepted |
+| [0053](./0053-mobile-readability.md) | 手機閱讀體驗與響應式優化 | Accepted |
+| [0054](./0054-mobile-responsiveness-strategy.md) | 響應式設計與行動體驗優化策略 | Accepted |
 | [0055](./0055-screen-capture-integration.md) | 原生螢幕錄製與串流整合 | Accepted |
+| [0056](./0056-payment-request-integration.md) | 原生 Payment Request API 整合 | Accepted |

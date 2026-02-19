@@ -70,7 +70,7 @@ export class HomePage extends BaseComponent {
                     <li><strong>零建置成本</strong>：無需 Webpack/Vite，打開瀏覽器就能跑。</li>
                     <li><strong>極致效能</strong>：沒有框架的抽象層開銷，每一行代碼都直接服務於用戶。</li>
                 </ul>
-                <p>本專案透過 <strong>42 份架構決策紀錄 (ADR)</strong> 完整還原了從零到一構建複雜應用的思維過程。</p>
+                <p>本專案透過 <strong>55 份架構決策紀錄 (ADR)</strong> 完整還原了從零到一構建複雜應用的思維過程。</p>
                 <a href="https://github.com/raybird/plainvanillaweb/tree/master/docs/decisions" target="_blank">閱讀技術決策 (ADR) &rarr;</a>
             </section>
         `;

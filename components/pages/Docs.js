@@ -1,28 +1,63 @@
 import { html, unsafe } from '../../lib/html.js';
 import { BaseComponent } from '../../lib/base-component.js';
 import { docService } from '../../lib/doc-service.js';
+import { speechService } from '../../lib/speech-service.js';
+import { notificationService } from '../../lib/notification-service.js';
 
 export class Documentation extends BaseComponent {
     constructor() {
         super();
-        this.state = { content: '請選擇一個教學單元', currentDoc: null };
+        this.initReactiveState({
+            content: '請選擇一個教學單元',
+            currentDoc: null,
+            isSpeaking: false
+        });
     }
 
     async loadDoc(docName) {
+        if (this.state.isSpeaking) {
+            speechService.speak(''); // 停止目前說話
+            this.state.isSpeaking = false;
+        }
         this.state.content = '正在載入文件...';
-        this.update();
         const htmlContent = await docService.getDoc(docName);
         this.state.content = htmlContent;
         this.state.currentDoc = docName;
-        this.update();
+    }
+
+    toggleSpeak() {
+        if (this.state.isSpeaking) {
+            speechService.speak('');
+            this.state.isSpeaking = false;
+            notificationService.info('已停止朗讀');
+        } else {
+            // 提取純文字進行朗讀 (移除 HTML 標籤)
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = this.state.content;
+            const text = tempDiv.innerText;
+            
+            if (!text || text === '請選擇一個教學單元') {
+                notificationService.warn('沒有可朗讀的內容');
+                return;
+            }
+
+            speechService.speak(text);
+            this.state.isSpeaking = true;
+            notificationService.success('開始朗讀文件');
+            
+            // 監聽結束事件 (如果 speechService 支援)
+            // 這裡簡單處理，或者可以擴充 speechService
+        }
     }
 
     render() {
         const docs = [
             { id: 'router', title: '原生路由與 SEO' },
+
             { id: 'state-management', title: '狀態管理與 IDB' },
             { id: 'pwa', title: 'PWA 離線技術' },
             { id: 'i18n', title: '原生國際化實作' },
+            { id: 'native-speech', title: '原生語音服務' },
             { id: 'api-fetching', title: 'API 非同步處理' },
             { id: 'storage-persistence', title: '儲存空間與持久化' },
             { id: 'testing-strategy', title: '原生單元測試策略' },
@@ -72,6 +107,16 @@ export class Documentation extends BaseComponent {
 
                 <!-- 右側內容 -->
                 <article class="docs-content">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
+                        <span class="status-badge">${this.state.currentDoc ? `ID: ${this.state.currentDoc}` : ''}</span>
+                        ${this.state.currentDoc ? html`
+                            <button class="btn ${this.state.isSpeaking ? 'btn-danger' : 'btn-secondary'}" 
+                                    style="font-size: 0.8rem; padding: 4px 8px; min-height: 32px;"
+                                    onclick="this.closest('page-docs').toggleSpeak()">
+                                ${this.state.isSpeaking ? '⏹️ 停止朗讀' : '🔊 語音朗讀'}
+                            </button>
+                        ` : ''}
+                    </div>
                     ${unsafe(this.state.content)}
                 </article>
             </div>

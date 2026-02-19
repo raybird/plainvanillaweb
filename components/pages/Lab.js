@@ -10,7 +10,8 @@ import { shareService } from '../../lib/share-service.js';
 import { pwaService } from '../../lib/pwa-service.js';
 import { bluetoothService } from '../../lib/bluetooth-service.js';
 import { mediaService } from '../../lib/media-service.js';
-import { paymentService } from '../../lib/payment-service.js'; // 引入支付服務
+import { paymentService } from '../../lib/payment-service.js'; 
+import { compressionService } from '../../lib/compression-service.js';
 import '../ui/Card.js';
 
 export class LabPage extends BaseComponent {
@@ -45,62 +46,168 @@ export class LabPage extends BaseComponent {
             btStatus: bluetoothService.isSupported ? '可用' : '不支援',
             isRecordingScreen: false,
             recordedVideoUrl: null,
+            // 壓縮狀態
+            compressInput: '這是一段需要被壓縮的長文字，原生 API 支援 Gzip, Deflate 等格式。'.repeat(5),
+            compressedBlob: null,
+            compressionRatio: 0,
             // 支付狀態
             cartItems: [
                 { label: 'Vanilla JS 課程', amount: { currency: 'USD', value: '10.00' } },
                 { label: '進階 PWA 指南', amount: { currency: 'USD', value: '5.00' } }
             ]
         });
+        this.videoRef = null;
     }
 
     connectedCallback() {
         super.connectedCallback();
-        // ... (省略既有事件監聽) ...
-        speechService.addEventListener('result', (e) => { this.state.transcript = e.detail.text; notificationService.success(`辨識結果: ${e.detail.text}`); });
+        
+        speechService.on('result', (data) => { this.state.transcript = data.text; notificationService.success(`辨識結果: ${data.text}`); });
         webrtcService.on('message', (data) => { this.state.rtcMessages = [...this.state.rtcMessages, { side: 'remote', text: data }]; notificationService.info('收到 P2P 訊息'); });
         webrtcService.on('state-change', (state) => this.state.rtcStatus = state);
         pwaService.on('install-available', () => { this.state.canInstall = true; notificationService.info('應用程式現在可以安裝至桌面！'); });
         pwaService.on('installed', () => { this.state.canInstall = false; notificationService.success('安裝完成！'); });
         bluetoothService.on('device-selected', (e) => { this.state.btDeviceName = e.detail.device.name || '未命名裝置'; notificationService.success(`已選擇裝置: ${this.state.btDeviceName}`); });
-        mediaService.on('stream-started', (e) => { const video = this.querySelector('#previewVideo'); if (video) { video.srcObject = e.detail.stream; video.play(); } mediaService.startRecording(); });
+        
+        // 媒體事件
+        mediaService.on('stream-started', (e) => { 
+            this.videoRef = this.querySelector('#previewVideo');
+            if (this.videoRef) { 
+                this.videoRef.srcObject = e.detail.stream; 
+                this.videoRef.play(); 
+            } 
+            mediaService.startRecording(); 
+        });
         mediaService.on('recording-started', () => { this.state.isRecordingScreen = true; notificationService.info('開始錄製螢幕...'); });
-        mediaService.on('recording-finished', (e) => { this.state.isRecordingScreen = false; this.state.recordedVideoUrl = e.detail.url; notificationService.success('錄製完成！'); });
-        mediaService.on('stream-stopped', () => { this.state.isRecordingScreen = false; const video = this.querySelector('#previewVideo'); if (video) video.srcObject = null; });
+        mediaService.on('recording-stopped', (e) => { 
+            this.state.isRecordingScreen = false; 
+            this.state.recordedVideoUrl = URL.createObjectURL(e.detail.blob); 
+            if (this.videoRef) this.videoRef.srcObject = null;
+            notificationService.success('錄製完成！'); 
+        });
         
         // 支付事件
         paymentService.on('payment-success', (e) => {
-            notificationService.success(`支付成功！感謝 ${e.detail.payer}`);
+            e.detail.response.complete('success');
+            notificationService.success(`支付成功！ID: ${e.detail.response.requestId}`);
+        });
+        paymentService.on('payment-cancelled', () => {
+            notificationService.warn('支付已取消');
         });
     }
 
-    // ... (省略既有方法) ...
     async runInstall() { const outcome = await pwaService.install(); if (outcome === 'accepted') notificationService.success('感謝您的安裝！'); }
     async testSync() { try { await pwaService.registerSync('sync-actions'); notificationService.success('背景同步已註冊！'); } catch (err) { notificationService.error(err.message); } }
     async scanBluetooth() { if (!bluetoothService.isSupported) { notificationService.error('不支援 Web Bluetooth'); return; } try { const device = await bluetoothService.requestDevice(); this.state.btDeviceName = device.name || '未命名裝置'; } catch (err) { if (err.name !== 'NotFoundError') notificationService.error(`藍牙錯誤: ${err.message}`); } }
     async runShare() { try { const success = await shareService.share({ title: this.state.shareTitle, text: this.state.shareText, url: this.state.shareUrl }); if (success) notificationService.success('分享成功！'); } catch (err) { notificationService.error(err.message); } }
     async runWasmDemo() { if (!this.state.wasmLoaded) { await wasmService.loadDemoAdd(); this.state.wasmLoaded = true; } const exports = wasmService.get('demo-add'); if (exports && exports.add) { this.state.wasmResult = exports.add(this.state.wasmInputA, this.state.wasmInputB); } }
     async runWebGPUDemo() { try { this.state.isComputing = true; const data = new Float32Array(1000000).fill(1.5); const result = await webgpuService.computeDouble(data); this.state.gpuResult = `首項結果: ${result[0]}`; this.state.isComputing = false; notificationService.success('WebGPU 運算完成！'); } catch (err) { this.state.isComputing = false; notificationService.error(`WebGPU 錯誤: ${err.message}`); } }
-    toggleScreenRecording() { if (this.state.isRecordingScreen) { mediaService.stop(); } else { mediaService.startScreenCapture().catch(() => notificationService.warn('已取消分享')); } }
+    
+    toggleScreenRecording() { 
+        if (this.state.isRecordingScreen) { 
+            mediaService.stopRecording(); 
+        } else { 
+            mediaService.startScreenShare().catch(() => notificationService.warn('已取消分享')); 
+        } 
+    }
     
     // WebRTC Methods
-    async createRTCOffer() { const offer = await webrtcService.createOffer(); setTimeout(() => { this.state.rtcLocalSdp = JSON.stringify(webrtcService.getLocalDescription()); }, 500); }
-    async acceptRTCOffer() { try { const offer = JSON.parse(this.state.rtcRemoteSdp); await webrtcService.createAnswer(offer); setTimeout(() => { this.state.rtcLocalSdp = JSON.stringify(webrtcService.getLocalDescription()); }, 500); } catch (err) { notificationService.error('無效的 Offer SDP'); } }
+    async createRTCOffer() { try { const offer = await webrtcService.createOffer(); this.state.rtcLocalSdp = JSON.stringify(offer); notificationService.info('Offer 已生成'); } catch(e) { notificationService.error(e.message); } }
+    async acceptRTCOffer() { try { const offer = JSON.parse(this.state.rtcRemoteSdp); const answer = await webrtcService.createAnswer(offer); this.state.rtcLocalSdp = JSON.stringify(answer); notificationService.success('Answer 已生成'); } catch (err) { notificationService.error('無效的 Offer SDP'); } }
     async acceptRTCAnswer() { try { const answer = JSON.parse(this.state.rtcRemoteSdp); await webrtcService.setAnswer(answer); notificationService.success('Answer 已套用'); } catch (err) { notificationService.error('無效的 Answer SDP'); } }
     sendRTCMessage() { if (!this.state.rtcInput) return; webrtcService.send(this.state.rtcInput); this.state.rtcMessages = [...this.state.rtcMessages, { side: 'local', text: this.state.rtcInput }]; this.state.rtcInput = ''; }
 
+    // Speech Methods
+    speak() {
+        if (!this.state.ttsText) return;
+        speechService.speak(this.state.ttsText);
+    }
+
+    toggleSpeechRecognition() {
+        if (this.state.isListening) {
+            speechService.stopListening();
+            this.state.isListening = false;
+        } else {
+            try {
+                speechService.startListening();
+                this.state.isListening = true;
+                notificationService.info('正在傾聽...');
+            } catch (err) {
+                notificationService.error(err.message);
+            }
+        }
+    }
+
+    // Crypto Methods
+    async runEncrypt() {
+        try {
+            this.state.encryptedData = await cryptoService.encrypt(this.state.cryptoInput, this.state.cryptoPass);
+            notificationService.success('加密成功');
+        } catch (err) {
+            notificationService.error('加密失敗');
+        }
+    }
+
+    async runDecrypt() {
+        if (!this.state.encryptedData) return;
+        try {
+            this.state.decryptedResult = await cryptoService.decrypt(this.state.encryptedData, this.state.cryptoPass);
+            notificationService.success('解密成功');
+        } catch (err) {
+            notificationService.error('解密失敗，請檢查密碼');
+        }
+    }
+
+    async runHash() {
+        this.state.hashResult = await cryptoService.hash(this.state.cryptoInput);
+    }
+
+    // Compression Methods
+    async runCompress() {
+        if (!this.state.compressInput) return;
+        try {
+            const originalSize = new Blob([this.state.compressInput]).size;
+            const compressed = await compressionService.compress(this.state.compressInput);
+            this.state.compressedBlob = compressed;
+            this.state.compressionRatio = Math.round((compressed.length / originalSize) * 100);
+            notificationService.success(`壓縮完成！節省了 ${100 - this.state.compressionRatio}% 的空間`);
+        } catch (err) {
+            notificationService.error(`壓縮失敗: ${err.message}`);
+        }
+    }
+
+    async runDecompress() {
+        if (!this.state.compressedBlob) return;
+        try {
+            const decompressed = await compressionService.decompress(this.state.compressedBlob);
+            this.state.compressInput = decompressed;
+            notificationService.success('解壓縮完成！');
+        } catch (err) {
+            notificationService.error(`解壓縮失敗: ${err.message}`);
+        }
+    }
+
     // Payment Methods
     async runCheckout() {
+        if (!window.PaymentRequest) {
+            notificationService.error('瀏覽器不支援 Payment Request');
+            return;
+        }
+        const methods = [{ supportedMethods: 'basic-card' }];
+        const details = {
+            total: { label: '總計', amount: { currency: 'USD', value: '15.00' } },
+            displayItems: this.state.cartItems
+        };
         try {
-            await paymentService.checkout(this.state.cartItems);
+            await paymentService.showPayment(methods, details);
         } catch (err) {
-            notificationService.warn('結帳取消或失敗');
+            // Error handled in event listener or here
         }
     }
 
     render() {
         return html`
             <style>
-                /* ... (保留既有樣式) ... */
                 .lab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
                 .lab-card { border: 1px solid #ddd; padding: 1.5rem; border-radius: 12px; background: var(--bg-color); }
                 textarea, input { width: 100%; padding: 0.5rem; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 1rem; box-sizing: border-box; }
@@ -112,12 +219,80 @@ export class LabPage extends BaseComponent {
                 @keyframes blink { 50% { opacity: 0; } }
                 video { width: 100%; border-radius: 8px; background: #000; margin-top: 1rem; }
                 .item-row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; border-bottom: 1px dashed #eee; padding-bottom: 0.2rem; }
+                
+                @media (max-width: 768px) {
+                    .lab-grid { gap: 1rem; grid-template-columns: 1fr; }
+                    .lab-card { padding: 1rem; }
+                    .rtc-grid { grid-template-columns: 1fr !important; gap: 1rem !important; }
+                }
             </style>
 
             <h1>🧪 Vanilla 實驗室 (Lab)</h1>
             <p>探索最前沿的原生 Web 技術與進階 PWA 功能。</p>
 
             <div class="lab-grid">
+                <!-- 原生語音單元 (TTS & STT) -->
+                <div class="lab-card">
+                    <h3>🗣️ 原生語音 (Speech API)</h3>
+                    <p><small>文字轉語音 (TTS) 與 語音辨識 (STT)。</small></p>
+                    <textarea placeholder="輸入要發音的文字..." 
+                              oninput="this.closest('page-lab').state.ttsText = this.value">${this.state.ttsText}</textarea>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="this.closest('page-lab').speak()">🔊 朗讀文字</button>
+                        <button class="btn ${this.state.isListening ? 'btn-danger' : 'btn-secondary'}" 
+                                ?disabled="${!speechService.isRecognitionSupported}"
+                                onclick="this.closest('page-lab').toggleSpeechRecognition()">
+                            ${this.state.isListening ? '⏹️ 停止辨識' : '🎤 開始辨識'}
+                        </button>
+                    </div>
+                    ${!speechService.isRecognitionSupported ? html`<p style="color:red; font-size:0.7rem; margin-top:0.5rem;">⚠️ 您的瀏覽器不支援語音辨識 (建議使用 Chrome/Edge)</p>` : ''}
+                    ${this.state.transcript ? html`<div style="margin-top:1rem; font-size:0.9rem; border-top:1px solid #eee; padding-top:0.5rem;">辨識結果: <strong>${this.state.transcript}</strong></div>` : ''}
+                </div>
+
+                <!-- WebAssembly 單元 -->
+                <div class="lab-card">
+                    <h3>⚡ 高效能運算 (WebAssembly)</h3>
+                    <p><small>呼叫編譯自 C/Rust 的 WASM 模組。</small></p>
+                    <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+                        <input type="number" placeholder="A" oninput="this.closest('page-lab').state.wasmInputA = Number(this.value)" value="${this.state.wasmInputA}">
+                        <span>+</span>
+                        <input type="number" placeholder="B" oninput="this.closest('page-lab').state.wasmInputB = Number(this.value)" value="${this.state.wasmInputB}">
+                    </div>
+                    <button class="btn btn-primary" onclick="this.closest('page-lab').runWasmDemo()">執行 WASM 加法</button>
+                    ${this.state.wasmResult !== null ? html`<div style="margin-top:1rem;">結果: <strong>${this.state.wasmResult}</strong></div>` : ''}
+                </div>
+            </div>
+
+            <div class="lab-grid" style="margin-top: 2rem;">
+                <!-- 原生加密單元 -->
+                <div class="lab-card">
+                    <h3>🔐 原生加密 (SubtleCrypto)</h3>
+                    <p><small>基於瀏覽器標準的高強度加解密。</small></p>
+                    <input type="text" placeholder="輸入要加密的內容" oninput="this.closest('page-lab').state.cryptoInput = this.value" value="${this.state.cryptoInput}">
+                    <input type="password" placeholder="設定密碼" oninput="this.closest('page-lab').state.cryptoPass = this.value" value="${this.state.cryptoPass}">
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="this.closest('page-lab').runEncrypt()">🔒 加密</button>
+                        <button class="btn btn-success" ?disabled="${!this.state.encryptedData}" onclick="this.closest('page-lab').runDecrypt()">🔓 解密</button>
+                        <button class="btn btn-secondary" onclick="this.closest('page-lab').runHash()">#️⃣ Hash</button>
+                    </div>
+                    ${this.state.decryptedResult ? html`<div style="margin-top:1rem; font-size:0.8rem;">解密結果: <br><code>${this.state.decryptedResult}</code></div>` : ''}
+                    ${this.state.hashResult ? html`<div style="margin-top:1rem; font-size:0.7rem; color:#666; word-break:break-all;">SHA-256: ${this.state.hashResult}</div>` : ''}
+                </div>
+
+                <!-- 數據壓縮單元 -->
+                <div class="lab-card">
+                    <h3>🗜️ 數據壓縮 (Compression)</h3>
+                    <p><small>原生 Gzip/Deflate 流式壓縮。</small></p>
+                    <textarea rows="3" oninput="this.closest('page-lab').state.compressInput = this.value">${this.state.compressInput}</textarea>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="this.closest('page-lab').runCompress()">🗜️ 壓縮</button>
+                        <button class="btn btn-success" ?disabled="${!this.state.compressedBlob}" onclick="this.closest('page-lab').runDecompress()">🔓 解壓</button>
+                    </div>
+                    ${this.state.compressionRatio ? html`<div style="margin-top:1rem; font-size:0.8rem;">壓縮率: <strong>${this.state.compressionRatio}%</strong></div>` : ''}
+                </div>
+            </div>
+
+            <div class="lab-grid" style="margin-top: 2rem;">
                 <!-- 原生結帳單元 -->
                 <div class="lab-card">
                     <h3>💳 原生結帳 (Payment Request)</h3>
@@ -135,30 +310,27 @@ export class LabPage extends BaseComponent {
                     </div>
                     <button class="btn btn-success" 
                             style="width: 100%;"
-                            ?disabled="${!paymentService.isSupported}"
                             onclick="this.closest('page-lab').runCheckout()">
-                        ${paymentService.isSupported ? '💳 立即結帳' : '不支援 Payment API'}
+                        💳 立即結帳
                     </button>
                 </div>
 
                 <!-- 螢幕錄製單元 -->
                 <div class="lab-card">
                     <h3>🎥 螢幕錄製 (Screen Recorder)</h3>
-                    <button class="btn ${this.state.isRecordingScreen ? 'btn-danger' : 'btn-primary'}" 
-                            onclick="this.closest('page-lab').toggleScreenRecording()">
-                        ${this.state.isRecordingScreen ? html`<span class="rec-dot"></span> 停止錄製` : '🔴 開始錄影'}
-                    </button>
-                    ${this.state.recordedVideoUrl ? html`
-                        <div style="margin-top: 1rem;">
-                            <a href="${this.state.recordedVideoUrl}" download="recording.webm" class="btn btn-success" style="font-size: 0.8rem; padding: 4px 8px;">💾 下載影片</a>
-                        </div>
-                    ` : ''}
-                    <video id="previewVideo" muted style="display: ${this.state.isRecordingScreen ? 'block' : 'none'}; height: 150px; object-fit: cover;"></video>
+                    <div class="btn-group">
+                        <button class="btn ${this.state.isRecordingScreen ? 'btn-danger' : 'btn-primary'}" 
+                                onclick="this.closest('page-lab').toggleScreenRecording()">
+                            ${this.state.isRecordingScreen ? html`<span class="rec-dot"></span> 停止錄製` : '🔴 開始錄影'}
+                        </button>
+                        ${this.state.recordedVideoUrl ? html`
+                            <a href="${this.state.recordedVideoUrl}" download="recording.webm" class="btn btn-success" style="text-decoration: none; display: inline-flex; align-items: center;">💾 下載影片</a>
+                        ` : ''}
+                    </div>
+                    <video id="previewVideo" muted style="display: ${this.state.isRecordingScreen || this.state.recordedVideoUrl ? 'block' : 'none'}; height: 150px; object-fit: cover;"></video>
                 </div>
             </div>
 
-            <!-- ... (保留既有區塊: PWA, Web Share, WebRTC, WebGPU, Wasm) ... -->
-            
             <div class="lab-grid" style="margin-top: 2rem;">
                 <div class="lab-card">
                     <h3>📦 安裝與同步 (PWA Advanced)</h3>
@@ -199,8 +371,7 @@ export class LabPage extends BaseComponent {
 
             <h2 style="margin-top: 3rem;">📡 P2P 通訊 (WebRTC)</h2>
             <div class="lab-card">
-                <!-- ... (保留 WebRTC 內容) ... -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <div class="rtc-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
                     <div>
                         <textarea rows="2" placeholder="貼上對方的 SDP" oninput="this.closest('page-lab').state.rtcRemoteSdp = this.value"></textarea>
                         <div class="btn-group">
@@ -224,6 +395,7 @@ export class LabPage extends BaseComponent {
                     <li><strong>Payment Request</strong>：標準化的瀏覽器原生結帳流程。</li>
                     <li><strong>Screen Capture</strong>：原生媒體串流擷取與錄製。</li>
                     <li><strong>Web Bluetooth</strong>：網頁與實體硬體 (BLE) 的直接通訊。</li>
+                    <li><strong>Compression Streams</strong>：高效的前端數據壓縮。</li>
                 </ul>
             </section>
         `;

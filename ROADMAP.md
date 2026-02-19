@@ -49,7 +49,8 @@
 - [x] **高效能虛擬列表 (Virtual List)**：支持大數據量下的流暢渲染。
 - [x] **原生影像處理 (Image Filter)**：利用 Canvas 實作純前端圖片濾鏡。
 - [x] **原生語音實驗室 (Speech Lab)**：整合 Web Speech API (TTS & STT)。
-- [x] **進階組件組合 (Slots Simulation)**：支援 Light DOM 內容分發。
+- [x] **語音功能全域整合**：在教學文件新增「朗讀模式」與搜尋頁面新增「語音搜尋」。
+- [x] **原生組件組合 (Slots Simulation)**：支援 Light DOM 內容分發。
 - [x] **原生程式碼遊樂場 (Playground)**：利用 Blob & ObjectURL 實作即時編輯器。
 - [x] **原生儲存管理 (Storage Service)**：監控配額使用率並請求數據持久化。
 - [x] **原生 Web Crypto 服務 (Security)**：實作高強度數據雜湊與 AES 加解密。

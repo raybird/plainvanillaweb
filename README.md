@@ -29,7 +29,7 @@
 
 本專案不僅是範例，更是一個互動式實驗室：
 - **[Vanilla 遊樂場 (Playground)](#/playground)**：直接在瀏覽器撰寫原生代碼並即時預覽。
-- **[語音實驗室 (Speech Lab)](#/lab)**：實驗 Web Speech API 的文字轉語音與辨識功能。
+- **[原生技術實驗室 (Lab)](#/lab)**：實驗 Web Speech、WebRTC、WebGPU、WASM、Payment Request、Bluetooth 與 Screen Capture 等前沿 API。
 - **[性能分析中心 (Analytics)](#/analytics)**：利用 Canvas API 即時視覺化 Web Vitals 指標。
 - **[開發者儀表板 (Dashboard)](#/dashboard)**：監控 IndexedDB、Network 請求與全域狀態。
 
@@ -37,10 +37,17 @@
 
 ## 🚀 核心特色
 
+- **前沿 Web 技術整合 (Cutting Edge)**：
+    - **WebGPU & WASM**: 高效能並行運算與 C/Rust 編譯模組整合。
+    - **WebRTC (P2P)**：無伺服器去中心化數據傳輸與影音通訊。
+    - **Native Speech**: 整合原生 TTS (語音合成) 與 STT (語音辨識)。
+    - **Hardware Access**: 原生 Web Bluetooth 藍牙通訊與螢幕錄製。
+- **電商與支付 (E-commerce Ready)**：
+    - **Payment Request**: 標準化的瀏覽器原生支付介面，提升轉換率。
 - **進階交互實踐**：
-    - **Native Charts**: 利用 Canvas API 實作零依賴的高效能數據視覺化。
+    - **Native Charts**: 利用 Canvas API 實作零依萊的高效能數據視覺化。
     - **Image Processing**: 純前端圖片濾鏡 (Grayscale) 與縮放處理。
-    - **Speech Tech**: 整合原生 TTS (語音合成) 與 STT (語音辨識)。
+    - **Vanilla SDK 模式**: 核心服務解耦，支援由外部 URL 直接引用的 CDN 開發模式。
 - **專業級韌性架構**：
     - **Offline Action Queue**: 斷網時操作自動排隊，恢復連線後自動同步。
     - **Undo/Redo History**: 實作狀態快照機制的撤銷與重做功能。
@@ -49,6 +56,7 @@
 - **高性能與優化**：
     - **Lazy & Prefetch**: 路由驅動的模組動態載入與智能資源預載。
     - **Web Workers**: 邏輯計算與主執行緒解耦，保持介面反應。
+    - **Responsive First**: 全面優化手機版面佈局與 Header 響應式體驗。
     - **Reactive State 2.2**: 具備 Light DOM 插槽模擬機制的反應式組件。
 
 ---

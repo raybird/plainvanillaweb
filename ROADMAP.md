@@ -46,6 +46,7 @@
 6. **原生即時串流處理**：實作 Insertable Streams 濾鏡機制，展示高效能影像運算。
 7. **原生 Web Serial 整合**：實作序列通訊服務與終端機模擬介面。
 8. **原生響應式表單**：實作零相依的表單驗證引擎與 Lab 註冊範例。
+9. **原生 CRDT 數據同步**：實作 LWW-Register 衝突解決機制與即時協作筆記。
 
 ## 🎁 自主開發 (Bonus Features)
 **AI Agent 主動識別並實作的高價值功能。**
@@ -70,3 +71,4 @@
 - [x] **原生即時串流處理 (Live Media Processing)**：利用 Insertable Streams 實現低延遲影像濾鏡，挑戰媒體處理性能邊界。
 - [x] **原生 Web Serial 整合**：支援與硬體裝置（如 Arduino）的直接序列埠通訊，擴展 IoT 應用場景。
 - [x] **原生響應式表單引擎**：實作具備狀態追蹤 (Touched/Dirty) 與非同步驗證的專業表單系統。
+- [x] **原生 CRDT 數據同步**：實作基於 LWW-Register 的最終一致性算法，支援零衝突跨分頁協作。

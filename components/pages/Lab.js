@@ -581,7 +581,7 @@ export class LabPage extends BaseComponent {
                 </div>
 
                 <div style="background: #000; border-radius: 12px; overflow: hidden; position: relative; aspect-ratio: 16/9; max-width: 600px; margin: 0 auto;">
-                    <video id="processedVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+                    <video id="processedVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
                     ${!this.state.isProcessingStream ? html`
                         <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #666;">
                             等待啟動...

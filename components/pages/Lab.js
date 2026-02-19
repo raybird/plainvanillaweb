@@ -24,17 +24,60 @@ export class LabPage extends BaseComponent {
         super();
         this.initReactiveState({
             isListening: false,
-            // ... (現有狀態保持不變)
-            serialStatus: serialService.isSupported ? '支援' : '不支援',
-            // 新增：協作狀態
+            transcript: '',
+            ttsText: '歡迎來到 Vanilla Web 實驗室，這裡展示了原生網頁 API 的無限可能。',
+            cryptoInput: '這是一段敏感內容',
+            cryptoPass: 'password123',
+            encryptedData: null,
+            decryptedResult: '',
+            hashResult: '',
+            wasmLoaded: false,
+            wasmResult: null,
+            wasmInputA: 10,
+            wasmInputB: 20,
+            webgpuStatus: webgpuService.isSupported ? '支援' : '不支援',
+            gpuResult: null,
+            isComputing: false,
+            rtcLocalSdp: '',
+            rtcRemoteSdp: '',
+            rtcStatus: 'Disconnected',
+            rtcMessages: [], // 補全
+            rtcInput: '',
+            shareTitle: '🍦 Plain Vanilla Web',
+            shareText: '來看看這個超酷的現代原生網頁開發教學平台！',
+            shareUrl: window.location.origin,
+            canInstall: pwaService.canInstall,
+            btDeviceName: '',
+            btStatus: bluetoothService.isSupported ? '可用' : '不支援',
+            isRecordingScreen: false,
+            recordedVideoUrl: null,
+            // 壓縮狀態
+            compressInput: '這是一段需要被壓縮的長文字，原生 API 支援 Gzip, Deflate 等格式。'.repeat(5),
+            compressedBlob: null,
+            compressionRatio: 0,
+            // 支付狀態
+            cartItems: [ // 補全
+                { label: 'Vanilla JS 課程', amount: { currency: 'USD', value: '10.00' } },
+                { label: '進階 PWA 指南', amount: { currency: 'USD', value: '5.00' } }
+            ],
+            // 協作狀態
             collabNote: '',
             crdtStatus: 'Active (Node: ' + crdtService.nodeId + ')',
-            // 新增：表單引擎狀態
+            // 表單引擎狀態
             registrationForm: {
                 username: { valid: true, pending: false, touched: false, errors: null },
                 email: { valid: true, touched: false, errors: null },
                 formValid: false
-            }
+            },
+            isProcessingStream: false,
+            currentFilter: 'none',
+            streamStatus: streamProcessorService.isSupported ? '支援' : '不支援',
+            // 序列埠狀態
+            isSerialConnected: false,
+            serialLogs: [], // 補全
+            serialBaud: 9600,
+            serialInput: '',
+            serialStatus: serialService.isSupported ? '支援' : '不支援'
         });
         
         // ... (FormGroup 初始化保持不變)
@@ -67,7 +110,9 @@ export class LabPage extends BaseComponent {
                 try {
                     await this.videoRef.play();
                 } catch (err) {
-                    console.warn('[MediaService] 預覽播放被中斷:', err.message);
+                    if (err.name !== 'AbortError') {
+                        console.warn('[MediaService] 預覽播放異常:', err.message);
+                    }
                 }
             } 
             mediaService.startRecording(); 

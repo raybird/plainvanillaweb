@@ -251,6 +251,24 @@ export class LabPage extends BaseComponent {
         }
     }
 
+    async runSerialConnect() {
+        if (this.state.isSerialConnected) {
+            await serialService.disconnect();
+            return;
+        }
+        try {
+            await serialService.connect(this.state.serialBaud);
+        } catch (err) {
+            if (err.name !== 'NotFoundError') notificationService.error(err.message);
+        }
+    }
+
+    async sendSerialCommand() {
+        if (!this.state.serialInput) return;
+        await serialService.write(this.state.serialInput + '\n');
+        this.state.serialInput = '';
+    }
+
     render() {
         // ... (保持前面 HTML 內容)
         return html`
@@ -499,13 +517,48 @@ export class LabPage extends BaseComponent {
                 </div>
             </div>
 
+            <h2 style="margin-top: 3rem;">🔌 序列通訊 (Web Serial API)</h2>
+            <div class="lab-card">
+                <div style="margin-bottom: 1rem;">
+                    狀態: <span class="status-badge ${serialService.isSupported ? 'success' : ''}">${this.state.serialStatus}</span>
+                </div>
+                <p><small>直接與透過 USB 或藍牙連接的硬體（如 Arduino）通訊。</small></p>
+                
+                <div class="btn-group" style="margin-bottom: 1.5rem;">
+                    <button class="btn ${this.state.isSerialConnected ? 'btn-danger' : 'btn-primary'}" 
+                            ?disabled="${!serialService.isSupported}"
+                            onclick="this.closest('page-lab').runSerialConnect()">
+                        ${this.state.isSerialConnected ? '🔌 斷開連線' : '🔍 掃描並連線'}
+                    </button>
+                    <select class="control-btn" style="width: auto; margin-bottom: 0;"
+                            onchange="this.closest('page-lab').state.serialBaud = Number(this.value)">
+                        <option value="9600">9600 Baud</option>
+                        <option value="115200">115200 Baud</option>
+                    </select>
+                </div>
+
+                <div class="chat-box" style="height: 120px; font-family: monospace; background: #1a1a1a; color: #00ff00; padding: 1rem; border-radius: 8px; overflow-y: auto;">
+                    ${this.state.serialLogs.length === 0 ? '> 等待數據輸入...' : this.state.serialLogs.map(log => html`<div>> ${log}</div>`)}
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <input type="text" placeholder="發送命令..." style="margin-bottom: 0;"
+                           value="${this.state.serialInput}"
+                           oninput="this.closest('page-lab').state.serialInput = this.value"
+                           onkeyup="if(event.key === 'Enter') this.closest('page-lab').sendSerialCommand()">
+                    <button class="btn btn-secondary" onclick="this.closest('page-lab').sendSerialCommand()">傳送</button>
+                </div>
+            </div>
+
             <section style="margin-top: 3rem; padding: 2rem; background: var(--nav-bg); border-radius: 12px;">
                 <h3>🎓 教學重點</h3>
                 <ul>
                     <li><strong>Payment Request</strong>：標準化的瀏覽器原生結帳流程。</li>
                     <li><strong>Screen Capture</strong>：原生媒體串流擷取與錄製。</li>
                     <li><strong>Web Bluetooth</strong>：網頁與實體硬體 (BLE) 的直接通訊。</li>
+                    <li><strong>Web Serial</strong>：與嵌入式系統、感測器的直接序列埠通訊。</li>
                     <li><strong>Shadow DOM</strong>：實現組件樣式與結構的真正物理隔離。</li>
+                    <li><strong>Insertable Streams</strong>：高效能的即時影像影格處理。</li>
                 </ul>
             </section>
         `;

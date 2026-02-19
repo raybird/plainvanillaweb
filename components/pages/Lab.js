@@ -112,11 +112,15 @@ export class LabPage extends BaseComponent {
         bluetoothService.on('device-selected', (e) => { this.state.btDeviceName = e.detail.device.name || '未命名裝置'; notificationService.success(`已選擇裝置: ${this.state.btDeviceName}`); });
         
         // 媒體事件
-        mediaService.on('stream-started', (e) => { 
+        mediaService.on('stream-started', async (e) => { 
             this.videoRef = this.querySelector('#previewVideo');
             if (this.videoRef) { 
                 this.videoRef.srcObject = e.detail.stream; 
-                this.videoRef.play(); 
+                try {
+                    await this.videoRef.play();
+                } catch (err) {
+                    console.warn('[MediaService] 預覽播放被中斷:', err.message);
+                }
             } 
             mediaService.startRecording(); 
         });
@@ -263,7 +267,16 @@ export class LabPage extends BaseComponent {
             const videoEl = this.querySelector('#processedVideo');
             if (videoEl) {
                 videoEl.srcObject = processedStream;
-                videoEl.play();
+                // 處理 play() Promise 以避免中斷錯誤
+                try {
+                    await videoEl.play();
+                } catch (playErr) {
+                    if (playErr.name === 'AbortError' || playErr.name === 'NotAllowedError') {
+                        console.warn('[StreamProcessor] 播放被中斷或未授權:', playErr.message);
+                    } else {
+                        throw playErr;
+                    }
+                }
             }
             
             this.state.isProcessingStream = true;

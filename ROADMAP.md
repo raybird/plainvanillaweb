@@ -43,6 +43,7 @@
 3. **SDK 使用指南升級**：重寫 `docs/sdk-usage.md`，提供具備實戰價值的快速上手範例與 API 細節。
 4. **語音服務補全**：修復並導出 `speechService`，整合至全域 SDK 入口。
 5. **原生數據可視化**：實作基於 SVG 的輕量級圖表引擎與 Dashboard 整合。
+6. **原生即時串流處理**：實作 Insertable Streams 濾鏡機制，展示高效能影像運算。
 
 ## 🎁 自主開發 (Bonus Features)
 **AI Agent 主動識別並實作的高價值功能。**
@@ -64,3 +65,4 @@
 - [x] **響應式設計與手機版面優化**：全面提升行動裝置的閱讀體驗與佈局彈性。
 - [x] **原生 Payment Request 整合**：實作標準化的瀏覽器原生結帳流程。
 - [x] **原生圖表引擎 (SVG Charting)**：實作零相依的反應式動態圖表，展示 CSS 路徑過渡動畫。
+- [x] **原生即時串流處理 (Live Media Processing)**：利用 Insertable Streams 實現低延遲影像濾鏡，挑戰媒體處理性能邊界。

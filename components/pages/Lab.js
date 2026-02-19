@@ -206,7 +206,53 @@ export class LabPage extends BaseComponent {
         }
     }
 
+    async toggleLiveFilter() {
+        if (this.state.isProcessingStream) {
+            this.stopLiveStream();
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const videoTrack = stream.getVideoTracks()[0];
+            
+            const transformer = streamProcessorService.createCanvasTransformer(this.state.currentFilter);
+            const processedStream = streamProcessorService.process(videoTrack, transformer);
+            
+            const videoEl = this.querySelector('#processedVideo');
+            if (videoEl) {
+                videoEl.srcObject = processedStream;
+                videoEl.play();
+            }
+            
+            this.state.isProcessingStream = true;
+            notificationService.success('即時濾鏡已啟動');
+        } catch (err) {
+            notificationService.error(`擷取失敗: ${err.message}`);
+        }
+    }
+
+    stopLiveStream() {
+        streamProcessorService.stop();
+        const videoEl = this.querySelector('#processedVideo');
+        if (videoEl && videoEl.srcObject) {
+            videoEl.srcObject.getTracks().forEach(t => t.stop());
+            videoEl.srcObject = null;
+        }
+        this.state.isProcessingStream = false;
+    }
+
+    changeFilter(filter) {
+        this.state.currentFilter = filter;
+        if (this.state.isProcessingStream) {
+            // 重新啟動以套用新濾鏡 (簡化實作)
+            this.stopLiveStream();
+            this.toggleLiveFilter();
+        }
+    }
+
     render() {
+        // ... (保持前面 HTML 內容)
         return html`
             <style>
                 .lab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
@@ -418,6 +464,38 @@ export class LabPage extends BaseComponent {
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <h2 style="margin-top: 3rem;">🎞️ 即時串流處理 (Live Stream Processing)</h2>
+            <div class="lab-card">
+                <div style="margin-bottom: 1rem;">
+                    狀態: <span class="status-badge ${streamProcessorService.isSupported ? 'success' : ''}">${this.state.streamStatus}</span>
+                </div>
+                <p><small>利用 MediaStreamTrackProcessor 直接攔截攝像頭影格並套用視覺濾鏡。</small></p>
+                
+                <div class="btn-group" style="margin-bottom: 1.5rem;">
+                    <button class="btn ${this.state.isProcessingStream ? 'btn-danger' : 'btn-primary'}" 
+                            ?disabled="${!streamProcessorService.isSupported}"
+                            onclick="this.closest('page-lab').toggleLiveFilter()">
+                        ${this.state.isProcessingStream ? '⏹️ 停止處理' : '📹 啟動處理器'}
+                    </button>
+                    <select class="control-btn" style="width: auto; margin-bottom: 0;"
+                            onchange="this.closest('page-lab').changeFilter(this.value)">
+                        <option value="none">無濾鏡</option>
+                        <option value="grayscale">灰階 (Grayscale)</option>
+                        <option value="invert">反轉 (Invert)</option>
+                        <option value="sepia">棕褐色 (Sepia)</option>
+                    </select>
+                </div>
+
+                <div style="background: #000; border-radius: 12px; overflow: hidden; position: relative; aspect-ratio: 16/9; max-width: 600px; margin: 0 auto;">
+                    <video id="processedVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+                    ${!this.state.isProcessingStream ? html`
+                        <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #666;">
+                            等待啟動...
+                        </div>
+                    ` : ''}
                 </div>
             </div>
 

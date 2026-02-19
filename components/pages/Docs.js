@@ -71,7 +71,8 @@ export class Documentation extends BaseComponent {
             { id: 'web-bluetooth', title: 'Web 藍牙裝置通訊' },
             { id: 'payment-request', title: 'Web 原生支付整合' },
             { id: 'media-capture', title: '螢幕錄製與串流' },
-            { id: 'native-visualization', title: '原生數據可視化' }
+            { id: 'native-visualization', title: '原生數據可視化' },
+            { id: 'live-stream-processing', title: '即時串流處理' }
         ];
 
         return html`

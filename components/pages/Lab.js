@@ -48,6 +48,7 @@ export class LabPage extends BaseComponent {
         import("./lab/EyeDropperPage.js"),
         import("./lab/WebLocksPage.js"),
         import("./lab/WakeLockPage.js"),
+        import("./lab/BadgingPage.js"),
       ]);
 
       // 載入完成後手動觸發一次渲染與更新
@@ -135,6 +136,9 @@ export class LabPage extends BaseComponent {
           ></x-route>
           <x-route path="/lab/wakelock" exact
             ><page-lab-wakelock></page-lab-wakelock
+          ></x-route>
+          <x-route path="/lab/badging" exact
+            ><page-lab-badging></page-lab-badging
           ></x-route>
 
           <!-- 通配符 fallback -->

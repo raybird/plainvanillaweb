@@ -43,6 +43,11 @@ export class LabIndex extends BaseComponent {
         title: "💡 Wake Lock API",
         desc: "保持螢幕常亮與前景恢復策略",
       },
+      {
+        id: "badging",
+        title: "🔔 Badging API",
+        desc: "設定未讀徽章與降級顯示策略",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

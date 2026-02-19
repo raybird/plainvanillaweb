@@ -91,3 +91,4 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 - [x] **原生 EyeDropper API 取色體驗**：以零相依方式實作畫面取色與主題色票預覽流程。
 - [x] **原生 Web Locks API 併發協調**：以 `exclusive/ifAvailable` 實作跨流程資源互斥與非阻塞排程。
 - [x] **原生 Screen Wake Lock 保持喚醒**：以手動啟用/釋放與前景自動恢復策略維持長流程常亮體驗。
+- [x] **原生 Badging API 應用徽章**：以未讀數徽章與標題降級策略補齊 PWA 提醒體驗。

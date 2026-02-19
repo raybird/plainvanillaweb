@@ -77,3 +77,4 @@
 | [0070](./0070-eye-dropper-integration.md)        | 原生 EyeDropper API 取色體驗                 | Accepted                        |
 | [0071](./0071-web-locks-integration.md)          | 原生 Web Locks API 併發協調                  | Accepted                        |
 | [0072](./0072-screen-wake-lock-integration.md)   | 原生 Screen Wake Lock 保持喚醒               | Accepted                        |
+| [0073](./0073-badging-api-integration.md)        | 原生 Badging API 應用徽章                    | Accepted                        |

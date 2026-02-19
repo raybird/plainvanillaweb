@@ -83,6 +83,7 @@ export class Documentation extends BaseComponent {
       { id: "eye-dropper", title: "EyeDropper API 原生取色" },
       { id: "web-locks", title: "Web Locks API 併發協調" },
       { id: "screen-wake-lock", title: "Screen Wake Lock 保持喚醒" },
+      { id: "badging-api", title: "Badging API 應用徽章" },
     ];
 
     return html`

@@ -18,6 +18,6 @@
   - [x] 撰寫 `docs/screen-wake-lock.md` 教學文件。
   - [x] 更新 `components/pages/Docs.js` 導覽清單。
   - [x] 更新 `docs/decisions/README.md` 與 `ROADMAP.md` 記錄演進里程碑。
-- [ ] **Phase 4: 交付驗證與發布**
-  - [ ] 執行測試或最小驗證命令，確認專案可正常運作。
-  - [ ] 完成 `commit -> tag -> push` 發布流程。
+- [x] **Phase 4: 交付驗證與發布**
+  - [x] 執行測試或最小驗證命令，確認專案可正常運作。
+  - [x] 完成 `commit -> tag -> push` 發布流程。

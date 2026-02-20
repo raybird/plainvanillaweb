@@ -155,6 +155,12 @@ export class LabIndex extends BaseComponent {
         title: "🌐 網路資訊",
         desc: "即時頻寬監控與 Beacon 可靠傳輸實驗",
       },
+      {
+        id: "performance",
+        docId: "web-performance",
+        title: "⏱️ 效能監控",
+        desc: "Web Vitals 與加載流程即時觀測儀表板",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

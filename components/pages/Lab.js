@@ -164,9 +164,13 @@ export class LabPage extends BaseComponent {
                                                             <x-route path="/lab/image-studio" exact
                                                               ><page-lab-image-studio></page-lab-image-studio
                                                             ></x-route>
-                                                            <x-route path="/lab/network" exact
-                                                              ><page-lab-network></page-lab-network
-                                                            ></x-route>
+                                                                      <x-route path="/lab/network" exact
+                                                                        ><page-lab-network></page-lab-network
+                                                                      ></x-route>
+                                                                      <x-route path="/lab/performance" exact
+                                                                        ><page-lab-performance></page-lab-performance
+                                                                      ></x-route>
+                                                            
                                                                                                     <x-route path="/lab/file-system" exact
                                                     ><page-lab-file-system></page-lab-file-system
                                                   ></x-route>

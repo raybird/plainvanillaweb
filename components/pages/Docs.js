@@ -54,6 +54,7 @@ export class Documentation extends BaseComponent {
       compression: "/lab/compression",
       "native-image-processing": "/lab/image-studio",
       connectivity: "/lab/network",
+      "web-performance": "/lab/performance",
     };
     return map[docId] || null;
   }
@@ -135,6 +136,7 @@ export class Documentation extends BaseComponent {
       { id: "view-transitions", title: "View Transitions 過渡動畫" },
       { id: "permissions-preflight", title: "權限預檢與鏡頭啟動策略" },
       { id: "docs-lab-cross-reference", title: "技術手冊與 Lab 雙向導覽" },
+      { id: "web-performance", title: "原生效能監控 API" },
       { id: "native-image-processing", title: "原生影像處理" },
     ];
 

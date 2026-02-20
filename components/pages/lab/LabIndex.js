@@ -167,6 +167,12 @@ export class LabIndex extends BaseComponent {
         title: "🎹 MIDI 互動",
         desc: "原生 Web MIDI 設備偵測與訊號解析實驗",
       },
+      {
+        id: "audio",
+        docId: "web-audio",
+        title: "🔊 音訊合成",
+        desc: "原生 Web Audio 合成器與 MIDI 聯動演奏",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

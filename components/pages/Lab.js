@@ -170,9 +170,13 @@ export class LabPage extends BaseComponent {
                                                                                 <x-route path="/lab/performance" exact
                                                                                   ><page-lab-performance></page-lab-performance
                                                                                 ></x-route>
-                                                                                <x-route path="/lab/midi" exact
-                                                                                  ><page-lab-midi></page-lab-midi
-                                                                                ></x-route>
+                                                                                          <x-route path="/lab/midi" exact
+                                                                                            ><page-lab-midi></page-lab-midi
+                                                                                          ></x-route>
+                                                                                          <x-route path="/lab/audio" exact
+                                                                                            ><page-lab-audio></page-lab-audio
+                                                                                          ></x-route>
+                                                                                
                                                                                                                                                                           <x-route path="/lab/file-system" exact
                                                     ><page-lab-file-system></page-lab-file-system
                                                   ></x-route>

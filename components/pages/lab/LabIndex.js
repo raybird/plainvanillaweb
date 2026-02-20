@@ -161,6 +161,12 @@ export class LabIndex extends BaseComponent {
         title: "⏱️ 效能監控",
         desc: "Web Vitals 與加載流程即時觀測儀表板",
       },
+      {
+        id: "midi",
+        docId: "web-midi",
+        title: "🎹 MIDI 互動",
+        desc: "原生 Web MIDI 設備偵測與訊號解析實驗",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

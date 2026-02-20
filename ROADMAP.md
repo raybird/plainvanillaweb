@@ -66,6 +66,7 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 15. **原生影像工作室**：實作純前端圖片濾鏡、縮放與 WebP 品質壓縮。
 16. **原生連線性實驗室**：整合 Network Information API 與 Beacon 可靠傳輸。
 17. **原生效能監控儀表板**：實作 Web Vitals (LCP/CLS) 與加載管線視覺化。
+18. **原生 MIDI 互動實驗室**：實作 Web MIDI 設備偵測與即時訊息解析。
 
 ## 🎁 自主開發 (Bonus Features)
 
@@ -100,6 +101,7 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 - [x] **原生影像工作室**：實作基於 Canvas API 的濾鏡、縮放與 WebP 品質壓縮引擎。
 - [x] **原生連線性與網路資訊實驗室**：實作即時頻寬監控與 Beacon API 可靠數據傳送。
 - [x] **原生效能監控實驗室**：實作 Web Performance API 儀表板，監控 Web Vitals 與加載指標。
+- [x] **原生 MIDI 互動實驗室**：實作 Web MIDI 設備連線、訊息解析與即時監控。
 - [x] **原生 Popover API 互動層**：以宣告式與程式式雙模式實作輕量彈出層體驗。
 - [x] **原生 EyeDropper API 取色體驗**：以零相依方式實作畫面取色與主題色票預覽流程。
 - [x] **原生 Web Locks API 併發協調**：以 `exclusive/ifAvailable` 實作跨流程資源互斥與非阻塞排程。

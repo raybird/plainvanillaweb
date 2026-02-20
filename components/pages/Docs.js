@@ -49,6 +49,9 @@ export class Documentation extends BaseComponent {
       "view-transitions": "/lab/view-transitions",
       "web-share": "/lab/web-share",
       "permissions-preflight": "/lab/permissions",
+      webgpu: "/lab/webgpu",
+      "file-system-access": "/lab/file-system",
+      compression: "/lab/compression",
     };
     return map[docId] || null;
   }
@@ -123,6 +126,7 @@ export class Documentation extends BaseComponent {
       { id: "web-locks", title: "Web Locks API 併發協調" },
       { id: "screen-wake-lock", title: "Screen Wake Lock 保持喚醒" },
       { id: "badging-api", title: "Badging API 應用徽章" },
+      { id: "compression", title: "數據壓縮流" },
       { id: "webcodecs", title: "WebCodecs 低延遲編碼" },
       { id: "view-transitions", title: "View Transitions 過渡動畫" },
       { id: "permissions-preflight", title: "權限預檢與鏡頭啟動策略" },

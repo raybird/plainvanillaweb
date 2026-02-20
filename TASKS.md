@@ -67,3 +67,27 @@
   - [x] 更新 `components/pages/lab/LabIndex.js`、`components/pages/Docs.js`。
   - [x] 更新 `manifest.json` 的 `share_target.action` 指向 `#/lab/web-share`。
   - [x] 更新 `docs/decisions/README.md`、`ROADMAP.md`。
+
+---
+
+# 📋 任務清單：頂尖 Web API 實驗室整合
+
+## 🎯 目標
+
+補齊路線圖中已具備服務但缺少實作展示頁面的頂尖 API（WebGPU, File System, Compression），實現「代碼、文件、範例」三位一體。
+
+## 🛠 任務分解
+
+- [x] **Phase 1: WebGPU 運算實驗室 (ADR 0079)**
+  - [x] 建立 `docs/decisions/0079-webgpu-lab-integration.md`。
+  - [x] 實作 `components/pages/lab/WebGPUPage.js` 展示 Compute Shader 運算。
+  - [x] 在 `Lab.js` 與 `LabIndex.js` 註冊與掛載。
+- [x] **Phase 2: 檔案系統存取實驗室 (ADR 0080)**
+  - [x] 建立 `docs/decisions/0080-file-system-lab-integration.md`。
+  - [x] 實作 `components/pages/lab/FileSystemPage.js` 展示目錄讀取與檔案編輯。
+- [x] **Phase 3: 數據壓縮流實驗室 (ADR 0081)**
+  - [x] 建立 `docs/decisions/0081-compression-lab-integration.md`。
+  - [x] 實作 `components/pages/lab/CompressionPage.js` 展示 Gzip 即時壓縮/解壓縮。
+- [x] **Phase 4: 文件與導覽同步**
+  - [x] 確保 `Docs.js` 與 `LabIndex.js` 雙向導覽覆蓋這三個新頁面。
+  - [x] 更新 `ROADMAP.md`。

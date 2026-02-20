@@ -53,6 +53,9 @@ export class LabPage extends BaseComponent {
         import("./lab/ViewTransitionsPage.js"),
         import("./lab/PermissionsPreflightPage.js"),
         import("./lab/WebSharePage.js"),
+        import("./lab/WebGPUPage.js"),
+        import("./lab/FileSystemPage.js"),
+        import("./lab/CompressionPage.js"),
       ]);
 
       // 載入完成後手動觸發一次渲染與更新
@@ -153,11 +156,19 @@ export class LabPage extends BaseComponent {
           <x-route path="/lab/permissions" exact
             ><page-lab-permissions-preflight></page-lab-permissions-preflight
           ></x-route>
-          <x-route path="/lab/web-share" exact
-            ><page-lab-web-share></page-lab-web-share
-          ></x-route>
-
-          <!-- 通配符 fallback -->
+                              <x-route path="/lab/web-share" exact><page-lab-web-share></page-lab-web-share></x-route>
+                                        <x-route path="/lab/webgpu" exact
+                                          ><page-lab-webgpu></page-lab-webgpu
+                                        ></x-route>
+                                                  <x-route path="/lab/file-system" exact
+                                                    ><page-lab-file-system></page-lab-file-system
+                                                  ></x-route>
+                                                  <x-route path="/lab/compression" exact
+                                                    ><page-lab-compression></page-lab-compression
+                                                  ></x-route>
+                                                  
+                              <!-- 通配符 fallback -->
+          
           <x-route path="/lab/*"><page-lab-index></page-lab-index></x-route>
         </x-switch>
       </div>

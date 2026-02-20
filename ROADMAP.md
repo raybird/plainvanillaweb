@@ -60,6 +60,9 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 9. **原生 Web NFC 整合**：實作與實體 NDEF 標籤的讀寫通訊，解鎖近場感應應用。
 10. **原生掃碼與視覺辨識**：實作高效能、零相依的條碼與 QR 碼辨識引擎。
 11. **原生生物辨識整合**：實作 WebAuthn 流程，支援 FaceID 與實體安全金鑰驗證。
+12. **原生 WebGPU 運算**：實作 Compute Shader 展示硬體加速的平行計算能力。
+13. **原生檔案系統存取**：實現網頁對本地目錄與檔案的深度讀寫與編輯。
+14. **原生數據壓縮流**：利用 Compression Streams 實現高效、零依賴的數據壓縮。
 
 ## 🎁 自主開發 (Bonus Features)
 
@@ -87,6 +90,9 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 - [x] **原生 Web NFC 整合**：實作與實體 NDEF 標籤的讀寫通訊。
 - [x] **原生掃碼與視覺辨識**：利用 Barcode Detection API 實作高效能、零相依的條碼與 QR 碼辨識。
 - [x] **原生生物辨識整合**：利用 WebAuthn API 實作基於硬體（FaceID/TouchID）的身分驗證流程。
+- [x] **原生 WebGPU 運算實驗室**：實作 Compute Shader (WGSL) 平行運算展示頁。
+- [x] **原生檔案系統存取實驗室**：實作目錄讀取與檔案編輯/儲存回本地的完整流程。
+- [x] **原生數據壓縮流實驗室**：利用 Compression Streams 實作零依賴的 Gzip 壓縮/解壓展示。
 - [x] **原生 Popover API 互動層**：以宣告式與程式式雙模式實作輕量彈出層體驗。
 - [x] **原生 EyeDropper API 取色體驗**：以零相依方式實作畫面取色與主題色票預覽流程。
 - [x] **原生 Web Locks API 併發協調**：以 `exclusive/ifAvailable` 實作跨流程資源互斥與非阻塞排程。

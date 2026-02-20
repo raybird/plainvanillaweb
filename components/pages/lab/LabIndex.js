@@ -119,6 +119,24 @@ export class LabIndex extends BaseComponent {
         title: "🛡️ 權限預檢",
         desc: "先預檢再請求權限，降低手機鏡頭黑畫面風險",
       },
+      {
+        id: "webgpu",
+        docId: "webgpu",
+        title: "⚡ 次世代運算",
+        desc: "WebGPU 硬體加速運算實作示範",
+      },
+      {
+        id: "file-system",
+        docId: "file-system-access",
+        title: "📁 檔案系統存取",
+        desc: "原生目錄讀取與本地檔案編輯",
+      },
+      {
+        id: "compression",
+        docId: "compression",
+        title: "🗜️ 數據壓縮流",
+        desc: "原生 Gzip 即時壓縮與解壓實作",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

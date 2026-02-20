@@ -85,6 +85,7 @@ export class Documentation extends BaseComponent {
       { id: "screen-wake-lock", title: "Screen Wake Lock 保持喚醒" },
       { id: "badging-api", title: "Badging API 應用徽章" },
       { id: "webcodecs", title: "WebCodecs 低延遲編碼" },
+      { id: "view-transitions", title: "View Transitions 過渡動畫" },
     ];
 
     return html`

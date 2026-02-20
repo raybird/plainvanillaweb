@@ -1,21 +1,21 @@
-# 📋 任務清單：原生 WebCodecs 低延遲編碼
+# 📋 任務清單：原生 View Transitions 教學強化
 
 ## 🎯 目標
 
-導入瀏覽器原生 `WebCodecs`，建立低延遲編碼教學範例，展示 codec 切換、合成影格編碼與效能指標觀察。
+將既有 `View Transitions API` 能力轉為可操作教學頁，完整展示路由切換與同頁狀態過渡，並補齊技術手冊與 ADR。
 
 ## 🛠 任務分解
 
-- [x] **Phase 1: 架構決策 (ADR 0074)**
-  - [x] 建立 `docs/decisions/0074-webcodecs-integration.md`。
-  - [x] 定義合成影格編碼流程與低延遲模式。
-  - [x] 定義 codec 能力檢測與降級顯示。
+- [x] **Phase 1: 架構決策 (ADR 0075)**
+  - [x] 建立 `docs/decisions/0075-view-transitions-lab-integration.md`。
+  - [x] 定義路由過渡與同頁過渡示範範圍。
+  - [x] 定義不支援環境 fallback 與教學說明。
 - [x] **Phase 2: 實驗室整合 (Lab)**
-  - [x] 建立 `components/pages/lab/WebCodecsPage.js`。
+  - [x] 建立 `components/pages/lab/ViewTransitionsPage.js`。
   - [x] 在 `components/pages/Lab.js` 註冊 preload 與子路由。
   - [x] 更新 `components/pages/lab/LabIndex.js`，加入入口卡片。
 - [x] **Phase 3: 教學與文件同步**
-  - [x] 撰寫 `docs/webcodecs.md` 教學文件。
+  - [x] 撰寫 `docs/view-transitions.md` 教學文件。
   - [x] 更新 `components/pages/Docs.js` 導覽清單。
   - [x] 更新 `docs/decisions/README.md` 與 `ROADMAP.md` 記錄演進里程碑。
 - [x] **Phase 4: 交付驗證與發布**

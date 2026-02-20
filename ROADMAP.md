@@ -93,3 +93,4 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 - [x] **原生 Screen Wake Lock 保持喚醒**：以手動啟用/釋放與前景自動恢復策略維持長流程常亮體驗。
 - [x] **原生 Badging API 應用徽章**：以未讀數徽章與標題降級策略補齊 PWA 提醒體驗。
 - [x] **原生 WebCodecs 低延遲編碼**：以 `VideoEncoder` 合成影格編碼與指標儀表展示即時影音管線能力。
+- [x] **原生 View Transitions 教學強化**：新增可操作教學頁，覆蓋路由切換與同頁狀態過渡示範。

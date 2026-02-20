@@ -50,6 +50,7 @@ export class LabPage extends BaseComponent {
         import("./lab/WakeLockPage.js"),
         import("./lab/BadgingPage.js"),
         import("./lab/WebCodecsPage.js"),
+        import("./lab/ViewTransitionsPage.js"),
       ]);
 
       // 載入完成後手動觸發一次渲染與更新
@@ -143,6 +144,9 @@ export class LabPage extends BaseComponent {
           ></x-route>
           <x-route path="/lab/webcodecs" exact
             ><page-lab-webcodecs></page-lab-webcodecs
+          ></x-route>
+          <x-route path="/lab/view-transitions" exact
+            ><page-lab-view-transitions></page-lab-view-transitions
           ></x-route>
 
           <!-- 通配符 fallback -->

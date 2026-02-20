@@ -53,6 +53,11 @@ export class LabIndex extends BaseComponent {
         title: "🎞️ WebCodecs",
         desc: "低延遲影格編碼與效能指標觀察",
       },
+      {
+        id: "view-transitions",
+        title: "🪄 View Transitions",
+        desc: "原生頁面與狀態過渡動畫示範",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

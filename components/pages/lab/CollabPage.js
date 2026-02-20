@@ -73,7 +73,7 @@ export class CollabPage extends BaseComponent {
           style="width: 100%; font-family: monospace; padding: 1rem; border-radius: 8px; border: 1px solid #ddd;"
           oninput="this.closest('page-lab-collab').handleCollabInput(this.value)"
           placeholder="在此輸入文字，其他分頁會即時同步..."
-        ></textarea>
+        >${this._collabNote}</textarea>
       </div>
       
       <section class="info-section">

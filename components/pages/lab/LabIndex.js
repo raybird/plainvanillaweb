@@ -48,6 +48,11 @@ export class LabIndex extends BaseComponent {
         title: "🔔 Badging API",
         desc: "設定未讀徽章與降級顯示策略",
       },
+      {
+        id: "webcodecs",
+        title: "🎞️ WebCodecs",
+        desc: "低延遲影格編碼與效能指標觀察",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

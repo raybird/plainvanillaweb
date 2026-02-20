@@ -95,3 +95,4 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 - [x] **原生 WebCodecs 低延遲編碼**：以 `VideoEncoder` 合成影格編碼與指標儀表展示即時影音管線能力。
 - [x] **原生 View Transitions 教學強化**：新增可操作教學頁，覆蓋路由切換與同頁狀態過渡示範。
 - [x] **技術手冊與 Lab 雙向快參照**：建立文件與實作頁的雙向連結與深連結導覽流程。
+- [x] **原生權限預檢教學頁**：新增 `#/lab/permissions`，示範 Secure Context、Permissions API 與鏡頭啟動/釋放流程。

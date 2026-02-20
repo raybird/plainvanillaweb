@@ -107,6 +107,12 @@ export class LabIndex extends BaseComponent {
         title: "🪄 View Transitions",
         desc: "原生頁面與狀態過渡動畫示範",
       },
+      {
+        id: "permissions",
+        docId: "permissions-preflight",
+        title: "🛡️ 權限預檢",
+        desc: "先預檢再請求權限，降低手機鏡頭黑畫面風險",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

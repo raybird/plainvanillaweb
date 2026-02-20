@@ -19,8 +19,15 @@
 - `#/lab/webcodecs` ↔ `#/docs/webcodecs`
 - `#/lab/view-transitions` ↔ `#/docs/view-transitions`
 - `#/lab/webauthn` ↔ `#/docs/webauthn`
+- `#/lab/permissions` ↔ `#/docs/permissions-preflight`
 
 ## 📌 後續可擴充
 
 - 在文件底部加入「下一個推薦實驗」導覽。
 - 針對手機版提供固定底部快取導覽列。
+
+## 📱 手機版可用性檢查
+
+- Docs 導覽在小螢幕會改為可換行 chip 清單，避免側欄擠壓內容。
+- 文件頁右上操作按鈕（對應實驗室/語音朗讀）在手機版會自動展開為等寬按鈕。
+- 觸控熱區提升到 `min-height: 44px`，降低誤觸。

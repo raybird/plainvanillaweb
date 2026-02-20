@@ -47,6 +47,7 @@ export class Documentation extends BaseComponent {
       "badging-api": "/lab/badging",
       webcodecs: "/lab/webcodecs",
       "view-transitions": "/lab/view-transitions",
+      "permissions-preflight": "/lab/permissions",
     };
     return map[docId] || null;
   }
@@ -123,6 +124,7 @@ export class Documentation extends BaseComponent {
       { id: "badging-api", title: "Badging API 應用徽章" },
       { id: "webcodecs", title: "WebCodecs 低延遲編碼" },
       { id: "view-transitions", title: "View Transitions 過渡動畫" },
+      { id: "permissions-preflight", title: "權限預檢與鏡頭啟動策略" },
       { id: "docs-lab-cross-reference", title: "技術手冊與 Lab 雙向導覽" },
     ];
 
@@ -149,6 +151,43 @@ export class Documentation extends BaseComponent {
           background: white;
           min-height: 60vh;
           overflow-x: auto;
+        }
+        .docs-nav-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        .docs-nav-item {
+          margin-bottom: 0.5rem;
+        }
+        .docs-nav-button {
+          width: 100%;
+          text-align: left;
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 0.5rem;
+          border-radius: 4px;
+        }
+        .docs-toolbar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 1rem;
+          border-bottom: 1px solid #eee;
+          padding-bottom: 0.5rem;
+          flex-wrap: wrap;
+        }
+        .docs-toolbar-actions {
+          display: flex;
+          gap: 0.4rem;
+          flex-wrap: wrap;
+        }
+        .docs-toolbar-action {
+          font-size: 0.8rem;
+          padding: 4px 8px;
+          min-height: 36px;
         }
 
         @media (max-width: 768px) {
@@ -178,6 +217,16 @@ export class Documentation extends BaseComponent {
             font-size: 0.85rem;
             padding: 0.4rem 0.8rem !important;
           }
+          .docs-toolbar {
+            align-items: stretch;
+          }
+          .docs-toolbar-actions {
+            width: 100%;
+          }
+          .docs-toolbar-action {
+            flex: 1;
+            min-height: 44px;
+          }
         }
       </style>
 
@@ -185,19 +234,19 @@ export class Documentation extends BaseComponent {
         <!-- 左側導覽 -->
         <nav class="docs-nav">
           <h3 style="margin-top: 0;">📚 技術手冊</h3>
-          <ul style="list-style: none; padding: 0;">
+          <ul class="docs-nav-list">
             ${docs.map(
               (d) => html`
-                <li style="margin-bottom: 0.5rem;">
+                <li class="docs-nav-item">
                   <button
+                    class="docs-nav-button"
                     onclick="this.closest('page-docs').loadDoc('${d.id}')"
-                    style="width: 100%; text-align: left; background: none; border: none; color: ${this
-                      .state.currentDoc === d.id
+                    style="color: ${this.state.currentDoc === d.id
                       ? "var(--primary-color)"
                       : "inherit"}; font-weight: ${this.state.currentDoc ===
                     d.id
                       ? "bold"
-                      : "normal"}; cursor: pointer; padding: 0.5rem; border-radius: 4px;"
+                      : "normal"};"
                   >
                     ${d.title}
                   </button>
@@ -209,9 +258,7 @@ export class Documentation extends BaseComponent {
 
         <!-- 右側內容 -->
         <article class="docs-content">
-          <div
-            style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; flex-wrap: wrap;"
-          >
+          <div class="docs-toolbar">
             <span class="status-badge"
               >${this.state.currentDoc
                 ? `ID: ${this.state.currentDoc}`
@@ -219,15 +266,14 @@ export class Documentation extends BaseComponent {
             >
             ${this.state.currentDoc
               ? html`
-                  <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                  <div class="docs-toolbar-actions">
                     ${this.getLabRouteByDoc(this.state.currentDoc)
                       ? html`
                           <a
                             href="#${this.getLabRouteByDoc(
                               this.state.currentDoc,
                             )}"
-                            class="btn btn-secondary"
-                            style="font-size: 0.8rem; padding: 4px 8px; min-height: 32px;"
+                            class="btn btn-secondary docs-toolbar-action"
                           >
                             🧪 對應實驗室
                           </a>
@@ -235,10 +281,9 @@ export class Documentation extends BaseComponent {
                       : ""}
 
                     <button
-                      class="btn ${this.state.isSpeaking
+                      class="btn docs-toolbar-action ${this.state.isSpeaking
                         ? "btn-danger"
                         : "btn-secondary"}"
-                      style="font-size: 0.8rem; padding: 4px 8px; min-height: 32px;"
                       onclick="this.closest('page-docs').toggleSpeak()"
                     >
                       ${this.state.isSpeaking ? "⏹️ 停止朗讀" : "🔊 語音朗讀"}

@@ -23,14 +23,23 @@ export class CollabPage extends BaseComponent {
       const textarea = this.querySelector("#collab-note");
       if (!textarea) return;
 
-      // 如果變更來自本地且正在輸入，跳過更新以保留游標
-      if (document.activeElement === textarea && data.state?.nodeId === crdtService.nodeId) {
-        return;
-      }
+      // 檢查是否是本地輸入觸發的事件 (nodeId 相同)
+      const isLocal = data.state?.nodeId === crdtService.nodeId;
+      if (isLocal) return;
 
-      // 局部更新：僅修改 value 屬性，這不會遺失 focus
+      // 遠端更新邏輯
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const isFocused = document.activeElement === textarea;
+
+      // 局部更新內容
       textarea.value = data.value;
       this._collabNote = data.value;
+
+      // 如果有焦點，恢復游標位置 (防止遠端同步導致游標跳到結尾)
+      if (isFocused) {
+        textarea.setSelectionRange(start, end);
+      }
     };
 
     crdtService.on("change", this._onChange);

@@ -49,8 +49,7 @@ export class SerialPage extends BaseComponent {
 
     async sendSerialCommand() {
         if (!this.state.serialInput) return;
-        await serialService.write(this.state.serialInput + '
-');
+        await serialService.write(this.state.serialInput + '\n');
         this.state.serialInput = '';
     }
 

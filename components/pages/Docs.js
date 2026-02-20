@@ -47,6 +47,7 @@ export class Documentation extends BaseComponent {
       "badging-api": "/lab/badging",
       webcodecs: "/lab/webcodecs",
       "view-transitions": "/lab/view-transitions",
+      "web-share": "/lab/web-share",
       "permissions-preflight": "/lab/permissions",
     };
     return map[docId] || null;

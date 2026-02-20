@@ -1,49 +1,62 @@
 # 原生 Web 分享與接收 (Web Share & Target)
 
-現代 Web 標準讓 PWA 能夠與作業系統深度整合，像原生應用程式一樣分享內容與接收分享。
+Web Share API 可直接呼叫作業系統分享面板；Web Share Target 則讓 PWA 成為「可被分享到」的目標。
 
-## 1. 內容分享 (Web Share API)
+## 1) 內容分享 (`navigator.share`)
 
-透過 `navigator.share()`，您可以呼叫系統原生的分享選單，將文字、網址甚至檔案發送至其他應用程式。
+適合手機情境，能把標題、文字、網址交給系統原生分享流程。
 
 ```javascript
 async function shareContent() {
-    try {
-        await navigator.share({
-            title: '範例標題',
-            text: '這是一段要分享的內容',
-            url: window.location.href
-        });
-        console.log('分享成功！');
-    } catch (err) {
-        console.error('分享失敗或已取消:', err);
+  try {
+    await navigator.share({
+      title: "Plain Vanilla Web",
+      text: "這是我整理的原生 Web 教學頁",
+      url: "https://example.com/#/docs/web-share",
+    });
+    console.log("分享成功");
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      console.log("使用者取消分享");
+      return;
     }
-}
-```
-
-## 2. 接收分享 (Web Share Target)
-
-透過在 `manifest.json` 中宣告 `share_target`，您的 PWA 就能出現在系統的分享選單中。
-
-### manifest.json 配置
-```json
-"share_target": {
-  "action": "/#/lab",
-  "method": "GET",
-  "params": {
-    "title": "title",
-    "text": "text",
-    "url": "url"
+    console.error("分享失敗", error);
   }
 }
 ```
 
-## 3. 本專案的實踐
+## 2) 接收分享 (`share_target`)
 
-在「實驗室 (Lab)」中，我們展示了：
-1.  **一鍵分享**：讓使用者能快速將當前專案或實驗結果分發至系統其他角落。
-2.  **可用性偵測**：當瀏覽器不支援時，會優雅地降級或隱藏功能。
-3.  **系統級整合**：展示了如何讓網頁應用程式不再是孤立的頁面，而是系統生態的一部分。
+在 `manifest.json` 宣告 `share_target` 後，系統可把外部分享資料導向你指定的 hash route。
 
----
-*本文件為 Plain Vanilla Web 教學系列的一部分。*
+```json
+"share_target": {
+  "action": "#/lab/web-share",
+  "method": "GET",
+  "params": {
+    "title": "share_title",
+    "text": "share_text",
+    "url": "share_url"
+  }
+}
+```
+
+接收頁可從 hash query 解析資料，例如：
+
+```text
+#/lab/web-share?share_title=...&share_text=...&share_url=...
+```
+
+## 3) 路由注意事項（Hash + Query）
+
+若你使用 hash router，路由匹配時要先忽略 query，再做 path 比對。
+否則像 `#/lab/web-share?share_title=...` 可能被視為不匹配而掉回 fallback。
+
+## 4) 本專案教學實作
+
+- Lab 範例：`#/lab/web-share`
+- 支援能力偵測與錯誤處理（含取消分享）
+- 不支援時提供剪貼簿降級
+- 顯示 Share Target 進站資料（`share_title/share_text/share_url`）
+
+可直接從文件跳到 Lab：`#/lab/web-share`

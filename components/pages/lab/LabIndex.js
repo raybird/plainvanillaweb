@@ -108,6 +108,12 @@ export class LabIndex extends BaseComponent {
         desc: "原生頁面與狀態過渡動畫示範",
       },
       {
+        id: "web-share",
+        docId: "web-share",
+        title: "📤 Web Share API",
+        desc: "系統分享與 Share Target 接收流程示範",
+      },
+      {
         id: "permissions",
         docId: "permissions-preflight",
         title: "🛡️ 權限預檢",

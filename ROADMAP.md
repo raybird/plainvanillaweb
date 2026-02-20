@@ -96,3 +96,4 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 - [x] **原生 View Transitions 教學強化**：新增可操作教學頁，覆蓋路由切換與同頁狀態過渡示範。
 - [x] **技術手冊與 Lab 雙向快參照**：建立文件與實作頁的雙向連結與深連結導覽流程。
 - [x] **原生權限預檢教學頁**：新增 `#/lab/permissions`，示範 Secure Context、Permissions API 與鏡頭啟動/釋放流程。
+- [x] **原生 Web Share 教學頁與 Query-Aware 路由**：新增 `#/lab/web-share`，補齊系統分享/接收流程，並修正 hash query 路由匹配穩定性。

@@ -82,3 +82,4 @@
 | [0075](./0075-view-transitions-lab-integration.md) | 強化 View Transitions 教學頁整合             | Accepted                        |
 | [0076](./0076-docs-lab-cross-reference.md)         | 建立 Docs 與 Lab 雙向快參照                  | Accepted                        |
 | [0077](./0077-permission-preflight-lab.md)         | 權限預檢教學頁與鏡頭啟動策略                 | Accepted                        |
+| [0078](./0078-web-share-lab-routing.md)            | Web Share 教學頁與 Query-Aware Hash Routing  | Accepted                        |

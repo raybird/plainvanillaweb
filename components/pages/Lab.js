@@ -52,6 +52,7 @@ export class LabPage extends BaseComponent {
         import("./lab/WebCodecsPage.js"),
         import("./lab/ViewTransitionsPage.js"),
         import("./lab/PermissionsPreflightPage.js"),
+        import("./lab/WebSharePage.js"),
       ]);
 
       // 載入完成後手動觸發一次渲染與更新
@@ -151,6 +152,9 @@ export class LabPage extends BaseComponent {
           ></x-route>
           <x-route path="/lab/permissions" exact
             ><page-lab-permissions-preflight></page-lab-permissions-preflight
+          ></x-route>
+          <x-route path="/lab/web-share" exact
+            ><page-lab-web-share></page-lab-web-share
           ></x-route>
 
           <!-- 通配符 fallback -->

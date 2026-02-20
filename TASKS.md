@@ -43,3 +43,27 @@
   - [x] 新增 `docs/permissions-preflight.md`。
   - [x] 更新 `Docs.js`，將新主題納入 Docs/Lab 雙向導覽。
   - [x] 更新 `docs/decisions/README.md`、`ROADMAP.md`。
+
+---
+
+# 📋 任務清單：Web Share 教學頁與 Query-Aware 路由
+
+## 🎯 目標
+
+建立可操作的 Web Share 教學頁，並修正 hash 路由在帶 query 時的匹配穩定性，確保 Share Target 導入可命中對應 Lab 頁。
+
+## 🛠 任務分解
+
+- [x] **Phase 1: 架構決策與拆分 (ADR 0078)**
+  - [x] 建立 `docs/decisions/0078-web-share-lab-routing.md`。
+  - [x] 定義「Lab 教學頁 + 路由匹配修正」的分階段交付範圍。
+- [x] **Phase 2: 實作教學頁與路由能力**
+  - [x] 新增 `components/pages/lab/WebSharePage.js`。
+  - [x] 在 `Lab.js` 掛載 `#/lab/web-share` 路由並預載頁面。
+  - [x] 在 `lib/router.js` 新增 query-aware 路由路徑給比對層使用。
+  - [x] 更新 `components/route/route.js`、`components/route/switch.js` 使用 query-aware 路徑。
+- [x] **Phase 3: 文件與導覽同步**
+  - [x] 更新 `docs/web-share.md`，補充實作與 hash query 注意事項。
+  - [x] 更新 `components/pages/lab/LabIndex.js`、`components/pages/Docs.js`。
+  - [x] 更新 `manifest.json` 的 `share_target.action` 指向 `#/lab/web-share`。
+  - [x] 更新 `docs/decisions/README.md`、`ROADMAP.md`。

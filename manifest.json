@@ -15,7 +15,7 @@
     }
   ],
   "share_target": {
-    "action": "#/lab",
+    "action": "#/lab/web-share",
     "method": "GET",
     "params": {
       "title": "share_title",

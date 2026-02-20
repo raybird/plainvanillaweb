@@ -20,6 +20,7 @@
 - `#/lab/view-transitions` ↔ `#/docs/view-transitions`
 - `#/lab/webauthn` ↔ `#/docs/webauthn`
 - `#/lab/permissions` ↔ `#/docs/permissions-preflight`
+- `#/lab/web-share` ↔ `#/docs/web-share`
 
 ## 📌 後續可擴充
 

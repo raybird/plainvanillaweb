@@ -82,6 +82,7 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 - [x] **原生螢幕錄製與串流**：實作 Screen Capture API 與 MediaRecorder 整合。
 - [x] **響應式設計與手機版面優化**：全面提升行動裝置的閱讀體驗與佈局彈性。
 - [x] **原生 Payment Request 整合**：實作標準化的瀏覽器原生結帳流程。
+- [x] **原生背景抓取 (Background Fetch) 整合**：支援即使關閉分頁也能持續的大型檔案傳輸任務。
 - [x] **原生圖表引擎 (SVG Charting)**：實作零相依的反應式動態圖表。
 - [x] **原生即時串流處理 (Live Media Processing)**：利用 Insertable Streams 實現低延遲影像濾鏡。
 - [x] **原生 Web Serial 整合**：支援與硬體裝置（如 Arduino）的直接序列埠通訊。

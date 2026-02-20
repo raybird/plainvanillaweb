@@ -56,6 +56,7 @@ export class LabPage extends BaseComponent {
         import("./lab/WebGPUPage.js"),
         import("./lab/FileSystemPage.js"),
         import("./lab/CompressionPage.js"),
+        import("./lab/PWAAdvancedPage.js"),
       ]);
 
       // 載入完成後手動觸發一次渲染與更新
@@ -165,6 +166,9 @@ export class LabPage extends BaseComponent {
                                                   ></x-route>
                                                   <x-route path="/lab/compression" exact
                                                     ><page-lab-compression></page-lab-compression
+                                                  ></x-route>
+                                                  <x-route path="/lab/pwa-advanced" exact
+                                                    ><page-pwa-advanced></page-pwa-advanced
                                                   ></x-route>
                                                   
                               <!-- 通配符 fallback -->

@@ -62,6 +62,7 @@
 | [0054](./0054-mobile-responsiveness-strategy.md)   | 響應式設計與行動體驗優化策略                 | Accepted                        |
 | [0055](./0055-screen-capture-integration.md)       | 原生螢幕錄製與串流整合                       | Accepted                        |
 | [0056](./0056-payment-request-integration.md)      | 原生 Payment Request API 整合                | Accepted                        |
+| [0057](./0057-background-fetch-integration.md)    | 原生背景抓取 (Background Fetch) 整合         | Accepted                        |
 | [0057](./0057-industrial-sdk-design.md)            | SDK 型別與介面標準化 (Industrial SDK Design) | Accepted                        |
 | [0058](./0058-sw-notification-debounce.md)         | Service Worker 更新通知防抖與跨分頁去重      | Accepted                        |
 | [0059](./0059-native-data-visualization.md)        | 原生 SVG 圖表引擎整合                        | Accepted                        |

@@ -137,6 +137,12 @@ export class LabIndex extends BaseComponent {
         title: "🗜️ 數據壓縮流",
         desc: "原生 Gzip 即時壓縮與解壓實作",
       },
+      {
+        id: "pwa-advanced",
+        docId: "background-fetch",
+        title: "📦 PWA 進階功能",
+        desc: "背景同步、定期更新與大型抓取實驗",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

@@ -72,7 +72,6 @@ self.addEventListener('sync', (event) => {
     if (event.tag === 'sync-actions') {
         console.log('[Service Worker] Performing background sync for actions');
         // 在此可以調用 IndexedDB 中的待處理隊列
-        // 由於 SW 不能直接調用 lib，通常透過 postMessage 或直接操作 IDB
     }
 });
 
@@ -81,7 +80,6 @@ self.addEventListener('periodicsync', (event) => {
     if (event.tag === 'update-cache') {
         console.log('[Service Worker] Performing periodic sync to update cache');
         event.waitUntil(
-            // 範例：重新抓取首頁數據
             fetch('./').then(response => {
                 if (response.ok) {
                     return caches.open(CACHE_NAME).then(cache => cache.put('./', response));
@@ -89,4 +87,56 @@ self.addEventListener('periodicsync', (event) => {
             })
         );
     }
+});
+
+// --- Background Fetch 處理 ---
+
+self.addEventListener('backgroundfetchsuccess', (event) => {
+    const bgFetch = event.registration;
+    console.log('[Service Worker] Background Fetch Success:', bgFetch.id);
+
+    event.waitUntil(async function() {
+        const cache = await caches.open(CACHE_NAME);
+        const records = await bgFetch.matchAll();
+
+        const promises = records.map(async (record) => {
+            const response = await record.responseReady;
+            await cache.put(record.request, response);
+        });
+
+        await Promise.all(promises);
+        
+        // 更新 UI 狀態 (透過 BroadcastChannel 或向所有 Client 發送訊息)
+        const clients = await self.clients.matchAll();
+        clients.forEach(client => {
+            client.postMessage({
+                type: 'BACKGROUND_FETCH_SUCCESS',
+                id: bgFetch.id
+            });
+        });
+    }());
+});
+
+self.addEventListener('backgroundfetchfail', (event) => {
+    console.error('[Service Worker] Background Fetch Failed:', event.registration.id);
+});
+
+self.addEventListener('backgroundfetchclick', (event) => {
+    const bgFetch = event.registration;
+    console.log('[Service Worker] Background Fetch Clicked:', bgFetch.id);
+
+    event.waitUntil(async function() {
+        const url = './#/lab/pwa-advanced'; // 跳轉至相關實驗室頁面
+        const clients = await self.clients.matchAll({ type: 'window' });
+        
+        for (const client of clients) {
+            if (client.url.includes(url) && 'focus' in client) {
+                return client.focus();
+            }
+        }
+        
+        if (self.clients.openWindow) {
+            return self.clients.openWindow(url);
+        }
+    }());
 });

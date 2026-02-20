@@ -80,3 +80,4 @@
 | [0073](./0073-badging-api-integration.md)          | 原生 Badging API 應用徽章                    | Accepted                        |
 | [0074](./0074-webcodecs-integration.md)            | 原生 WebCodecs 低延遲編碼                    | Accepted                        |
 | [0075](./0075-view-transitions-lab-integration.md) | 強化 View Transitions 教學頁整合             | Accepted                        |
+| [0076](./0076-docs-lab-cross-reference.md)         | 建立 Docs 與 Lab 雙向快參照                  | Accepted                        |

@@ -4,57 +4,106 @@ import { BaseComponent } from "../../../lib/base-component.js";
 export class LabIndex extends BaseComponent {
   render() {
     const experiments = [
-      { id: "speech", title: "🗣️ 原生語音", desc: "文字轉語音與語音辨識實驗" },
-      { id: "webrtc", title: "📡 P2P 通訊", desc: "WebRTC 無伺服器數據交換" },
+      {
+        id: "speech",
+        docId: "native-speech",
+        title: "🗣️ 原生語音",
+        desc: "文字轉語音與語音辨識實驗",
+      },
+      {
+        id: "webrtc",
+        docId: "webrtc-p2p",
+        title: "📡 P2P 通訊",
+        desc: "WebRTC 無伺服器數據交換",
+      },
       { id: "crypto", title: "🔐 原生加密", desc: "SubtleCrypto 高強度加解密" },
-      { id: "wasm", title: "⚡ WebAssembly", desc: "高效能 C/Rust模組運算" },
-      { id: "serial", title: "🔌 序列通訊", desc: "Web Serial 硬體存取實驗" },
-      { id: "forms", title: "📝 響應式表單", desc: "專業級表單驗證引擎展示" },
-      { id: "collab", title: "🤝 CRDT 協作", desc: "零衝突即時協作數據同步" },
-      { id: "media", title: "🎥 媒體擷取", desc: "螢幕錄製與即時影像處理" },
-      { id: "nfc", title: "📡 近場通訊", desc: "Web NFC 標籤讀寫實驗" },
+      {
+        id: "wasm",
+        docId: "webassembly",
+        title: "⚡ WebAssembly",
+        desc: "高效能 C/Rust模組運算",
+      },
+      {
+        id: "serial",
+        docId: "web-serial",
+        title: "🔌 序列通訊",
+        desc: "Web Serial 硬體存取實驗",
+      },
+      {
+        id: "forms",
+        docId: "reactive-forms",
+        title: "📝 響應式表單",
+        desc: "專業級表單驗證引擎展示",
+      },
+      {
+        id: "collab",
+        docId: "crdt-sync",
+        title: "🤝 CRDT 協作",
+        desc: "零衝突即時協作數據同步",
+      },
+      {
+        id: "media",
+        docId: "media-capture",
+        title: "🎥 媒體擷取",
+        desc: "螢幕錄製與即時影像處理",
+      },
+      {
+        id: "nfc",
+        docId: "web-nfc",
+        title: "📡 近場通訊",
+        desc: "Web NFC 標籤讀寫實驗",
+      },
       {
         id: "barcode",
+        docId: "barcode-detection",
         title: "🔍 條碼辨識",
         desc: "原生 Barcode Detection 實驗",
       },
       {
         id: "webauthn",
+        docId: "webauthn",
         title: "🔐 生物辨識",
         desc: "FaceID / TouchID 驗證實驗",
       },
       {
         id: "popover",
+        docId: "popover-api",
         title: "🪟 Popover API",
         desc: "原生彈出層與宣告式互動",
       },
       {
         id: "eyedropper",
+        docId: "eye-dropper",
         title: "🎨 EyeDropper API",
         desc: "從畫面取色並建立主題色票",
       },
       {
         id: "weblocks",
+        docId: "web-locks",
         title: "🔐 Web Locks API",
         desc: "跨流程互斥與非阻塞併發協調",
       },
       {
         id: "wakelock",
+        docId: "screen-wake-lock",
         title: "💡 Wake Lock API",
         desc: "保持螢幕常亮與前景恢復策略",
       },
       {
         id: "badging",
+        docId: "badging-api",
         title: "🔔 Badging API",
         desc: "設定未讀徽章與降級顯示策略",
       },
       {
         id: "webcodecs",
+        docId: "webcodecs",
         title: "🎞️ WebCodecs",
         desc: "低延遲影格編碼與效能指標觀察",
       },
       {
         id: "view-transitions",
+        docId: "view-transitions",
         title: "🪄 View Transitions",
         desc: "原生頁面與狀態過渡動畫示範",
       },
@@ -79,6 +128,29 @@ export class LabIndex extends BaseComponent {
           transition: all 0.2s;
           cursor: pointer;
         }
+        .lab-item .actions {
+          margin-top: 0.8rem;
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+        .lab-item .actions a {
+          text-decoration: none;
+        }
+        .lab-item .btn-link {
+          display: inline-block;
+          padding: 0.35rem 0.6rem;
+          border-radius: 999px;
+          font-size: 0.78rem;
+          border: 1px solid #e2e8f0;
+          color: #334155;
+          background: #f8fafc;
+        }
+        .lab-item .btn-link.primary {
+          background: var(--primary-color);
+          color: #fff;
+          border-color: var(--primary-color);
+        }
         .lab-item:hover {
           transform: translateY(-5px);
           box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
@@ -93,10 +165,20 @@ export class LabIndex extends BaseComponent {
       <div class="lab-grid">
         ${experiments.map(
           (exp) => html`
-            <a href="#/lab/${exp.id}" class="lab-item">
+            <article class="lab-item">
               <h3>${exp.title}</h3>
               <p><small>${exp.desc}</small></p>
-            </a>
+              <div class="actions">
+                <a href="#/lab/${exp.id}" class="btn-link primary">開啟實驗</a>
+                ${exp.docId
+                  ? html`
+                      <a href="#/docs/${exp.docId}" class="btn-link"
+                        >技術手冊</a
+                      >
+                    `
+                  : ""}
+              </div>
+            </article>
           `,
         )}
       </div>

@@ -14,6 +14,43 @@ export class Documentation extends BaseComponent {
     });
   }
 
+  async connectedCallback() {
+    super.connectedCallback();
+    const docFromPath = this.getDocIdFromHash();
+    if (docFromPath) {
+      await this.loadDoc(docFromPath);
+    }
+  }
+
+  getDocIdFromHash() {
+    const hashPath = window.location.hash.slice(1);
+    const match = hashPath.match(/^\/docs\/([^/?#]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  getLabRouteByDoc(docId) {
+    const map = {
+      "native-speech": "/lab/speech",
+      "webrtc-p2p": "/lab/webrtc",
+      webassembly: "/lab/wasm",
+      "web-serial": "/lab/serial",
+      "reactive-forms": "/lab/forms",
+      "crdt-sync": "/lab/collab",
+      "media-capture": "/lab/media",
+      "web-nfc": "/lab/nfc",
+      "barcode-detection": "/lab/barcode",
+      webauthn: "/lab/webauthn",
+      "popover-api": "/lab/popover",
+      "eye-dropper": "/lab/eyedropper",
+      "web-locks": "/lab/weblocks",
+      "screen-wake-lock": "/lab/wakelock",
+      "badging-api": "/lab/badging",
+      webcodecs: "/lab/webcodecs",
+      "view-transitions": "/lab/view-transitions",
+    };
+    return map[docId] || null;
+  }
+
   async loadDoc(docName) {
     if (this.state.isSpeaking) {
       speechService.speak(""); // 停止目前說話
@@ -86,6 +123,7 @@ export class Documentation extends BaseComponent {
       { id: "badging-api", title: "Badging API 應用徽章" },
       { id: "webcodecs", title: "WebCodecs 低延遲編碼" },
       { id: "view-transitions", title: "View Transitions 過渡動畫" },
+      { id: "docs-lab-cross-reference", title: "技術手冊與 Lab 雙向導覽" },
     ];
 
     return html`
@@ -172,7 +210,7 @@ export class Documentation extends BaseComponent {
         <!-- 右側內容 -->
         <article class="docs-content">
           <div
-            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;"
+            style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; flex-wrap: wrap;"
           >
             <span class="status-badge"
               >${this.state.currentDoc
@@ -181,15 +219,31 @@ export class Documentation extends BaseComponent {
             >
             ${this.state.currentDoc
               ? html`
-                  <button
-                    class="btn ${this.state.isSpeaking
-                      ? "btn-danger"
-                      : "btn-secondary"}"
-                    style="font-size: 0.8rem; padding: 4px 8px; min-height: 32px;"
-                    onclick="this.closest('page-docs').toggleSpeak()"
-                  >
-                    ${this.state.isSpeaking ? "⏹️ 停止朗讀" : "🔊 語音朗讀"}
-                  </button>
+                  <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                    ${this.getLabRouteByDoc(this.state.currentDoc)
+                      ? html`
+                          <a
+                            href="#${this.getLabRouteByDoc(
+                              this.state.currentDoc,
+                            )}"
+                            class="btn btn-secondary"
+                            style="font-size: 0.8rem; padding: 4px 8px; min-height: 32px;"
+                          >
+                            🧪 對應實驗室
+                          </a>
+                        `
+                      : ""}
+
+                    <button
+                      class="btn ${this.state.isSpeaking
+                        ? "btn-danger"
+                        : "btn-secondary"}"
+                      style="font-size: 0.8rem; padding: 4px 8px; min-height: 32px;"
+                      onclick="this.closest('page-docs').toggleSpeak()"
+                    >
+                      ${this.state.isSpeaking ? "⏹️ 停止朗讀" : "🔊 語音朗讀"}
+                    </button>
+                  </div>
                 `
               : ""}
           </div>

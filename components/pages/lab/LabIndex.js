@@ -143,6 +143,12 @@ export class LabIndex extends BaseComponent {
         title: "📦 PWA 進階功能",
         desc: "背景同步、定期更新與大型抓取實驗",
       },
+      {
+        id: "image-studio",
+        docId: "native-image-processing",
+        title: "🎨 影像工作室",
+        desc: "零套件的圖片濾鏡、縮放與 WebP 壓縮實作",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

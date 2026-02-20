@@ -158,9 +158,13 @@ export class LabPage extends BaseComponent {
             ><page-lab-permissions-preflight></page-lab-permissions-preflight
           ></x-route>
                               <x-route path="/lab/web-share" exact><page-lab-web-share></page-lab-web-share></x-route>
-                                        <x-route path="/lab/webgpu" exact
-                                          ><page-lab-webgpu></page-lab-webgpu
-                                        ></x-route>
+                                                  <x-route path="/lab/webgpu" exact
+                                                    ><page-lab-webgpu></page-lab-webgpu
+                                                  ></x-route>
+                                                  <x-route path="/lab/image-studio" exact
+                                                    ><page-lab-image-studio></page-lab-image-studio
+                                                  ></x-route>
+                                        
                                                   <x-route path="/lab/file-system" exact
                                                     ><page-lab-file-system></page-lab-file-system
                                                   ></x-route>

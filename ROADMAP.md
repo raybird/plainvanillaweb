@@ -63,6 +63,7 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 12. **原生 WebGPU 運算**：實作 Compute Shader 展示硬體加速的平行計算能力。
 13. **原生檔案系統存取**：實現網頁對本地目錄與檔案的深度讀寫與編輯。
 14. **原生數據壓縮流**：利用 Compression Streams 實現高效、零依賴的數據壓縮。
+15. **原生影像工作室**：實作純前端圖片濾鏡、縮放與 WebP 品質壓縮。
 
 ## 🎁 自主開發 (Bonus Features)
 
@@ -94,6 +95,7 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 - [x] **原生 WebGPU 運算實驗室**：實作 Compute Shader (WGSL) 平行運算展示頁。
 - [x] **原生檔案系統存取實驗室**：實作目錄讀取與檔案編輯/儲存回本地的完整流程。
 - [x] **原生數據壓縮流實驗室**：利用 Compression Streams 實作零依賴的 Gzip 壓縮/解壓展示。
+- [x] **原生影像工作室**：實作基於 Canvas API 的濾鏡、縮放與 WebP 品質壓縮引擎。
 - [x] **原生 Popover API 互動層**：以宣告式與程式式雙模式實作輕量彈出層體驗。
 - [x] **原生 EyeDropper API 取色體驗**：以零相依方式實作畫面取色與主題色票預覽流程。
 - [x] **原生 Web Locks API 併發協調**：以 `exclusive/ifAvailable` 實作跨流程資源互斥與非阻塞排程。

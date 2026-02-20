@@ -52,6 +52,7 @@ export class Documentation extends BaseComponent {
       webgpu: "/lab/webgpu",
       "file-system-access": "/lab/file-system",
       compression: "/lab/compression",
+      "native-image-processing": "/lab/image-studio",
     };
     return map[docId] || null;
   }
@@ -132,6 +133,7 @@ export class Documentation extends BaseComponent {
       { id: "view-transitions", title: "View Transitions 過渡動畫" },
       { id: "permissions-preflight", title: "權限預檢與鏡頭啟動策略" },
       { id: "docs-lab-cross-reference", title: "技術手冊與 Lab 雙向導覽" },
+      { id: "native-image-processing", title: "原生影像處理" },
     ];
 
     return html`

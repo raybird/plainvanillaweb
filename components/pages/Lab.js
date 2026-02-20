@@ -161,11 +161,13 @@ export class LabPage extends BaseComponent {
                                                   <x-route path="/lab/webgpu" exact
                                                     ><page-lab-webgpu></page-lab-webgpu
                                                   ></x-route>
-                                                  <x-route path="/lab/image-studio" exact
-                                                    ><page-lab-image-studio></page-lab-image-studio
-                                                  ></x-route>
-                                        
-                                                  <x-route path="/lab/file-system" exact
+                                                            <x-route path="/lab/image-studio" exact
+                                                              ><page-lab-image-studio></page-lab-image-studio
+                                                            ></x-route>
+                                                            <x-route path="/lab/network" exact
+                                                              ><page-lab-network></page-lab-network
+                                                            ></x-route>
+                                                                                                    <x-route path="/lab/file-system" exact
                                                     ><page-lab-file-system></page-lab-file-system
                                                   ></x-route>
                                                   <x-route path="/lab/compression" exact

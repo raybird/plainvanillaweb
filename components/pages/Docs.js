@@ -53,6 +53,7 @@ export class Documentation extends BaseComponent {
       "file-system-access": "/lab/file-system",
       compression: "/lab/compression",
       "native-image-processing": "/lab/image-studio",
+      connectivity: "/lab/network",
     };
     return map[docId] || null;
   }
@@ -102,6 +103,7 @@ export class Documentation extends BaseComponent {
       { id: "i18n", title: "原生國際化實作" },
       { id: "native-speech", title: "原生語音服務" },
       { id: "api-fetching", title: "API 非同步處理" },
+      { id: "connectivity", title: "網路連線性與 Beacon" },
       { id: "storage-persistence", title: "儲存空間與持久化" },
       { id: "testing-strategy", title: "原生單元測試策略" },
       { id: "file-system-access", title: "原生檔案系統存取" },

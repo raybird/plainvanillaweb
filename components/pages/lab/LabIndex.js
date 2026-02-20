@@ -149,6 +149,12 @@ export class LabIndex extends BaseComponent {
         title: "🎨 影像工作室",
         desc: "零套件的圖片濾鏡、縮放與 WebP 壓縮實作",
       },
+      {
+        id: "network",
+        docId: "connectivity",
+        title: "🌐 網路資訊",
+        desc: "即時頻寬監控與 Beacon 可靠傳輸實驗",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

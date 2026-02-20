@@ -57,6 +57,11 @@ export class LabPage extends BaseComponent {
         import("./lab/FileSystemPage.js"),
         import("./lab/CompressionPage.js"),
         import("./lab/PWAAdvancedPage.js"),
+        import("./lab/ImageStudioPage.js"),
+        import("./lab/NetworkPage.js"),
+        import("./lab/PerformancePage.js"),
+        import("./lab/MIDIPage.js"),
+        import("./lab/AudioPage.js"),
       ]);
 
       // 載入完成後手動觸發一次渲染與更新

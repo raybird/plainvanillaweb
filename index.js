@@ -8,9 +8,9 @@ import { connectivityService } from "./lib/connectivity-service.js";
 import { appStore } from "./lib/store.js";
 import { notificationService } from "./lib/notification-service.js"; // 引入通知服務
 
-// 靜態匯入核心頁面組件，確保啟動即用
-import './components/pages/HomePage.js';
-import './components/pages/Lab.js';
+// 預先加載核心頁面組件 (不阻塞啟動，提供錯誤隔離)
+import('./components/pages/HomePage.js').catch(err => console.error('[Bootstrap] HomePage load failed:', err));
+import('./components/pages/Lab.js').catch(err => console.error('[Bootstrap] LabPage load failed:', err));
 
 // 啟動網路監控
 networkMonitor.enable();

@@ -62,6 +62,7 @@ export class LabPage extends BaseComponent {
         import("./lab/PerformancePage.js"),
         import("./lab/MIDIPage.js"),
         import("./lab/AudioPage.js"),
+        import("./lab/BluetoothPage.js"),
       ]);
 
       // 載入完成後手動觸發一次渲染與更新
@@ -178,11 +179,13 @@ export class LabPage extends BaseComponent {
                                                                                           <x-route path="/lab/midi" exact
                                                                                             ><page-lab-midi></page-lab-midi
                                                                                           ></x-route>
-                                                                                          <x-route path="/lab/audio" exact
-                                                                                            ><page-lab-audio></page-lab-audio
-                                                                                          ></x-route>
-                                                                                
-                                                                                                                                                                          <x-route path="/lab/file-system" exact
+                                                                                                    <x-route path="/lab/audio" exact
+                                                                                                      ><page-lab-audio></page-lab-audio
+                                                                                                    ></x-route>
+                                                                                                    <x-route path="/lab/bluetooth" exact
+                                                                                                      ><page-lab-bluetooth></page-lab-bluetooth
+                                                                                                    ></x-route>
+                                                                                                                                                                                                                                                                    <x-route path="/lab/file-system" exact
                                                     ><page-lab-file-system></page-lab-file-system
                                                   ></x-route>
                                                   <x-route path="/lab/compression" exact

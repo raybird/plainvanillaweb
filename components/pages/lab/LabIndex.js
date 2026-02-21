@@ -173,6 +173,12 @@ export class LabIndex extends BaseComponent {
         title: "🔊 音訊合成",
         desc: "原生 Web Audio 合成器與 MIDI 聯動演奏",
       },
+      {
+        id: "bluetooth",
+        docId: "web-bluetooth",
+        title: "📱 藍牙通訊",
+        desc: "原生 Web Bluetooth 設備搜尋與 GATT 連線實驗",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

@@ -141,6 +141,7 @@ export class Documentation extends BaseComponent {
       { id: "web-performance", title: "原生效能監控 API" },
       { id: "web-midi", title: "原生 Web MIDI 互動" },
       { id: "web-audio", title: "原生 Web Audio 合成" },
+      { id: "web-bluetooth", title: "原生 Web 藍牙通訊" },
       { id: "native-image-processing", title: "原生影像處理" },
     ];
 

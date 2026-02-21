@@ -179,6 +179,12 @@ export class LabIndex extends BaseComponent {
         title: "📱 藍牙通訊",
         desc: "原生 Web Bluetooth 設備搜尋與 GATT 連線實驗",
       },
+      {
+        id: "layout",
+        docId: "layout-guide",
+        title: "🎨 佈局與主題",
+        desc: "CSS 變數驅動的主題引擎與流體佈局實驗",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

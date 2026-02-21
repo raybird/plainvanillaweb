@@ -29,7 +29,7 @@
 ## 🎓 最終目標：生態與教學 (Education)
 
 - [x] **互動式 Dashboard 範例**：整合全技術棧的實戰 Demo (監控 IDB/Store/Worker)。
-- [ ] **基礎頁面與佈局教學**：撰寫標準的 Layout 與 Component 開發規範。
+- [x] **基礎頁面與佈局教學**：撰寫標準的 Layout 與 Component 開發規範。
 - [ ] **Service 交互 Pattern**：定義並說明組件與服務間的注入與通訊模式。
 - [ ] **Vanilla Manifesto**：撰寫長青代碼開發宣言。
 
@@ -117,6 +117,7 @@ _最後更新：2026-02-20 (By TeleNexus Orchestrator)_
 - [x] **原生 MIDI 互動實驗室**：實作 Web MIDI 設備連線、訊息解析與即時監控。
 - [x] **原生 Web Audio 實驗室**：實作基於振盪器的音訊合成器與 MIDI 聯動演奏能力。
 - [x] **原生 Web 藍牙實驗室**：實作設備搜尋、GATT 連線管理與通訊規範文件。
+- [x] **原生佈局與主題實驗室**：實作 CSS 變數驅動的主題引擎與教學範例。
 - [x] **原生 Popover API 互動層**：以宣告式與程式式雙模式實作輕量彈出層體驗。
 - [x] **原生 EyeDropper API 取色體驗**：以零相依方式實作畫面取色與主題色票預覽流程。
 - [x] **原生 Web Locks API 併發協調**：以 `exclusive/ifAvailable` 實作跨流程資源互斥與非阻塞排程。

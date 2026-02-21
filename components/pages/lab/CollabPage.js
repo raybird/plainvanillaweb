@@ -38,12 +38,10 @@ export class CollabPage extends BaseComponent {
   }
 
   afterFirstRender() {
-    // 手動建立並注入 Textarea，避開 innerHTML 的破壞性更新
-    const container = this.querySelector("#editor-container");
-    if (!container) return;
-
+    // 建立持久化編輯器節點
     this._textarea = document.createElement("textarea");
     this._textarea.id = "collab-note";
+    this._textarea.setAttribute('data-persistent', 'editor'); // 標記為持久節點
     this._textarea.rows = 8;
     this._textarea.style.cssText = "width: 100%; font-family: monospace; padding: 1rem; border-radius: 8px; border: 1px solid #ddd; margin-top: 1rem;";
     this._textarea.placeholder = "在此輸入文字，其他分頁會即時同步...";
@@ -54,7 +52,11 @@ export class CollabPage extends BaseComponent {
       crdtService.update("lab-note", this._collabNote);
     };
 
-    container.appendChild(this._textarea);
+    // 首次手動替換佔位符
+    const placeholder = this.querySelector('[data-persistent-placeholder="editor"]');
+    if (placeholder) {
+        placeholder.replaceWith(this._textarea);
+    }
   }
 
   disconnectedCallback() {
@@ -69,7 +71,8 @@ export class CollabPage extends BaseComponent {
         <p><small>節點 ID: <code>${this.state.nodeId}</code> (試著開啟多個分頁同時編輯)</small></p>
         
         <div id="editor-container">
-          <!-- Textarea 將被手動掛載於此，確保節點穩定性 -->
+          <!-- 佔位符：底層引擎會自動在此還原持久節點 -->
+          <div data-persistent-placeholder="editor"></div>
         </div>
       </div>
       

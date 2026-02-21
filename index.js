@@ -8,19 +8,19 @@ import { connectivityService } from "./lib/connectivity-service.js";
 import { appStore } from "./lib/store.js";
 import { notificationService } from "./lib/notification-service.js"; // 引入通知服務
 
+// 靜態匯入核心頁面組件，確保啟動即用
+import './components/pages/HomePage.js';
+import './components/pages/Lab.js';
+
 // 啟動網路監控
 networkMonitor.enable();
-
-// 預先加載核心頁面組件 (不阻塞啟動)
-import('./components/pages/Lab.js').catch(() => {});
-import('./components/pages/HomePage.js').catch(() => {});
 
 registerRoute();
 registerApp();
 
 // 監聽連線狀態
-connectivityService.addEventListener('change', (e) => {
-    if (e.detail.isOnline) {
+connectivityService.on('status-change', (data) => {
+    if (data.online) {
         notificationService.success('🟢 已恢復連線');
     } else {
         notificationService.error('🔴 目前處於離線模式');

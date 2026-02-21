@@ -12,14 +12,14 @@ export class NotificationArea extends HTMLElement {
     }
 
     connectedCallback() {
-        notificationService.addEventListener('add', this.update);
-        notificationService.addEventListener('remove', this.update);
+        this._unsubscribeAdd = notificationService.on('add', this.update);
+        this._unsubscribeRemove = notificationService.on('remove', this.update);
         this.update();
     }
 
     disconnectedCallback() {
-        notificationService.removeEventListener('add', this.update);
-        notificationService.removeEventListener('remove', this.update);
+        if (this._unsubscribeAdd) this._unsubscribeAdd();
+        if (this._unsubscribeRemove) this._unsubscribeRemove();
     }
 
     update() {

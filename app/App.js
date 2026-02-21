@@ -25,7 +25,7 @@ export class App extends BaseComponent {
     async connectedCallback() {
         super.connectedCallback(); 
         themeService.init();
-        authService.addEventListener('auth-change', this._handleAuthChange);
+        this._unsubscribeAuth = authService.on('auth-change', this._handleAuthChange);
         prefetchService.observeLinks(this);
         
         // 監聽 hash 變化以更新側邊欄 Active 狀態
@@ -37,7 +37,7 @@ export class App extends BaseComponent {
 
     disconnectedCallback() {
         super.disconnectedCallback();
-        authService.removeEventListener('auth-change', this._handleAuthChange);
+        if (this._unsubscribeAuth) this._unsubscribeAuth();
         window.removeEventListener('hashchange', this._handleHashChange);
     }
 

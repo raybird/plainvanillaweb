@@ -31,7 +31,7 @@
 - [x] **互動式 Dashboard 範例**：整合全技術棧的實戰 Demo (監控 IDB/Store/Worker)。
 - [x] **基礎頁面與佈局教學**：撰寫標準的 Layout 與 Component 開發規範。
 - [x] **Service 交互 Pattern**：定義並說明組件與服務間的注入與通訊模式。
-- [ ] **Vanilla Manifesto**：撰寫長青代碼開發宣言。
+- [x] **Vanilla Manifesto**：撰寫長青代碼開發宣言並實作專屬頁面。
 
 ## 🏗️ 建築藍圖：架構與規範 (Architecture)
 

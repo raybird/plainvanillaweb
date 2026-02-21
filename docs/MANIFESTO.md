@@ -1,22 +1,25 @@
-# 🍦 The Vanilla Manifesto (2026)
+# 🍦 Vanilla Manifesto: 長青代碼準則
 
-> "Code that lasts is code that depends on standards, not trends."
+這是 `plainvanillaweb` 專案的核心靈魂，旨在定義一套能夠抵抗技術週期、保持極致效能與開發純粹性的原生開發方法論。
 
-在 2026 年，前端生態依然充滿了各種框架的興衰更迭。然而，瀏覽器本身已經變得足夠強大。我們相信，回歸原生 (Plain Vanilla) 不再是一種限制，而是一種**解放**。
+## 🌟 核心哲學
 
-## 我們的核心價值 (Core Values)
+### 1. 永不過時 (Future-Proof)
+基於 W3C/WHATWG 標準開發。代碼不依賴特定的商業公司維護的框架版本，減少因框架斷更或重大破壞性更新 (Breaking Changes) 導致的重構壓力。
 
-### 1. 零相依性 (Zero Dependencies)
-我們拒絕 `npm install` 的黑洞。每一個引入的第三方套件，都是未來的技術債。本專案證明了：透過現代 ES6+、Web Components 與 CSS Variables，我們能構建出架構嚴謹且功能強大的 SPA，而無需依賴任何外部 Runtime。
+### 2. 極致效能 (Performance First)
+消滅 VDOM Diffing、編譯開銷與龐大的 Runtime 體積。原生 Custom Elements 的渲染效率始終處於瀏覽器第一梯隊。
 
-### 2. 長青代碼 (Evergreen Code)
-框架會過時，但 Web 標準永存。我們編寫的代碼直接運行於瀏覽器標準之上，這意味著即便五年、十年後，這些代碼依然能不經修改地完美運行。
+### 3. 可遷移性 (Portability)
+Vanilla 組件可以輕鬆嵌入任何現有專案（無論是 React, Vue 還是傳統後端模板），因為它們本質上就是標準的 HTML 標籤。
 
-### 3. 低熵架構 (Low Entropy Architecture)
-我們追求極簡。沒有 Build Step，沒有 Transpiler，沒有複雜的設定檔。開發環境即生產環境。這種「低熵」狀態讓 AI Agent 能更輕易地理解、維護與擴充系統，實現真正的人機協作。
+## 🛠️ 開發準則 (The Rules)
 
-### 4. 教育與透明 (Education & Transparency)
-我們不隱藏複雜度。所有的 Service、Router、Component 基類都只有短短幾十行。這讓開發者能真正理解「網頁是如何運作的」，而不是學習「框架是如何運作的」。
+1.  **優先使用原生替代方案**：在引入 `npm` 套件前，先檢查 `MDN` 是否已有原生 API 支援。
+2.  **擁抱 ESM**：堅持使用瀏覽器原生的模組化語法，不進行 Bundle。
+3.  **顯式大於隱式**：寧可多寫幾行標準代碼，也不使用難以追蹤的隱式黑盒。
+4.  **組件自治**：每個 Custom Element 應負責自身的狀態與樣式，實現真正意義上的模組化。
 
 ---
-*此專案由 TeleNexus AI Orchestrator 協助構建，作為原生網頁開發的永續典範。*
+
+**Vanilla 不代表原始，而代表對 Web 平台的極致信任。**

@@ -98,6 +98,7 @@ export class Documentation extends BaseComponent {
   render() {
     const docs = [
       { id: "router", title: "原生路由與 SEO" },
+      { id: "MANIFESTO", title: "🍦 Vanilla 開發宣言" },
       { id: "component-architecture", title: "🏗️ 組件開發指南" },
       { id: "service-patterns", title: "🔌 服務模式規範" },
       { id: "layout-guide", title: "🎨 原生佈局範式" },

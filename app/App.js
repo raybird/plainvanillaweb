@@ -67,6 +67,7 @@ export class App extends BaseComponent {
         // 定義導覽連結 (包含圖示與 Active 狀態偵測)
         const navLinks = [
             { href: '#/', label: t('app.home'), icon: '🏠', module: './components/pages/HomePage.js' },
+            { href: '#/manifesto', label: '🍦 宣言', icon: '📜', module: './components/pages/ManifestoPage.js' },
             { href: '#/dashboard', label: t('app.dashboard'), icon: '📊', module: './components/pages/Dashboard.js' },
             { href: '#/search', label: t('app.search'), icon: '🔍', module: './components/pages/RepoSearch.js' },
             { href: '#/worker', label: t('app.worker'), icon: '⚡', module: './components/pages/WorkerDemo.js' },
@@ -132,6 +133,7 @@ export class App extends BaseComponent {
                 <main id="main-content" tabindex="-1">
                     <x-switch>
                         <x-route path="/" exact module="./components/pages/HomePage.js" meta-title="app.home" meta-desc="home.desc"><page-home></page-home></x-route>
+                        <x-route path="/manifesto" exact module="./components/pages/ManifestoPage.js" meta-title="Vanilla Manifesto"><page-manifesto></page-manifesto></x-route>
                         <x-route path="/search" exact module="./components/pages/RepoSearch.js" meta-title="app.search"><page-repo-search></page-repo-search></x-route>
                         <x-route path="/worker" exact module="./components/pages/WorkerDemo.js" meta-title="app.worker"><page-worker-demo></page-worker-demo></x-route>
                         <x-route path="/profile" exact auth-required module="./components/pages/Profile.js" meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>

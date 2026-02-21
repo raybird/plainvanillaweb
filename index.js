@@ -19,11 +19,20 @@ import('./components/pages/Lab.js').catch(err => console.error('[Bootstrap] LabP
 // 初始化國際化並啟動應用
 async function bootstrap() {
     try {
-        await i18n.init();
+        // 1. 基礎服務註冊與元件定義
         registerRoute();
+        
+        // 2. 初始化核心資源 (國際化)
+        await i18n.init();
+        
+        // 3. 註冊根組件並啟動
         registerApp();
+        
+        console.log('[Bootstrap] Application started successfully.');
     } catch (err) {
         console.error('[Bootstrap] App initialization failed:', err);
+        // Fallback: 即使 i18n 失敗也要嘗試顯示 UI
+        registerApp();
     }
 }
 

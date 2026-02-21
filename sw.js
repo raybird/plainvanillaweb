@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vanilla-cache-v5';
+const CACHE_NAME = 'vanilla-cache-v6';
 const CORE_ASSETS = [
     './',
     './index.html',
@@ -10,7 +10,9 @@ const CORE_ASSETS = [
     './lib/store.js',
     './lib/html.js',
     './lib/idb-service.js',
-    './lib/worker-service.js'
+    './lib/worker-service.js',
+    './assets/locales/zh-TW.json',
+    './assets/locales/en-US.json'
 ];
 
 // 安裝階段：快取核心資產

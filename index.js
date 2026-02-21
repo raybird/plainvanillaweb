@@ -3,11 +3,6 @@ import { networkMonitor } from "./lib/network-monitor.js";
 import { prefetchService } from "./lib/prefetch-service.js";
 import "./components/Notification.js"; // 通知組件保持全域載入
 import { registerApp } from "./app/App.js";
-import { errorService } from "./lib/error-service.js";
-import { networkMonitor } from "./lib/network-monitor.js"; 
-import { prefetchService } from "./lib/prefetch-service.js";
-import "./components/Notification.js"; // 通知組件保持全域載入
-import { registerApp } from "./app/App.js";
 import { registerRoute } from "./components/route/route.js";
 import { connectivityService } from "./lib/connectivity-service.js";
 import { appStore } from "./lib/store.js";

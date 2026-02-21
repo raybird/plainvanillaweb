@@ -6,17 +6,28 @@ import { registerApp } from "./app/App.js";
 import { registerRoute } from "./components/route/route.js";
 import { connectivityService } from "./lib/connectivity-service.js";
 import { appStore } from "./lib/store.js";
+import { i18n } from "./lib/i18n-service.js";
 import { notificationService } from "./lib/notification-service.js"; // 引入通知服務
-
-// 核心頁面組件靜態匯入，確保啟動前已註冊 Custom Elements
-import './components/pages/HomePage.js';
-import './components/pages/Lab.js';
 
 // 啟動網路監控
 networkMonitor.enable();
 
-registerRoute();
-registerApp();
+// 預先加載核心頁面組件 (提供錯誤隔離)
+import('./components/pages/HomePage.js').catch(err => console.error('[Bootstrap] HomePage load failed:', err));
+import('./components/pages/Lab.js').catch(err => console.error('[Bootstrap] LabPage load failed:', err));
+
+// 初始化國際化並啟動應用
+async function bootstrap() {
+    try {
+        await i18n.init();
+        registerRoute();
+        registerApp();
+    } catch (err) {
+        console.error('[Bootstrap] App initialization failed:', err);
+    }
+}
+
+bootstrap();
 
 // 監聽連線狀態
 connectivityService.on('status-change', (data) => {

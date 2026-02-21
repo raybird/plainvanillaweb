@@ -3,14 +3,19 @@ import { networkMonitor } from "./lib/network-monitor.js";
 import { prefetchService } from "./lib/prefetch-service.js";
 import "./components/Notification.js"; // 通知組件保持全域載入
 import { registerApp } from "./app/App.js";
+import { errorService } from "./lib/error-service.js";
+import { networkMonitor } from "./lib/network-monitor.js"; 
+import { prefetchService } from "./lib/prefetch-service.js";
+import "./components/Notification.js"; // 通知組件保持全域載入
+import { registerApp } from "./app/App.js";
 import { registerRoute } from "./components/route/route.js";
 import { connectivityService } from "./lib/connectivity-service.js";
 import { appStore } from "./lib/store.js";
 import { notificationService } from "./lib/notification-service.js"; // 引入通知服務
 
-// 預先加載核心頁面組件 (不阻塞啟動，提供錯誤隔離)
-import('./components/pages/HomePage.js').catch(err => console.error('[Bootstrap] HomePage load failed:', err));
-import('./components/pages/Lab.js').catch(err => console.error('[Bootstrap] LabPage load failed:', err));
+// 核心頁面組件靜態匯入，確保啟動前已註冊 Custom Elements
+import './components/pages/HomePage.js';
+import './components/pages/Lab.js';
 
 // 啟動網路監控
 networkMonitor.enable();

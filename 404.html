@@ -24,8 +24,29 @@
         // 例如：/plainvanillaweb/worker -> /plainvanillaweb/#/worker
         const newUrl = `${window.location.protocol}//${window.location.host}${repo}/#/${route}${search}${hash}`;
         
-        console.log(`[404 Fix] Redirecting from ${path} to ${newUrl}`);
-        window.location.replace(newUrl);
+        // 防無窮迴圈機制：若 2 秒內連續發生超過 3 次重定向，則中斷
+        const redirectCountKey = 'gh-pages-redirect-count';
+        const lastRedirectTimeKey = 'gh-pages-redirect-time';
+        const now = Date.now();
+        const lastTime = parseInt(sessionStorage.getItem(lastRedirectTimeKey) || '0', 10);
+        let count = parseInt(sessionStorage.getItem(redirectCountKey) || '0', 10);
+
+        if (now - lastTime > 2000) {
+            count = 0; // 超過 2 秒，重置計數
+        }
+
+        if (count >= 3) {
+            console.error('[404 Fix] Detected infinite redirect loop. Stopping redirection.');
+            document.addEventListener("DOMContentLoaded", () => {
+                document.body.innerHTML = `<h2>🚫 載入失敗</h2><p>系統偵測到無窮的重新導向迴圈，為保護您的瀏覽器已中斷載入。</p><p>請嘗試清除快取、取消註冊 Service Worker，或返回 <a href="${repo}/">首頁</a>。</p>`;
+            });
+        } else {
+            sessionStorage.setItem(redirectCountKey, (count + 1).toString());
+            sessionStorage.setItem(lastRedirectTimeKey, now.toString());
+            
+            console.log(`[404 Fix] Redirecting from ${path} to ${newUrl}`);
+            window.location.replace(newUrl);
+        }
     </script>
 </head>
 <body>

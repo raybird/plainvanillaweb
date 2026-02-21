@@ -1,5 +1,5 @@
 import { errorService } from "./lib/error-service.js";
-import { networkMonitor } from "./lib/network-monitor.js"; 
+import { networkMonitor } from "./lib/network-monitor.js";
 import { prefetchService } from "./lib/prefetch-service.js";
 import "./components/Notification.js"; // 通知組件保持全域載入
 import { registerApp } from "./app/App.js";
@@ -12,22 +12,22 @@ import { notificationService } from "./lib/notification-service.js"; // 引入�
 // 啟動網路監控
 networkMonitor.enable();
 
-// 預先加載核心頁面組件 (提供錯誤隔離)
-import('./components/pages/HomePage.js').catch(err => console.error('[Bootstrap] HomePage load failed:', err));
-import('./components/pages/Lab.js').catch(err => console.error('[Bootstrap] LabPage load failed:', err));
+// 將核心頁面組件改為靜態載入 (避免 GitHub Pages 下動態路徑解析錯誤)
+import './components/pages/HomePage.js';
+import './components/pages/Lab.js';
 
 // 初始化國際化並啟動應用
 async function bootstrap() {
     try {
         // 1. 基礎服務註冊與元件定義
         registerRoute();
-        
+
         // 2. 初始化核心資源 (國際化)
         await i18n.init();
-        
+
         // 3. 註冊根組件並啟動
         registerApp();
-        
+
         console.log('[Bootstrap] Application started successfully.');
     } catch (err) {
         console.error('[Bootstrap] App initialization failed:', err);
@@ -53,7 +53,7 @@ if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js')
             .then(reg => {
                 console.log('[SW] Registered:', reg.scope);
-                
+
                 // 檢查是否有更新
                 reg.addEventListener('updatefound', () => {
                     const newWorker = reg.installing;
@@ -62,7 +62,7 @@ if ('serviceWorker' in navigator) {
                             // 跨分頁防抖機制：利用 localStorage 確保 10 秒內只通知一次
                             const lastUpdateNotify = localStorage.getItem('sw-update-notified-at');
                             const now = Date.now();
-                            
+
                             if (!lastUpdateNotify || (now - parseInt(lastUpdateNotify)) > 10000) {
                                 notificationService.info("✨ 應用程式有新版本，請重新整理頁面以套用更新。");
                                 localStorage.setItem('sw-update-notified-at', now.toString());

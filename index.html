@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Plain Vanilla Web Demo</title>
+    <!-- GitHub Pages 子網域相對路徑修復 -->
+    <base href="/plainvanillaweb/">
     <script>
         window.__LAB_DEBUG__ = { errors: [], logs: [] };
         const originalError = console.error;
@@ -29,7 +32,9 @@
     <!-- PWA Manifest -->
     <link rel="manifest" href="./manifest.json">
 </head>
+
 <body>
     <x-app></x-app>
 </body>
+
 </html>

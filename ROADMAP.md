@@ -37,8 +37,9 @@
 
 **重心：將實作轉化為可複製的開發模式。**
 
-- [ ] **ADR 0089+: 架構決策深度化**：記錄關於組件通訊與狀態流向的選擇。
-- [ ] **組件開發指南 (docs/component-architecture.md)**：詳解 BaseComponent 的反應式狀態與生命週期。
+- [x] **ADR 0089+: 架構決策深度化**：記錄關於組件通訊與狀態流向的選擇。
+- [x] **核心反應式優化 (lib/base-component.js)**：實作深度觀察與非同步渲染緩衝。
+- [x] **組件開發指南 (docs/component-architecture.md)**：詳解 BaseComponent 的反應式狀態與生命週期。
 - [ ] **服務模式規範 (docs/service-patterns.md)**：詳解 Singleton Service 的注入、事件廣播與狀態隔離。
 - [ ] **原生佈局範式 (docs/layout-guide.md)**：實作 CSS 變數驅動的流體佈局教學。
 

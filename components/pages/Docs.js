@@ -98,7 +98,9 @@ export class Documentation extends BaseComponent {
   render() {
     const docs = [
       { id: "router", title: "原生路由與 SEO" },
-
+      { id: "component-architecture", title: "🏗️ 組件開發指南" },
+      { id: "service-patterns", title: "🔌 服務模式規範" },
+      { id: "layout-guide", title: "🎨 原生佈局範式" },
       { id: "state-management", title: "狀態管理與 IDB" },
       { id: "pwa", title: "PWA 離線技術" },
       { id: "i18n", title: "原生國際化實作" },

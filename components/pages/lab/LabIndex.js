@@ -185,6 +185,12 @@ export class LabIndex extends BaseComponent {
         title: "🎨 佈局與主題",
         desc: "CSS 變數驅動的主題引擎與流體佈局實驗",
       },
+      {
+        id: "service-pattern",
+        docId: "service-patterns",
+        title: "🔌 服務交互模式",
+        desc: "組件與 Service 單例間的事件驅動通訊規範實驗",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";

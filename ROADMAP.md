@@ -30,7 +30,7 @@
 
 - [x] **互動式 Dashboard 範例**：整合全技術棧的實戰 Demo (監控 IDB/Store/Worker)。
 - [x] **基礎頁面與佈局教學**：撰寫標準的 Layout 與 Component 開發規範。
-- [ ] **Service 交互 Pattern**：定義並說明組件與服務間的注入與通訊模式。
+- [x] **Service 交互 Pattern**：定義並說明組件與服務間的注入與通訊模式。
 - [ ] **Vanilla Manifesto**：撰寫長青代碼開發宣言。
 
 ## 🏗️ 建築藍圖：架構與規範 (Architecture)
@@ -40,8 +40,8 @@
 - [x] **ADR 0089+: 架構決策深度化**：記錄關於組件通訊與狀態流向的選擇。
 - [x] **核心反應式優化 (lib/base-component.js)**：實作深度觀察與非同步渲染緩衝。
 - [x] **組件開發指南 (docs/component-architecture.md)**：詳解 BaseComponent 的反應式狀態與生命週期。
-- [ ] **服務模式規範 (docs/service-patterns.md)**：詳解 Singleton Service 的注入、事件廣播與狀態隔離。
-- [ ] **原生佈局範式 (docs/layout-guide.md)**：實作 CSS 變數驅動的流體佈局教學。
+- [x] **服務模式規範 (docs/service-patterns.md)**：詳解 Singleton Service 的注入、事件廣播與狀態隔離。
+- [x] **原生佈局範式 (docs/layout-guide.md)**：實作 CSS 變數驅動的流體佈局教學。
 
 ## 🔮 未來願景 (Cutting Edge)
 

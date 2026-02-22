@@ -174,77 +174,35 @@ export class Documentation extends BaseComponent {
           list-style: none;
           padding: 0;
           margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
         }
         .docs-nav-item {
-          margin-bottom: 0.5rem;
+          margin-bottom: 0;
         }
         .docs-nav-button {
           width: 100%;
           text-align: left;
-          background: none;
+          background: transparent;
           border: none;
           cursor: pointer;
-          padding: 0.5rem;
-          border-radius: 4px;
+          padding: 0.5rem 0.8rem;
+          border-radius: 6px;
+          font-size: 0.95rem;
+          color: var(--text-color);
+          transition: all 0.2s;
+          border-left: 3px solid transparent;
         }
-        .docs-toolbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 1rem;
-          border-bottom: 1px solid #eee;
-          padding-bottom: 0.5rem;
-          flex-wrap: wrap;
+        .docs-nav-button:hover {
+          background-color: rgba(0, 123, 255, 0.05);
+          color: var(--primary-color);
         }
-        .docs-toolbar-actions {
-          display: flex;
-          gap: 0.4rem;
-          flex-wrap: wrap;
-        }
-        .docs-toolbar-action {
-          font-size: 0.8rem;
-          padding: 4px 8px;
-          min-height: 36px;
-        }
-
-        @media (max-width: 768px) {
-          .docs-container {
-            flex-direction: column;
-            gap: 1rem;
-          }
-          .docs-nav {
-            width: 100%;
-            position: static;
-          }
-          .docs-content {
-            padding: 1rem;
-            width: 100%;
-            box-sizing: border-box;
-          }
-          .docs-nav ul {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-          }
-          .docs-nav li {
-            margin-bottom: 0 !important;
-          }
-          .docs-nav button {
-            background: #eee !important;
-            font-size: 0.85rem;
-            padding: 0.4rem 0.8rem !important;
-          }
-          .docs-toolbar {
-            align-items: stretch;
-          }
-          .docs-toolbar-actions {
-            width: 100%;
-          }
-          .docs-toolbar-action {
-            flex: 1;
-            min-height: 44px;
-          }
+        .docs-nav-button.active {
+          color: var(--primary-color);
+          font-weight: 600;
+          background-color: rgba(0, 123, 255, 0.1);
+          border-left-color: var(--primary-color);
         }
       </style>
 
@@ -254,23 +212,17 @@ export class Documentation extends BaseComponent {
           <h3 style="margin-top: 0;">📚 技術手冊</h3>
           <ul class="docs-nav-list">
             ${docs.map(
-              (d) => html`
+      (d) => html`
                 <li class="docs-nav-item">
                   <button
-                    class="docs-nav-button"
+                    class="docs-nav-button ${this.state.currentDoc === d.id ? 'active' : ''}"
                     onclick="this.closest('page-docs').loadDoc('${d.id}')"
-                    style="color: ${this.state.currentDoc === d.id
-                      ? "var(--primary-color)"
-                      : "inherit"}; font-weight: ${this.state.currentDoc ===
-                    d.id
-                      ? "bold"
-                      : "normal"};"
                   >
                     ${d.title}
                   </button>
                 </li>
               `,
-            )}
+    )}
           </ul>
         </nav>
 
@@ -279,36 +231,36 @@ export class Documentation extends BaseComponent {
           <div class="docs-toolbar">
             <span class="status-badge"
               >${this.state.currentDoc
-                ? `ID: ${this.state.currentDoc}`
-                : ""}</span
+        ? `ID: ${this.state.currentDoc}`
+        : ""}</span
             >
             ${this.state.currentDoc
-              ? html`
+        ? html`
                   <div class="docs-toolbar-actions">
                     ${this.getLabRouteByDoc(this.state.currentDoc)
-                      ? html`
+            ? html`
                           <a
                             href="#${this.getLabRouteByDoc(
-                              this.state.currentDoc,
-                            )}"
+              this.state.currentDoc,
+            )}"
                             class="btn btn-secondary docs-toolbar-action"
                           >
                             🧪 對應實驗室
                           </a>
                         `
-                      : ""}
+            : ""}
 
                     <button
                       class="btn docs-toolbar-action ${this.state.isSpeaking
-                        ? "btn-danger"
-                        : "btn-secondary"}"
+            ? "btn-danger"
+            : "btn-secondary"}"
                       onclick="this.closest('page-docs').toggleSpeak()"
                     >
                       ${this.state.isSpeaking ? "⏹️ 停止朗讀" : "🔊 語音朗讀"}
                     </button>
                   </div>
                 `
-              : ""}
+        : ""}
           </div>
           ${unsafe(this.state.content)}
         </article>

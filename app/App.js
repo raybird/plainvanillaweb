@@ -1,21 +1,21 @@
 import { appStore } from "../lib/store.js";
-import { BaseComponent } from "../lib/base-component.js"; 
-import { i18n } from "../lib/i18n-service.js"; 
+import { BaseComponent } from "../lib/base-component.js";
+import { i18n } from "../lib/i18n-service.js";
 import { themeService } from "../lib/theme-service.js";
 import { prefetchService } from "../lib/prefetch-service.js";
 import { notificationService } from "../lib/notification-service.js";
-import { authService } from "../lib/auth-service.js"; 
+import { authService } from "../lib/auth-service.js";
 import { html } from "../lib/html.js";
 import "../components/AppFooter.js";
 import "../components/Modal.js";
-import "../components/route/switch.js"; 
+import "../components/route/switch.js";
 
 export class App extends BaseComponent {
     constructor() {
         super();
         this._handleAuthChange = () => this.update();
         window.prefetchService = prefetchService;
-        
+
         // 新增：選單開關狀態
         this.initReactiveState({
             isMenuOpen: false
@@ -23,11 +23,11 @@ export class App extends BaseComponent {
     }
 
     async connectedCallback() {
-        super.connectedCallback(); 
+        super.connectedCallback();
         themeService.init();
         this._unsubscribeAuth = authService.on('auth-change', this._handleAuthChange);
         prefetchService.observeLinks(this);
-        
+
         // 監聽 hash 變化以更新側邊欄 Active 狀態
         this._handleHashChange = () => this.update();
         window.addEventListener('hashchange', this._handleHashChange);
@@ -53,7 +53,7 @@ export class App extends BaseComponent {
         const t = (k) => this.$t(k);
         const currentLang = i18n.locale === 'zh-TW' ? 'English' : '中文';
         const nextLang = i18n.locale === 'zh-TW' ? 'en-US' : 'zh-TW';
-        
+
         const currentTheme = appStore.state.theme || 'system';
         const themeLabel = {
             'light': '☀️',
@@ -64,26 +64,53 @@ export class App extends BaseComponent {
         const { isAuthenticated, user } = authService;
         const currentHash = window.location.hash || '#/';
 
-        // 定義導覽連結 (包含圖示與 Active 狀態偵測)
-        const navLinks = [
-            { href: '#/', label: t('app.home'), icon: '🏠', module: './components/pages/HomePage.js' },
-            { href: '#/manifesto', label: '🍦 宣言', icon: '📜', module: './components/pages/ManifestoPage.js' },
-            { href: '#/dashboard', label: t('app.dashboard'), icon: '📊', module: './components/pages/Dashboard.js' },
-            { href: '#/search', label: t('app.search'), icon: '🔍', module: './components/pages/RepoSearch.js' },
-            { href: '#/worker', label: t('app.worker'), icon: '⚡', module: './components/pages/WorkerDemo.js' },
-            { href: '#/docs', label: t('app.docs'), icon: '📚', module: './components/pages/Docs.js' },
-            { href: '#/analytics', label: t('app.analytics'), icon: '📈', module: './components/pages/Analytics.js' },
-            { href: '#/lab', label: t('app.lab'), icon: '🧪', module: './components/pages/Lab.js' },
-            { href: '#/playground', label: t('app.playground'), icon: '🎡', module: './components/pages/Playground.js' },
-            { href: '#/profile', label: t('app.profile'), icon: '👤', module: './components/pages/Profile.js' },
-        ].map(link => html`
-            <a href="${link.href}" 
-               class="nav-link ${currentHash === link.href ? 'active' : ''}" 
-               onclick="this.closest('x-app').closeMenu()" 
-               onmouseover="prefetchService.preloadModule('${link.module}')">
-               <span>${link.icon}</span> ${link.label}
-            </a>
-        `);
+        // 定義導覽連結 (分類與階層化結構)
+        const navSections = [
+            {
+                title: "導覽與核心",
+                links: [
+                    { href: '#/', label: t('app.home'), icon: '🏠', module: './components/pages/HomePage.js' },
+                    { href: '#/manifesto', label: '🍦 宣言', icon: '📜', module: './components/pages/ManifestoPage.js' }
+                ]
+            },
+            {
+                title: "學習與實作",
+                links: [
+                    { href: '#/docs', label: t('app.docs'), icon: '📚', module: './components/pages/Docs.js' },
+                    { href: '#/lab', label: t('app.lab'), icon: '🧪', module: './components/pages/Lab.js' },
+                    { href: '#/playground', label: t('app.playground'), icon: '🎡', module: './components/pages/Playground.js' }
+                ]
+            },
+            {
+                title: "監控與開發工具",
+                links: [
+                    { href: '#/dashboard', label: t('app.dashboard'), icon: '📊', module: './components/pages/Dashboard.js' },
+                    { href: '#/analytics', label: t('app.analytics'), icon: '📈', module: './components/pages/Analytics.js' },
+                    { href: '#/worker', label: t('app.worker'), icon: '⚡', module: './components/pages/WorkerDemo.js' },
+                    { href: '#/search', label: t('app.search'), icon: '🔍', module: './components/pages/RepoSearch.js' }
+                ]
+            },
+            {
+                title: "使用者",
+                links: [
+                    { href: '#/profile', label: t('app.profile'), icon: '👤', module: './components/pages/Profile.js' }
+                ]
+            }
+        ];
+
+        const navMenuHtml = navSections.map(section => html`
+            <div class="nav-section">
+                <div class="nav-section-title">${section.title}</div>
+                ${section.links.map(link => html`
+                    <a href="${link.href}" 
+                       class="nav-link ${currentHash === link.href ? 'active' : ''}" 
+                       onclick="this.closest('x-app').closeMenu()" 
+                       onmouseover="prefetchService.preloadModule('${link.module}')">
+                       <span class="nav-icon">${link.icon}</span> ${link.label}
+                    </a>
+                `).join('')}
+            </div>
+        `).join('');
 
         return html`
             <div class="app-container">
@@ -109,7 +136,7 @@ export class App extends BaseComponent {
                     </div>
 
                     <div class="nav-menu">
-                        ${navLinks}
+                        ${navMenuHtml}
                     </div>
 
                     <!-- 底部控制區 -->

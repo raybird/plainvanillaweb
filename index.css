@@ -14,25 +14,30 @@
 }
 
 [data-theme="dark"] {
-  --bg-color: #1a1a1a;
-  --text-color: #f0f0f0;
-  --primary-color: #375a7f;
-  --nav-bg: #2c2c2c;
+  --bg-color: #0f1115;
+  --text-color: #e2e8f0;
+  --primary-color: #3b82f6;
+  --nav-bg: rgba(22, 27, 34, 0.85);
+  /* 半透明支援毛玻璃 */
+}
+
+[data-theme="dark"] .navbar {
+  border-right-color: rgba(255, 255, 255, 0.05);
+  /* 黑夜模式的邊框淡化 */
 }
 
 body {
   font-family:
+    "Inter",
     system-ui,
     -apple-system,
     sans-serif;
   background-color: var(--bg-color);
   color: var(--text-color);
-  padding: var(--spacing-unit);
-  max-width: 1200px;
-  margin: 0 auto;
-  line-height: 1.6;
-  /* 使用 clamp 實現流體字體，最小值 16px，最大值 18px */
-  font-size: clamp(16px, 2vw, 18px);
+  margin: 0;
+  line-height: 1.7;
+  /* 增加行距，提升閱讀舒適度 */
+  font-size: 16px;
   transition:
     background-color 0.3s,
     color 0.3s;
@@ -57,16 +62,19 @@ svg {
   width: 260px;
   height: 100vh;
   background: var(--nav-bg);
-  padding: 1.5rem 1rem;
+  /* 增加一點毛玻璃效果，若背景包含透明度 */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 1.5rem 0.5rem;
   display: flex;
   flex-direction: column;
   position: fixed;
   left: 0;
   top: 0;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  /* 拋棄陰影，改用細邊框 */
   z-index: 1000;
-  border-radius: 0; /* 側邊欄不需要圓角 */
-  margin-bottom: 0;
+  border-radius: 0;
   transition: transform 0.3s ease;
 }
 
@@ -85,28 +93,55 @@ svg {
   overflow-y: auto;
 }
 
+.nav-section {
+  margin-bottom: 1.5rem;
+}
+
+.nav-section-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+  margin-bottom: 0.5rem;
+  padding: 0 1rem;
+  font-weight: 600;
+}
+
 .nav-link {
   color: var(--text-color);
   text-decoration: none;
-  padding: 0.8rem 1rem;
+  padding: 0.6rem 1rem;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   display: flex;
   align-items: center;
-  gap: 10px;
-  transition: all 0.2s;
+  gap: 12px;
+  transition: all 0.2s ease;
+  margin-bottom: 0.2rem;
+}
+
+.nav-icon {
+  font-size: 1.1rem;
+  opacity: 0.8;
+  display: inline-block;
+  min-width: 20px;
 }
 
 .nav-link:hover {
-  background-color: rgba(0, 123, 255, 0.1);
+  background-color: rgba(0, 123, 255, 0.08);
   color: var(--primary-color);
   text-decoration: none;
 }
 
 /* 啟動狀態樣式 */
 .nav-link.active {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: rgba(0, 123, 255, 0.15);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.nav-link.active .nav-icon {
+  opacity: 1;
 }
 
 .nav-controls {
@@ -149,10 +184,21 @@ main#main-content {
   flex: 1;
   margin-left: 260px;
   width: calc(100% - 260px);
-  padding: 2rem;
-  max-width: 100%;
-  min-width: 0;
+  padding: 3rem 2rem;
   transition: margin-left 0.3s ease;
+}
+
+/* 對內文區域施加最大寬度，提升大型螢幕的長文閱讀體驗 */
+main#main-content>* {
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Lab 等需要全寬的容器另外覆蓋 */
+.lab-content,
+.docs-container {
+  max-width: 1200px !important;
 }
 
 .hamburger-btn {
@@ -206,6 +252,7 @@ main#main-content {
     background: rgba(0, 0, 0, 0.5);
     z-index: 900;
   }
+
   .menu-overlay.open {
     display: block;
   }
@@ -215,13 +262,16 @@ main#main-content {
   .nav-brand {
     font-size: 1rem;
   }
+
   .nav-controls {
     gap: 0.2rem;
   }
+
   .control-btn {
     padding: 2px 4px;
     font-size: 0.75rem;
   }
+
   .divider {
     margin: 0 0.2rem;
   }
@@ -232,6 +282,7 @@ a {
   color: var(--primary-color);
   text-decoration: none;
 }
+
 a:hover {
   text-decoration: underline;
 }
@@ -253,25 +304,31 @@ a:hover {
   min-width: 44px;
   box-sizing: border-box;
 }
+
 .btn:active {
   transform: scale(0.98);
 }
+
 .btn-primary {
   background: var(--primary-color);
   color: white;
 }
+
 .btn-secondary {
   background: #6c757d;
   color: white;
 }
+
 .btn-success {
   background: #28a745;
   color: white;
 }
+
 .btn-danger {
   background: #dc3545;
   color: white;
 }
+
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -281,7 +338,8 @@ a:hover {
 input,
 textarea,
 select {
-  font-size: 16px; /* 防止 iOS Safari 自動縮放 */
+  font-size: 16px;
+  /* 防止 iOS Safari 自動縮放 */
   padding: 0.8rem;
   border: 1px solid #ccc;
   border-radius: 6px;
@@ -322,9 +380,11 @@ select {
   h1 {
     font-size: 1.5rem;
   }
+
   h2 {
     font-size: 1.3rem;
   }
+
   h3 {
     font-size: 1.1rem;
   }

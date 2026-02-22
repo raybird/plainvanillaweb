@@ -1,4 +1,4 @@
-import { html } from "../../../lib/html.js";
+import { html, unsafe } from "../../../lib/html.js";
 import { BaseComponent } from "../../../lib/base-component.js";
 import { paymentService } from "../../../lib/payment-service.js";
 
@@ -145,10 +145,11 @@ export class PaymentPage extends BaseComponent {
                 </div>
 
                 <button 
-                    class="checkout-btn" 
+                    class="btn btn-primary" 
+                    style="width:100%; padding: 1rem; font-size: 1.2rem;"
                     onclick="this.closest('page-lab-payment').handleCheckout()"
-                    ${!paymentService.isSupported ? 'disabled' : ''}>
-                    立即結帳 (Pay Now)
+                    ${unsafe(paymentService.isSupported ? '' : 'disabled')}>
+                    💳 立即結帳 (Pay Now)
                 </button>
 
                 <div class="status-box ${this.state.error ? 'error' : this.state.result ? 'success' : ''}">
@@ -164,9 +165,7 @@ export class PaymentPage extends BaseComponent {
                     </div>
                 ` : ''}
             </div>
-            <div style="text-align: center; margin-top: 2rem;">
-                <a href="#/lab" style="display: inline-block; background: #e2e8f0; color: #475569; padding: 0.8rem 1.5rem; text-decoration: none; border-radius: 8px; font-weight: bold;">⬅️ 回實驗室首頁</a>
-            </div>
+            <a href="#/lab" class="btn btn-secondary" style="margin-top: 2rem;">⬅️ 回實驗室首頁</a>
         `;
     }
 }

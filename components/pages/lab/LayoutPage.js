@@ -58,17 +58,17 @@ export class LayoutPage extends BaseComponent {
             <div class="control-panel">
                 <div>
                     <label>主題色 (Primary)</label>
-                    <input type="color" .value="${this.state.primary}" 
+                    <input type="color" value="${this.state.primary}" 
                            oninput="this.closest('page-lab-layout').updateVariable('primary', this.value)">
                 </div>
                 <div>
                     <label>間距 (Spacing): ${this.state.spacing}px</label>
-                    <input type="range" min="8" max="40" .value="${this.state.spacing}"
+                    <input type="range" min="8" max="40" value="${this.state.spacing}"
                            oninput="this.closest('page-lab-layout').updateVariable('spacing', this.value)">
                 </div>
                 <div>
                     <label>圓角 (Radius): ${this.state.radius}px</label>
-                    <input type="range" min="0" max="30" .value="${this.state.radius}"
+                    <input type="range" min="0" max="30" value="${this.state.radius}"
                            oninput="this.closest('page-lab-layout').updateVariable('radius', this.value)">
                 </div>
             </div>

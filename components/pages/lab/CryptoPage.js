@@ -47,7 +47,7 @@ export class CryptoPage extends BaseComponent {
                 <input type="password" placeholder="設定密碼" oninput="this.closest('page-lab-crypto').state.cryptoPass = this.value" value="${this.state.cryptoPass}">
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="this.closest('page-lab-crypto').runEncrypt()">🔒 加密</button>
-                    <button class="btn btn-success" ?disabled="${!this.state.encryptedData}" onclick="this.closest('page-lab-crypto').runDecrypt()">🔓 解密</button>
+                    <button class="btn btn-success" ${!this.state.encryptedData ? 'disabled' : ''} onclick="this.closest('page-lab-crypto').runDecrypt()">🔓 解密</button>
                     <button class="btn btn-secondary" onclick="this.closest('page-lab-crypto').runHash()">#️⃣ Hash</button>
                 </div>
                 ${this.state.decryptedResult ? html`<div style="margin-top:1rem; font-size:0.8rem;">解密結果: <br><code>${this.state.decryptedResult}</code></div>` : ''}

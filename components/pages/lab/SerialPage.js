@@ -64,7 +64,7 @@ export class SerialPage extends BaseComponent {
                 </div>
                 <div class="btn-group" style="margin-bottom: 1.5rem;">
                     <button class="btn ${this.state.isSerialConnected ? 'btn-danger' : 'btn-primary'}" 
-                            ?disabled="${!serialService.isSupported}"
+                            ${!serialService.isSupported ? 'disabled' : ''}
                             onclick="this.closest('page-lab-serial').runSerialConnect()">
                         ${this.state.isSerialConnected ? '🔌 斷開連線' : '🔍 掃描並連線'}
                     </button>

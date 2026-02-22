@@ -78,7 +78,7 @@ export class CompressionPage extends BaseComponent {
                     <textarea id="compress-input" class="form-control" style="height: 100px;"
                     >${'Vanilla JS is awesome! '.repeat(50)}</textarea>
                     <div class="btn-group" style="margin-top: 1rem;">
-                        <button class="btn btn-primary" ?disabled="${this.state.isProcessing}" onclick="this.closest('page-lab-compression').runCompress()">
+                        <button class="btn btn-primary" ${this.state.isProcessing ? 'disabled' : ''} onclick="this.closest('page-lab-compression').runCompress()">
                             ⚡ 執行 Gzip 壓縮
                         </button>
                     </div>
@@ -120,7 +120,7 @@ export class CompressionPage extends BaseComponent {
                         ${this.state.decompressedText || '等待執行解壓縮...'}
                     </div>
                     <button class="btn btn-secondary btn-sm" style="margin-top: 1rem;"
-                            ?disabled="${!this.state.compressedData || this.state.isProcessing}"
+                            ${!this.state.compressedData || this.state.isProcessing ? 'disabled' : ''}
                             onclick="this.closest('page-lab-compression').runDecompress()">
                         🔄 驗證解壓縮
                     </button>

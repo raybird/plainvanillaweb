@@ -68,7 +68,7 @@ export class AudioPage extends BaseComponent {
                             `)}
                         </div>
                         <label>主音量: ${this.state.volume}%</label>
-                        <input type="range" min="0" max="100" .value="${this.state.volume}" 
+                        <input type="range" min="0" max="100" value="${this.state.volume}" 
                                oninput="const v = this.value; this.closest('page-lab-audio').state.volume = v; audioService.setVolume(v/100)">
                         <button class="btn btn-secondary" style="width:100%; margin-top: 1rem;" onclick="this.closest('page-lab-audio').playTest()">🎵 播放測試音 (A4)</button>
                     </div>

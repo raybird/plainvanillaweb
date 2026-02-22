@@ -15,7 +15,7 @@ export class PWAAdvancedPage extends BaseComponent {
 
   connectedCallback() {
     super.connectedCallback();
-    
+
     // 監聽 Background Fetch 事件
     pwaService.on('fetch-started', ({ id }) => {
       this.state.activeFetchId = id;
@@ -101,7 +101,7 @@ export class PWAAdvancedPage extends BaseComponent {
           </div>
 
           <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" 
-                  ?disabled="${this.state.activeFetchId}"
+                  ${this.state.activeFetchId ? 'disabled' : ''}
                   onclick="this.closest('page-pwa-advanced').runBackgroundFetch()">
             啟動背景下載 (模擬)
           </button>

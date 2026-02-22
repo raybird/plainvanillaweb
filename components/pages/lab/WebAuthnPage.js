@@ -67,7 +67,7 @@ export class WebAuthnPage extends BaseComponent {
                 
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="this.closest('page-lab-webauthn').runRegister()">➕ 註冊新憑證</button>
-                    <button class="btn btn-success" ?disabled="${this.state.credentials.length === 0}" onclick="this.closest('page-lab-webauthn').runAuth()">🔑 執行驗證</button>
+                    <button class="btn btn-success" ${this.state.credentials.length === 0 ? 'disabled' : ''} onclick="this.closest('page-lab-webauthn').runAuth()">🔑 執行驗證</button>
                     <button class="btn btn-secondary" onclick="this.closest('page-lab-webauthn').clearAll()">🧹 清除憑證</button>
                 </div>
 

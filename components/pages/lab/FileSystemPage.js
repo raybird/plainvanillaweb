@@ -91,7 +91,7 @@ export class FileSystemPage extends BaseComponent {
             ` : ''}
 
             <div class="btn-group" style="margin-bottom: 1rem;">
-                <button class="btn btn-primary" ?disabled="${!this.state.isSupported}" onclick="this.closest('page-lab-file-system').selectDirectory()">
+                <button class="btn btn-primary" ${!this.state.isSupported ? 'disabled' : ''} onclick="this.closest('page-lab-file-system').selectDirectory()">
                     📂 選擇本地目錄
                 </button>
             </div>
@@ -114,7 +114,7 @@ export class FileSystemPage extends BaseComponent {
                     <div class="editor-header">
                         <span>${this.state.selectedFile ? `📍 ${this.state.selectedFile.name}` : '未選擇檔案'}</span>
                         <button class="btn btn-success btn-sm" 
-                                ?disabled="${!this.state.selectedFile || this.state.isSaving}"
+                                ${!this.state.selectedFile || this.state.isSaving ? 'disabled' : ''}
                                 onclick="this.closest('page-lab-file-system').saveFile()">
                             ${this.state.isSaving ? '💾 儲存中...' : '💾 儲存回本地'}
                         </button>

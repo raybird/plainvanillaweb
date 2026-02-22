@@ -20,14 +20,14 @@ export class WebGPUPage extends BaseComponent {
 
     async runCompute() {
         if (!this.state.isSupported) return;
-        
+
         this.state.isComputing = true;
         const startTime = performance.now();
-        
+
         try {
             const data = new Float32Array(this.state.inputData);
             const result = await webgpuService.computeDouble(data);
-            
+
             this.state.outputData = Array.from(result);
             this.state.computeTime = (performance.now() - startTime).toFixed(4);
             notificationService.success('WebGPU 運算完成！');
@@ -81,7 +81,7 @@ export class WebGPUPage extends BaseComponent {
 
                 <div class="btn-group">
                     <button class="btn btn-primary" 
-                            ?disabled="${!this.state.isSupported || this.state.isComputing}" 
+                            ${!this.state.isSupported || this.state.isComputing ? 'disabled' : ''}
                             onclick="this.closest('page-lab-webgpu').runCompute()">
                         ${this.state.isComputing ? '⏳ 運算中...' : '🚀 執行 GPU 運算'}
                     </button>

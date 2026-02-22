@@ -17,12 +17,12 @@ export class NFCPage extends BaseComponent {
 
     connectedCallback() {
         super.connectedCallback();
-        
+
         this._onReading = ({ serialNumber }) => {
             this.state.lastTagId = serialNumber;
             notificationService.success('成功感應 NFC 標籤！');
         };
-        
+
         this._onTextFound = (text) => {
             this.state.readContent = text;
         };
@@ -74,7 +74,7 @@ export class NFCPage extends BaseComponent {
                 
                 <div class="btn-group">
                     <button class="btn ${this.state.isScanning ? 'btn-success' : 'btn-primary'}" 
-                            ?disabled="${!nfcService.isSupported}"
+                            ${!nfcService.isSupported ? 'disabled' : ''}
                             onclick="this.closest('page-lab-nfc').runScan()">
                         ${this.state.isScanning ? '📶 正在掃描...' : '🔍 開始掃描'}
                     </button>

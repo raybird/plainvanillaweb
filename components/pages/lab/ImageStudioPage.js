@@ -58,8 +58,8 @@ export class ImageStudioPage extends BaseComponent {
         if (!this.state.originalUrl) return;
         try {
             const blob = await imageService.resizeAndCompress(
-                this.state.originalUrl, 
-                this.state.targetWidth, 
+                this.state.originalUrl,
+                this.state.targetWidth,
                 this.state.compressionQuality / 100
             );
             const url = URL.createObjectURL(blob);
@@ -112,25 +112,25 @@ export class ImageStudioPage extends BaseComponent {
                     
                     <div class="filter-group">
                         <label>灰階 (Grayscale): ${this.state.filters.grayscale}%</label>
-                        <input type="range" min="0" max="100" .value="${this.state.filters.grayscale}"
+                        <input type="range" min="0" max="100" value="${this.state.filters.grayscale}"
                                oninput="this.closest('page-lab-image-studio').updateFilter('grayscale', this.value)">
                     </div>
 
                     <div class="filter-group">
                         <label>褐色 (Sepia): ${this.state.filters.sepia}%</label>
-                        <input type="range" min="0" max="100" .value="${this.state.filters.sepia}"
+                        <input type="range" min="0" max="100" value="${this.state.filters.sepia}"
                                oninput="this.closest('page-lab-image-studio').updateFilter('sepia', this.value)">
                     </div>
 
                     <div class="filter-group">
                         <label>反轉 (Invert): ${this.state.filters.invert}%</label>
-                        <input type="range" min="0" max="100" .value="${this.state.filters.invert}"
+                        <input type="range" min="0" max="100" value="${this.state.filters.invert}"
                                oninput="this.closest('page-lab-image-studio').updateFilter('invert', this.value)">
                     </div>
 
                     <div class="filter-group">
                         <label>亮度 (Brightness): ${this.state.filters.brightness}%</label>
-                        <input type="range" min="0" max="200" .value="${this.state.filters.brightness}"
+                        <input type="range" min="0" max="200" value="${this.state.filters.brightness}"
                                oninput="this.closest('page-lab-image-studio').updateFilter('brightness', this.value)">
                     </div>
 
@@ -139,18 +139,18 @@ export class ImageStudioPage extends BaseComponent {
                     
                     <div class="filter-group">
                         <label>導出寬度: ${this.state.targetWidth}px</label>
-                        <input type="range" min="200" max="2000" step="50" .value="${this.state.targetWidth}"
+                        <input type="range" min="200" max="2000" step="50" value="${this.state.targetWidth}"
                                oninput="this.closest('page-lab-image-studio').state.targetWidth = this.value">
                     </div>
 
                     <div class="filter-group">
                         <label>壓縮品質: ${this.state.compressionQuality}%</label>
-                        <input type="range" min="10" max="100" .value="${this.state.compressionQuality}"
+                        <input type="range" min="10" max="100" value="${this.state.compressionQuality}"
                                oninput="this.closest('page-lab-image-studio').state.compressionQuality = this.value">
                     </div>
 
                     <button class="btn btn-primary" style="width: 100%;" 
-                            ?disabled="${!this.state.originalUrl || this.state.isProcessing}"
+                            ${!this.state.originalUrl || this.state.isProcessing ? 'disabled' : ''}
                             onclick="this.closest('page-lab-image-studio').downloadResult()">
                         🚀 下載 WebP 圖片
                     </button>

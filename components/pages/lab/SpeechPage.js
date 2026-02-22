@@ -58,7 +58,7 @@ export class SpeechPage extends BaseComponent {
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="this.closest('page-lab-speech').speak()">🔊 朗讀文字</button>
                     <button class="btn ${this.state.isListening ? 'btn-danger' : 'btn-secondary'}" 
-                            ?disabled="${!speechService.isRecognitionSupported}"
+                            ${!speechService.isRecognitionSupported ? 'disabled' : ''}
                             onclick="this.closest('page-lab-speech').toggleSpeechRecognition()">
                         ${this.state.isListening ? '⏹️ 停止辨識' : '🎤 開始辨識'}
                     </button>

@@ -20,7 +20,7 @@ export class BluetoothPage extends BaseComponent {
             this.state.isConnected = true;
             this.state.deviceName = device.name || '未知設備';
             notificationService.success(`已連線至 ${this.state.deviceName}`);
-            
+
             // 監聽斷線
             device.addEventListener('gattserverdisconnected', () => {
                 this.state.isConnected = false;
@@ -59,7 +59,7 @@ export class BluetoothPage extends BaseComponent {
                 </div>
 
                 <div class="btn-group">
-                    <button class="btn btn-primary" onclick="this.closest('page-lab-bluetooth').connect()" ?disabled="${this.state.isConnected}">
+                    <button class="btn btn-primary" onclick="this.closest('page-lab-bluetooth').connect()" ${this.state.isConnected ? 'disabled' : ''}>
                         🚀 掃描並連接設備
                     </button>
                 </div>

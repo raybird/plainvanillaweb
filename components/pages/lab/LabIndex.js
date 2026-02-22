@@ -234,13 +234,14 @@ export class LabIndex extends BaseComponent {
         }
         .lab-item {
           padding: 1.5rem;
-          border: 1px solid #ddd;
+          border: 1px solid var(--card-border);
           border-radius: 12px;
-          background: #fff;
+          background: var(--card-bg);
           text-decoration: none;
-          color: inherit;
+          color: var(--text-color);
           transition: all 0.2s;
           cursor: pointer;
+          box-shadow: var(--card-shadow);
         }
         .lab-item .actions {
           margin-top: 0.8rem;
@@ -256,9 +257,9 @@ export class LabIndex extends BaseComponent {
           padding: 0.35rem 0.6rem;
           border-radius: 999px;
           font-size: 0.78rem;
-          border: 1px solid #e2e8f0;
-          color: #334155;
-          background: #f8fafc;
+          border: 1px solid var(--border-color);
+          color: var(--text-muted);
+          background: var(--surface-color);
         }
         .lab-item .btn-link.primary {
           background: var(--primary-color);
@@ -267,7 +268,7 @@ export class LabIndex extends BaseComponent {
         }
         .lab-item:hover {
           transform: translateY(-5px);
-          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+          box-shadow: var(--card-shadow-hover);
           border-color: var(--primary-color);
         }
         .lab-item h3 {

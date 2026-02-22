@@ -44,19 +44,19 @@ export class WorkerDemo extends BaseComponent {
             <h1>Web Worker 高效能運算示範</h1>
             <p>本頁面示範如何將重型運算移至背景線程，保持 UI 流暢。</p>
             
-            <div style="padding: 1rem; border: 2px dashed #ccc; margin-bottom: 1rem;">
+            <div style="padding: 1rem; border: 2px dashed var(--border-color); border-radius: 8px; margin-bottom: 1rem;">
                 <strong>🧵 主線程狀態：</strong>
-                <span id="main-thread-counter" style="font-size: 1.5rem; color: #28a745;">${this.state.counter}</span>
-                <small>(此數值每 100ms 更新一次，若卡住代表主線程阻塞)</small>
+                <span id="main-thread-counter" style="font-size: 1.5rem; color: #22c55e;">${this.state.counter}</span>
+                <small>（此數值每 100ms 更新一次，若卡住代表主線程阻塞）</small>
             </div>
 
-            <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px;">
-                <button id="run-btn" ${this.state.computing ? 'disabled' : ''}>
-                    ${this.state.computing ? '運算中 (背景)...' : '執行 Fib(42) 重型運算'}
+            <div class="lab-card">
+                <button class="btn btn-primary" id="run-btn" ${this.state.computing ? 'disabled' : ''}>
+                    ${this.state.computing ? '⏳ 運算中 (背景)...' : '🚀 執行 Fib(42) 重型運算'}
                 </button>
                 <div style="margin-top: 1rem;">
-                    <strong>運算結果：</strong> 
-                    <span style="font-family: monospace; color: #007bff;">${this.state.result || '尚未開始'}</span>
+                    <strong>運算結果：</strong>
+                    <span style="font-family: monospace; color: var(--primary-color);">${this.state.result || '尚未開始'}</span>
                 </div>
             </div>
         `;

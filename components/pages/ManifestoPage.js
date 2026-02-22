@@ -28,15 +28,15 @@ export class ManifestoPage extends BaseComponent {
                 }
                 /* 提供給 Markdown 生成的標籤基礎樣式 */
                 .manifesto-container h1 { font-size: 2.5rem; text-align: center; margin-bottom: 1rem; }
-                .manifesto-container h2 { font-size: 1.5rem; color: var(--primary-color); margin-top: 3rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+                .manifesto-container h2 { font-size: 1.5rem; color: var(--primary-color); margin-top: 3rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
                 .manifesto-container blockquote { 
                     font-style: italic; 
                     font-size: 1.1rem; 
-                    color: #666; 
+                    color: var(--text-muted); 
                     margin: 2rem 0; 
                     padding: 1rem 2rem; 
                     border-left: 4px solid var(--primary-color);
-                    background: rgba(0, 123, 255, 0.05);
+                    background: var(--primary-subtle);
                 }
             </style>
 

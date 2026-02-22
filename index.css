@@ -603,3 +603,118 @@ hr {
     padding-top: 4rem;
   }
 }
+
+/* ══════════════════════════════════════════════════
+   全局深色模式 Override
+   用高特異性批量覆蓋各頁面 <style> block 的硬編碼淺色值
+   ══════════════════════════════════════════════════ */
+
+/* 一般卡片/容器（各 lab 頁面的自訂卡片 class） */
+[data-theme="dark"] .bt-card,
+[data-theme="dark"] .compute-box,
+[data-theme="dark"] .pwa-card,
+[data-theme="dark"] .midi-card,
+[data-theme="dark"] .net-card,
+[data-theme="dark"] .panel:not(.status-badge),
+[data-theme="dark"] .preflight-wrap,
+[data-theme="dark"] .cred-item,
+[data-theme="dark"] .metric-card,
+[data-theme="dark"] .waterfall,
+[data-theme="dark"] .pattern-grid .status-board {
+  background: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+  color: var(--text-color) !important;
+}
+
+/* 淺灰面板（data-panel、info-grid 等） */
+[data-theme="dark"] .data-panel,
+[data-theme="dark"] .status-ui,
+[data-theme="dark"] .info-item,
+[data-theme="dark"] .stats,
+[data-theme="dark"] .code-snippet {
+  background: #1e293b !important;
+  border-color: var(--card-border) !important;
+  color: var(--text-color) !important;
+}
+
+/* 進度條背景 */
+[data-theme="dark"] .bar-wrapper,
+[data-theme="dark"] .progress-container {
+  background: #1e293b !important;
+}
+
+[data-theme="dark"] .bar-text {
+  color: var(--text-muted) !important;
+}
+
+/* 標籤 */
+[data-theme="dark"] .tag-error {
+  background: #2a0a0a !important;
+  border-color: #7f1d1d !important;
+}
+
+[data-theme="dark"] .tag-success {
+  background: #052e16 !important;
+  border-color: #14532d !important;
+}
+
+/* hint 元素（WebCodecsPage 等） */
+[data-theme="dark"] .hint {
+  background: #1c1a0a;
+  border-color: #78350f;
+  color: #fcd34d;
+}
+
+/* LabIndex 卡片 */
+[data-theme="dark"] .lab-item {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+  color: var(--text-color);
+}
+
+/* Inline style 背景（白色）整體 override */
+[data-theme="dark"] [style*="background: #fff"],
+[data-theme="dark"] [style*="background: white"],
+[data-theme="dark"] [style*="background:#fff"],
+[data-theme="dark"] [style*="background-color: white"],
+[data-theme="dark"] [style*="background-color: #fff"],
+[data-theme="dark"] [style*="background: #f8f9fa"],
+[data-theme="dark"] [style*="background-color: #f8f9fa"],
+[data-theme="dark"] [style*="background: #f1f5f9"] {
+  background: var(--card-bg) !important;
+}
+
+/* Inline style 文字顏色 override */
+[data-theme="dark"] [style*="color: #333"],
+[data-theme="dark"] [style*="color: #666"],
+[data-theme="dark"] [style*="color: #555"],
+[data-theme="dark"] [style*="color:#333"],
+[data-theme="dark"] [style*="color:#666"] {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] [style*="color: #999"],
+[data-theme="dark"] [style*="color:#999"],
+[data-theme="dark"] [style*="color: #888"],
+[data-theme="dark"] [style*="color:#888"] {
+  color: var(--text-subtle) !important;
+}
+
+/* Inline style border */
+[data-theme="dark"] [style*="border: 1px solid #eee"],
+[data-theme="dark"] [style*="border-top: 1px solid #eee"],
+[data-theme="dark"] [style*="border-color: #eee"],
+[data-theme="dark"] [style*="border: 1px solid #ddd"],
+[data-theme="dark"] [style*="border-color: #ddd"] {
+  border-color: var(--card-border) !important;
+}
+
+/* Scrollbar */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}

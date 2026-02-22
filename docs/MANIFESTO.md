@@ -1,25 +1,32 @@
-# 🍦 Vanilla Manifesto: 長青代碼準則
+# 🍦 Vanilla Manifesto (原生網頁開發宣言)
 
-這是 `plainvanillaweb` 專案的核心靈魂，旨在定義一套能夠抵抗技術週期、保持極致效能與開發純粹性的原生開發方法論。
+> 追求長青代碼 (Evergreen Code) 與極致效能的 Web 開發哲學
 
-## 🌟 核心哲學
+在各種前端框架與建置工具百家爭鳴的年代，**Plain Vanilla Web** 選擇了一條回歸本質的道路。我們拒絕過度封裝，擁抱瀏覽器逐漸成熟的原生能力。
 
-### 1. 永不過時 (Future-Proof)
-基於 W3C/WHATWG 標準開發。代碼不依賴特定的商業公司維護的框架版本，減少因框架斷更或重大破壞性更新 (Breaking Changes) 導致的重構壓力。
-
-### 2. 極致效能 (Performance First)
-消滅 VDOM Diffing、編譯開銷與龐大的 Runtime 體積。原生 Custom Elements 的渲染效率始終處於瀏覽器第一梯隊。
-
-### 3. 可遷移性 (Portability)
-Vanilla 組件可以輕鬆嵌入任何現有專案（無論是 React, Vue 還是傳統後端模板），因為它們本質上就是標準的 HTML 標籤。
-
-## 🛠️ 開發準則 (The Rules)
-
-1.  **優先使用原生替代方案**：在引入 `npm` 套件前，先檢查 `MDN` 是否已有原生 API 支援。
-2.  **擁抱 ESM**：堅持使用瀏覽器原生的模組化語法，不進行 Bundle。
-3.  **顯式大於隱式**：寧可多寫幾行標準代碼，也不使用難以追蹤的隱式黑盒。
-4.  **組件自治**：每個 Custom Element 應負責自身的狀態與樣式，實現真正意義上的模組化。
+本宣言定義了本專案的核心哲學。我們相信，這些原則能確保你的代碼在十年後，依然能無需任何編譯地在瀏覽器中流暢運行。
 
 ---
 
-**Vanilla 不代表原始，而代表對 Web 平台的極致信任。**
+## 1. 標準優於框架 (Standards over Frameworks)
+框架的生命週期會凋零，但 Web 標準永存。我們優先使用 **Custom Elements (Web Components)**、**CSS Variables** 與最新的 **Native Web APIs**，藉此打造具備最高跨平台相容性的應用。
+
+## 2. 零建置成本 (Zero Build)
+最好的建置步驟，就是沒有建置步驟。利用原生的 **ES Modules (ESM)**，我們讓開發回歸「存檔即重新整理 (Save & Refresh)」的最直覺體驗，徹底消滅複雜工具鏈帶來的維護負擔與等待時間。
+
+## 3. 最小抽象 (Minimal Abstraction)
+每一層抽象都是一種未來必須償還的債務。我們僅在絕對必要時建立輕量級的基底類別（如 `BaseComponent`），其目的在於**輔助**管理生命週期與宣告式渲染，而非**遮蔽**原生 API 的原始運作方式。
+
+## 4. 透明性與可觀測性 (Transparency)
+代碼應當易於理解與除錯。我們不使用黑盒魔法 (Black-box magic)。所有的狀態流向、DOM 更新機制與事件委派，都應清晰可見。這不僅是為了除錯，更是真正的生產力來源。
+
+## 5. 安全的預設值 (Secure by Default)
+在捨棄框架保護的同時，我們不向安全性妥協。透過實作自帶 XSS 防禦的 **SafeHTML 模板標籤**機制，我們證明了原生開發也能擁有與現代化框架同等嚴謹的自動轉義與安全渲染防護網。
+
+## 6. 教育重於封裝 (Education as a Feature)
+本專案不只是一個樣板 (Template)，更是一個開放的**互動式實驗室 (Hub)**。我們將前沿的 Web 技術（如 WebGPU、WebRTC、Web Bluetooth、PWA）剝離出艱澀的框架外殼，以最純粹的 Vanilla 型態展示，讓每一位開發者都能直接觸摸到瀏覽器強大能力的基石。
+
+---
+
+> *"Frameworks come and go, but the platform is forever."*
+> —— 獻給所有熱愛原生平台能力的 Web 開發者。

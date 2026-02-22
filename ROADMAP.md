@@ -80,6 +80,8 @@ _最後更新：2026-02-21 (By TeleNexus Orchestrator)_
 17. **原生效能監控儀表板**：實作 Web Vitals (LCP/CLS) 與加載管線視覺化。
 18. **原生 MIDI 互動實驗室**：實作 Web MIDI 設備偵測與即時訊息解析。
 19. **原生 Web Audio 合成器**：實作振盪器音訊生成與 MIDI 聯動發聲。
+20. **現代化教學框架 UI 重構**：引入 Tree-view 文件導覽、四大功能群組分區與 SafeHTML 安全渲染機制。
+21. **SafeHTML 安全防禦機制**：實作自動轉義標籤模板，提供如同主流框架等級的預設 XSS 防止能力。
 
 ## 🎁 自主開發 (Bonus Features)
 

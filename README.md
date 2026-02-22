@@ -9,29 +9,37 @@
 
 ---
 
-## 📚 文件導覽地圖 (Documentation Map)
+## 🍦 專案精神 (The Vanilla Way)
 
-### 核心架構 (Architecture)
-- [**原生路由系統 (Router & SEO)**](./docs/router.md) - SPA 路由、Meta 管理與 404 修復。
-- [**狀態管理與持久化 (Store & IDB)**](./docs/state-management.md) - Proxy Store、LocalStorage 與 IndexedDB 整合。
-- [**國際化系統 (i18n)**](./docs/i18n.md) - 原生輕量級多語言支援。
-- [**漸進式網頁應用 (PWA)**](./docs/pwa.md) - Service Worker 與離線體驗。
-
-### 開發指南 (Guides)
-- [**非同步資料處理 (API Fetching)**](./docs/api-fetching.md) - Web Components 與 API 串接。
-- [**儲存管理與持久化**](./docs/storage-persistence.md) - StorageManager API 與配額監控。
-- [**原生測試策略**](./docs/testing-strategy.md) - 零依賴自動化單元測試指南。
-- [**架構決策紀錄 (ADR)**](./docs/decisions/README.md) - 追蹤專案的所有技術決策。
+> 💡 **了解我們為何堅持「標準優於框架、零建置成本、安全且透明」的哲學：** <br>
+> 閱讀 **[Vanilla Manifesto (原生網頁開發宣言)](./docs/MANIFESTO.md)**
 
 ---
 
-## 🎮 互動式教學中心 (Interactive Hub)
+## 📚 文件與模組導覽地圖 (Navigation Map)
 
-本專案不僅是範例，更是一個互動式實驗室：
-- **[Vanilla 遊樂場 (Playground)](#/playground)**：直接在瀏覽器撰寫原生代碼並即時預覽。
-- **[原生技術實驗室 (Lab)](#/lab)**：實驗 Web Speech、WebRTC、WebGPU、WASM、Payment Request、Bluetooth 與 Screen Capture 等前沿 API。
-- **[性能分析中心 (Analytics)](#/analytics)**：利用 Canvas API 即時視覺化 Web Vitals 指標。
-- **[開發者儀表板 (Dashboard)](#/dashboard)**：監控 IndexedDB、Network 請求與全域狀態。
+我們依據功能性質，將專案的模組與文件劃分為以下四大類，與網頁介面的側邊欄導覽 (`Navbar`) 完全對齊：
+
+### 1. 導覽與核心 (Overview)
+- **總覽**：本 `README.md` 所處的專案首頁。
+- **宣言**：[Vanilla Manifesto](./docs/MANIFESTO.md) 專案精神與哲學。
+
+### 2. 學習與實作 (Learning & Lab)
+- **📚 技術手冊 (Docs)**：包含豐富的 Markdown 教學文件，涵蓋：
+    - [這不是框架！組件開發指南](./docs/component-architecture.md)
+    - [SafeHTML：防護 XSS 的安全渲染機制](./docs/safe-html-rendering.md)
+    - [基礎核心：路由、狀態管理、PWA、i18n 等子系統指南](./docs/)
+- **🧪 互動式實驗室 (Lab)**：直接在瀏覽器執行並體驗 WebGPU、WebRTC、Web Bluetooth、FaceID 等數十多種前沿原生 API。
+- **🎡 Vanilla 遊樂場 (Playground)**：內建的所見即所得線上程式碼編輯器。
+
+### 3. 監控與開發工具 (Developer Tools)
+- **📊 開發者儀表板 (Dashboard)**：即時監控 IndexedDB 資料、Network 請求與 Store 全域狀態流向。
+- **📈 效能分析中心 (Analytics)**：利用原生 Canvas API 視覺化監測 Web Vitals (LCP/CLS) 指標。
+- **⚡ Web Worker 展示 (Worker Demo)**：展示耗時運算與主執行緒分離的優化實作。
+- **🔍 開源碼搜尋 (Repo Search)**：串接 GitHub API 的高互動性搜尋介面。
+
+### 4. 使用者 (Account)
+- **👤 個人檔案 (Profile)**：展示基於 LocalStorage/IndexedDB 結合身份驗證 (Auth Guard) 的會員登入機制。
 
 ---
 
@@ -49,11 +57,13 @@
     - **Image Processing**: 純前端圖片濾鏡 (Grayscale) 與縮放處理。
     - **Vanilla SDK 模式**: 核心服務解耦，支援由外部 URL 直接引用的 CDN 開發模式。
 - **專業級韌性架構**：
+    - **安全的預設值 (SafeHTML)**: 實作內建 XSS 防禦的標籤模板渲染機制，將安全視為一等公民。
     - **Offline Action Queue**: 斷網時操作自動排隊，恢復連線後自動同步。
     - **Undo/Redo History**: 實作狀態快照機制的撤銷與重做功能。
     - **Virtual List**: 支援萬筆數據的高流暢度虛擬捲動。
     - **Storage Persistence**: 主動申請數據持久化，防止系統清理。
-- **高性能與優化**：
+- **高性能與開發體驗優化 (Performance & DX)**：
+    - **現代化文件 UI 佈局**: 具備 Tree-view 導覽、毛玻璃質感與強化的閱讀字體學體驗。
     - **Lazy & Prefetch**: 路由驅動的模組動態載入與智能資源預載。
     - **Web Workers**: 邏輯計算與主執行緒解耦，保持介面反應。
     - **Responsive First**: 全面優化手機版面佈局與 Header 響應式體驗。

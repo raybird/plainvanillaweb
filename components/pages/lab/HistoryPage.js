@@ -158,22 +158,21 @@ export class HistoryPage extends BaseComponent {
 
                     <div class="editor-area">
                         <textarea 
-                            @input="${(e) => this.handleInput(e)}"
-                            .value="${this.state.documentText}"
+                            oninput="this.closest('page-lab-history').handleInput(event)"
                             placeholder="開始輸入文字..."
-                        ></textarea>
+                        >${this.state.documentText}</textarea>
                     </div>
 
                     <div class="toolbar">
                         <div class="btn-group">
                             <button 
-                                @click="${() => this.handleUndo()}" 
-                                ?disabled="${!this.state.canUndo}">
+                                onclick="this.closest('page-lab-history').handleUndo()" 
+                                ${!this.state.canUndo ? 'disabled' : ''}>
                                 ↩️ 復原 (Undo)
                             </button>
                             <button 
-                                @click="${() => this.handleRedo()}" 
-                                ?disabled="${!this.state.canRedo}">
+                                onclick="this.closest('page-lab-history').handleRedo()" 
+                                ${!this.state.canRedo ? 'disabled' : ''}>
                                 ↪️ 重做 (Redo)
                             </button>
                         </div>

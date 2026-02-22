@@ -139,13 +139,13 @@ export class ModalPage extends BaseComponent {
                     </p>
                     
                     <div class="btn-group">
-                        <button class="btn-alert" @click="${() => this.handleShowAlert()}">
+                        <button class="btn-alert" onclick="this.closest('page-lab-modal').handleShowAlert()">
                             🔔 觸發提示訊息 (Alert)
                         </button>
-                        <button class="btn-confirm" @click="${() => this.handleShowConfirm()}">
+                        <button class="btn-confirm" onclick="this.closest('page-lab-modal').handleShowConfirm()">
                             ⚠️ 觸發危險確認 (Confirm)
                         </button>
-                        <button class="btn-custom" @click="${() => this.handleShowCustom()}">
+                        <button class="btn-custom" onclick="this.closest('page-lab-modal').handleShowCustom()">
                             🎨 觸發自訂內容 (Custom Form)
                         </button>
                     </div>

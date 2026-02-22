@@ -209,12 +209,12 @@ export class BroadcastPage extends BaseComponent {
         })}
                 </div>
 
-                <form class="input-area" @submit="${(e) => this.handleSend(e)}">
+                <form class="input-area" onsubmit="this.closest('page-lab-broadcast').handleSend(event)">
                     <input 
                         type="text" 
                         placeholder="輸入訊息，廣播到所有開啟此網頁的分頁..." 
-                        .value="${this.state.inputText}"
-                        @input="${(e) => this.handleInput(e)}"
+                        value="${this.state.inputText}"
+                        oninput="this.closest('page-lab-broadcast').handleInput(event)"
                         autocomplete="off"
                     />
                     <button type="submit">發送</button>

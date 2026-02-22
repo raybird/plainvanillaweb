@@ -146,8 +146,8 @@ export class PaymentPage extends BaseComponent {
 
                 <button 
                     class="checkout-btn" 
-                    @click="${() => this.handleCheckout()}"
-                    ?disabled="${!paymentService.isSupported}">
+                    onclick="this.closest('page-lab-payment').handleCheckout()"
+                    ${!paymentService.isSupported ? 'disabled' : ''}>
                     立即結帳 (Pay Now)
                 </button>
 

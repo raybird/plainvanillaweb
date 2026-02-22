@@ -21,12 +21,14 @@ export class CompressionPage extends BaseComponent {
     }
 
     async runCompress() {
-        if (!this.state.inputText) return;
+        const ta = this.querySelector('#compress-input');
+        const text = ta?.value;
+        if (!text) return;
         this.state.isProcessing = true;
         try {
-            const result = await compressionService.compress(this.state.inputText);
+            const result = await compressionService.compress(text);
             this.state.compressedData = result;
-            this.state.originalSize = new TextEncoder().encode(this.state.inputText).length;
+            this.state.originalSize = new TextEncoder().encode(text).length;
             this.state.compressedSize = result.length;
             notificationService.success('壓縮完成！');
         } catch (err) {
@@ -51,8 +53,8 @@ export class CompressionPage extends BaseComponent {
     }
 
     render() {
-        const ratio = this.state.originalSize > 0 
-            ? ((1 - (this.state.compressedSize / this.state.originalSize)) * 100).toFixed(1) 
+        const ratio = this.state.originalSize > 0
+            ? ((1 - (this.state.compressedSize / this.state.originalSize)) * 100).toFixed(1)
             : 0;
 
         return html`
@@ -73,9 +75,8 @@ export class CompressionPage extends BaseComponent {
                 <!-- 輸入區 -->
                 <div class="data-card">
                     <h3>1. 原始數據</h3>
-                    <textarea class="form-control" style="height: 100px;" 
-                              .value="${this.state.inputText}"
-                              oninput="this.closest('page-lab-compression').state.inputText = this.value"></textarea>
+                    <textarea id="compress-input" class="form-control" style="height: 100px;"
+                    >${'Vanilla JS is awesome! '.repeat(50)}</textarea>
                     <div class="btn-group" style="margin-top: 1rem;">
                         <button class="btn btn-primary" ?disabled="${this.state.isProcessing}" onclick="this.closest('page-lab-compression').runCompress()">
                             ⚡ 執行 Gzip 壓縮

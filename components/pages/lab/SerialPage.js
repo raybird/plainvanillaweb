@@ -48,9 +48,11 @@ export class SerialPage extends BaseComponent {
     }
 
     async sendSerialCommand() {
-        if (!this.state.serialInput) return;
-        await serialService.write(this.state.serialInput + '\n');
-        this.state.serialInput = '';
+        const input = this.querySelector('#serial-input');
+        const text = input?.value?.trim();
+        if (!text) return;
+        await serialService.write(text + '\n');
+        if (input) input.value = '';
     }
 
     render() {
@@ -76,9 +78,8 @@ export class SerialPage extends BaseComponent {
                     ${this.state.serialLogs.length === 0 ? '> 等待數據輸入...' : this.state.serialLogs.map(log => `<div>> ${log}</div>`).join('')}
                 </div>
                 <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                    <input type="text" placeholder="發送命令..." value="${this.state.serialInput}"
-                           oninput="this.closest('page-lab-serial').state.serialInput = this.value"
-                           onkeyup="if(event.key === 'Enter') this.closest('page-lab-serial').sendSerialCommand()">
+                    <input type="text" id="serial-input" placeholder="發送命令..." 
+                           onkeydown="if(event.key==='Enter') this.closest('page-lab-serial').sendSerialCommand()">
                     <button class="btn btn-secondary" onclick="this.closest('page-lab-serial').sendSerialCommand()">傳送</button>
                 </div>
             </div>

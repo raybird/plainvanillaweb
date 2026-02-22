@@ -53,7 +53,9 @@ export class FileSystemPage extends BaseComponent {
         if (!this.state.selectedFile) return;
         this.state.isSaving = true;
         try {
-            await fileSystemService.writeFile(this.state.selectedFile, this.state.fileContent);
+            const ta = this.querySelector('#fs-editor');
+            const content = ta?.value ?? this.state.fileContent;
+            await fileSystemService.writeFile(this.state.selectedFile, content);
             notificationService.success('檔案已儲存至本地！');
         } catch (err) {
             notificationService.error('儲存失敗: ' + err.message);
@@ -118,9 +120,8 @@ export class FileSystemPage extends BaseComponent {
                         </button>
                     </div>
                     ${this.state.selectedFile ? html`
-                        <textarea class="editor-area" 
-                                  .value="${this.state.fileContent}"
-                                  oninput="this.closest('page-lab-file-system').state.fileContent = this.value"></textarea>
+                        <textarea id="fs-editor" class="editor-area" 
+                        >${this.state.fileContent}</textarea>
                     ` : html`
                         <div class="empty-state">點擊左側檔案進行編輯</div>
                     `}

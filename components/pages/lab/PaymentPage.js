@@ -164,6 +164,9 @@ export class PaymentPage extends BaseComponent {
                     </div>
                 ` : ''}
             </div>
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="#/lab" style="display: inline-block; background: #e2e8f0; color: #475569; padding: 0.8rem 1.5rem; text-decoration: none; border-radius: 8px; font-weight: bold;">⬅️ 回實驗室首頁</a>
+            </div>
         `;
     }
 }

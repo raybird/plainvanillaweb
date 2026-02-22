@@ -165,11 +165,12 @@ export class Documentation extends BaseComponent {
         .docs-content {
           flex: 1;
           padding: 2rem;
-          border: 1px solid #eee;
+          border: 1px solid var(--card-border);
           border-radius: 12px;
-          background: white;
+          background: var(--card-bg);
           min-height: 60vh;
           overflow-x: auto;
+          box-shadow: var(--card-shadow);
         }
         .docs-nav-list {
           list-style: none;
@@ -196,14 +197,15 @@ export class Documentation extends BaseComponent {
           border-left: 3px solid transparent;
         }
         .docs-nav-button:hover {
-          background-color: rgba(0, 123, 255, 0.05);
+          background-color: var(--primary-subtle);
           color: var(--primary-color);
         }
         .docs-nav-button.active {
           color: var(--primary-color);
           font-weight: 600;
-          background-color: rgba(0, 123, 255, 0.1);
+          background-color: var(--primary-subtle);
           border-left-color: var(--primary-color);
+          filter: brightness(1.2);
         }
       </style>
 

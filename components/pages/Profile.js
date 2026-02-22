@@ -112,7 +112,7 @@ export class UserProfile extends BaseComponent {
 
       <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
         <div
-          style="flex: 1; min-width: min(300px, 100%); padding: 2rem; border: 1px solid #ddd; border-radius: 12px; text-align: center; background: var(--nav-bg);"
+          style="flex: 1; min-width: min(300px, 100%); padding: 2rem; border: 1px solid var(--card-border); border-radius: 12px; text-align: center; background: var(--card-bg); box-shadow: var(--card-shadow);"
         >
           <img
             src="${this.state.avatar}"
@@ -128,19 +128,19 @@ export class UserProfile extends BaseComponent {
               style="font-size: 0.75rem; padding: 4px 10px;"
               onclick="this.closest('page-profile').applyFilter()"
             >
-              🪄 灰階濾鏡
+              🪄 灰階濣鏡
             </button>
           </div>
 
           <h2>${this.state.name || "未命名"}</h2>
-          <p style="color: #666; font-style: italic;">
+          <p style="color: var(--text-muted); font-style: italic;">
             ${this.state.bio || "這是一個簡介..."}
           </p>
         </div>
 
         <div style="flex: 1; min-width: min(300px, 100%);">
           <div
-            style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #eee;"
+            style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);"
           >
             <h3>🎨 外觀設定</h3>
             <div
@@ -195,13 +195,13 @@ export class UserProfile extends BaseComponent {
                 required
                 minlength="2"
                 maxlength="20"
-                style="display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; border: 1px solid ${errors.name
-                  ? "red"
-                  : "#ccc"};"
+                style="display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; border: 1.5px solid ${errors.name
+        ? 'var(--danger-color, #dc2626)'
+        : 'var(--border-color)'};"
               />
               ${errors.name
-                ? html`<span style="${errorStyle}">${errors.name}</span>`
-                : ""}
+        ? html`<span style="${errorStyle}">${errors.name}</span>`
+        : ""}
             </label>
 
             <label>
@@ -211,15 +211,15 @@ export class UserProfile extends BaseComponent {
                 required
                 minlength="5"
                 maxlength="100"
-                style="display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; min-height: 80px; border: 1px solid ${errors.bio
-                  ? "red"
-                  : "#ccc"};"
+                style="display: block; width: 100%; padding: 0.5rem; margin-top: 0.25rem; min-height: 80px; border: 1.5px solid ${errors.bio
+        ? 'var(--danger-color, #dc2626)'
+        : 'var(--border-color)'};"
               >
 ${this.state.bio}</textarea
               >
               ${errors.bio
-                ? html`<span style="${errorStyle}">${errors.bio}</span>`
-                : ""}
+        ? html`<span style="${errorStyle}">${errors.bio}</span>`
+        : ""}
             </label>
 
             <label>

@@ -21,7 +21,7 @@ export class RepoSearch extends BaseComponent {
     async search(query) {
         if (!query) return;
         this.state.searchQuery = query;
-        
+
         const cached = await idbService.get(`repo_${query}`);
         if (cached) {
             this.repos = cached;
@@ -34,7 +34,7 @@ export class RepoSearch extends BaseComponent {
         this.update();
         try {
             const data = await apiService.fetchWithCancel(
-                'github_search', 
+                'github_search',
                 `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&per_page=100`
             );
 
@@ -62,7 +62,7 @@ export class RepoSearch extends BaseComponent {
                 speechService.startListening('en-US'); // GitHub 搜尋通常用英文
                 this.state.isListening = true;
                 notificationService.info('請說出專案關鍵字 (English)...');
-                
+
                 speechService.once('result', (data) => {
                     this.state.isListening = false;
                     this.querySelector('#q').value = data.text;
@@ -84,9 +84,9 @@ export class RepoSearch extends BaseComponent {
                 items: this.repos,
                 itemHeight: 90,
                 renderItem: (r) => html`
-                    <div style="padding: 10px; border-bottom: 1px solid #eee; height: 90px; box-sizing: border-box;">
+                    <div style="padding: 10px; border-bottom: 1px solid var(--border-color); height: 90px; box-sizing: border-box;">
                         <strong><a href="${r.html_url}" target="_blank">${r.full_name}</a></strong>
-                        <br><small>⭐ ${r.stargazers_count.toLocaleString()} stars | ${r.description || '無描述'}</small>
+                        <br><small>⭐ ${r.stargazers_count.toLocaleString()} stars | <span style="color:var(--text-muted);">${r.description || '無描述'}</span></small>
                     </div>
                 `
             };
@@ -101,7 +101,7 @@ export class RepoSearch extends BaseComponent {
                     <input type="text" placeholder="搜尋專案..." id="q" value="${this.state.searchQuery}" style="padding: 0.5rem; flex: 1;">
                     <button class="btn ${this.state.isListening ? 'btn-danger' : 'btn-secondary'}" 
                             title="語音搜尋"
-                            ?disabled="${!speechService.isRecognitionSupported}"
+                            ${!speechService.isRecognitionSupported ? 'disabled' : ''}
                             onclick="this.closest('page-repo-search').toggleVoiceSearch()">
                         ${this.state.isListening ? '⏹️' : '🎤'}
                     </button>
@@ -111,7 +111,7 @@ export class RepoSearch extends BaseComponent {
                 ${this.loading ? html`<p>正在獲取數據...</p>` : ''}
                 ${!speechService.isRecognitionSupported ? html`<p style="color:red; font-size:0.7rem;">⚠️ 瀏覽器不支援語音辨識</p>` : ''}
                 
-                <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: white;">
+                <div style="border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; background: var(--card-bg);">
                     <v-list style="height: 500px;"></v-list>
                 </div>
             </div>

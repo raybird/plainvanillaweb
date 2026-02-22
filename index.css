@@ -121,6 +121,53 @@ pre {
   border-color: #1e40af;
 }
 
+/* ── Markdown 渲染元素（doc-service 生成） ── */
+.md-inline-code {
+  /* 繼承全局 code 樣式，此 class 確保深色模式 override 可以命中 */
+  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 0.875em;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 0.15em 0.45em;
+  border-radius: 5px;
+  border: 1px solid #bfdbfe;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .md-inline-code {
+  background: #1e3a5f;
+  color: #93c5fd;
+  border-color: #1e40af;
+}
+
+.md-code-block {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  padding: 1.25rem;
+  border-radius: 10px;
+  overflow-x: auto;
+  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 1rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .md-code-block {
+  background: #11131d;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.md-code-block code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+  white-space: pre;
+}
+
 h1,
 h2,
 h3,

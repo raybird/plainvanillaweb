@@ -6,7 +6,7 @@ export class PaymentPage extends BaseComponent {
     constructor() {
         super();
         this.initReactiveState({
-            status: '等待結帳...',
+            status: null,
             result: null,
             error: null,
             cart: [
@@ -14,19 +14,13 @@ export class PaymentPage extends BaseComponent {
                 { label: '無框架精神紀念 T-Shirt', amount: { currency: 'TWD', value: '500.00' } }
             ]
         });
-
-        // 檢查瀏覽器是否支援
-        if (!paymentService.isSupported) {
-            this.state.error = '⚠️ 您的瀏覽器不支援 Payment Request API，或者您沒有在 HTTPS 網域下運行。';
-            this.state.status = '無法使用';
-        }
     }
 
     async handleCheckout() {
         try {
-            this.state.status = '正在呼叫原生金流介面...';
             this.state.error = null;
             this.state.result = null;
+            this.state.status = '正在喚起原生金流介面...';
 
             const response = await paymentService.checkout(this.state.cart, {
                 requestPayerName: true,
@@ -42,126 +36,59 @@ export class PaymentPage extends BaseComponent {
                 methodName: response.methodName
             };
         } catch (err) {
-            this.state.status = '❌ 支付已取消或失敗';
-            this.state.error = err.message || '結帳中斷';
-            console.error('[PaymentPage] Checkout error:', err);
+            this.state.status = null;
+            this.state.error = err.name === 'AbortError' ? '使用者取消了結帳。' : (err.message || '結帳失敗');
         }
     }
 
     render() {
-        const total = this.state.cart.reduce((sum, item) => sum + parseFloat(item.amount.value), 0);
+        const total = this.state.cart.reduce((sum, i) => sum + parseFloat(i.amount.value), 0);
+        const isSupported = paymentService.isSupported;
 
         return html`
-            <style>
-                .payment-container {
-                    max-width: 600px;
-                    margin: 0 auto;
-                    padding: 2rem;
-                    background: var(--surface-color, #fff);
-                    border-radius: 12px;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-                }
-                .cart-items {
-                    margin-bottom: 2rem;
-                }
-                .cart-item {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 1rem 0;
-                    border-bottom: 1px solid #eee;
-                }
-                .cart-item:last-child {
-                    border-bottom: none;
-                }
-                .cart-total {
-                    display: flex;
-                    justify-content: space-between;
-                    font-size: 1.5rem;
-                    font-weight: bold;
-                    padding-top: 1rem;
-                    border-top: 2px solid #ddd;
-                    margin-bottom: 2rem;
-                }
-                .status-box {
-                    padding: 1rem;
-                    border-radius: 8px;
-                    background: #f8fafc;
-                    margin-top: 1.5rem;
-                }
-                .status-box.error {
-                    background: #fef2f2;
-                    color: #dc2626;
-                }
-                .status-box.success {
-                    background: #f0fdf4;
-                    color: #16a34a;
-                }
-                .checkout-btn {
-                    width: 100%;
-                    padding: 1rem;
-                    font-size: 1.2rem;
-                    background: var(--primary-color, #2563eb);
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    transition: background 0.2s;
-                }
-                .checkout-btn:hover {
-                    background: #1d4ed8;
-                }
-                .checkout-btn:disabled {
-                    background: #ccc;
-                    cursor: not-allowed;
-                }
-                pre {
-                    background: #1e293b;
-                    color: #a6accd;
-                    padding: 1rem;
-                    border-radius: 6px;
-                    overflow-x: auto;
-                    font-size: 0.9rem;
-                    margin-top: 1rem;
-                }
-            </style>
+            <div class="lab-card">
+                <h3>💳 原生支付 (Payment Request API)</h3>
+                <p><small>無需第三方金流 SDK，直接喚出瀏覽器原生的 Apple Pay、Google Pay 或信用卡結帳介面。</small></p>
 
-            <div class="payment-container">
-                <h2>💳 原生結帳體驗 (Payment Request API)</h2>
-                <p>無需整合龐大的第三方金流 SDK，直接在此頁面喚出您的 Apple Pay、Google Pay 或瀏覽器儲存的信用卡進行安全結帳。</p>
-                
-                <div class="cart-items">
-                    <h3>您的購物車</h3>
+                <h4 style="margin: 1.5rem 0 0.5rem;">🛒 購物車</h4>
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
                     ${this.state.cart.map(item => html`
-                        <div class="cart-item">
-                            <span>${item.label}</span>
-                            <span>${item.amount.currency} $${item.amount.value}</span>
-                        </div>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 0.6rem 0;">${item.label}</td>
+                            <td style="padding: 0.6rem 0; text-align: right; white-space: nowrap;">${item.amount.currency} $${item.amount.value}</td>
+                        </tr>
                     `)}
-                    
-                    <div class="cart-total">
-                        <span>總計 (Total)</span>
-                        <span>TWD $${total.toFixed(2)}</span>
+                    <tr>
+                        <td style="padding: 0.8rem 0; font-weight: bold; font-size: 1.1rem;">總計</td>
+                        <td style="padding: 0.8rem 0; font-weight: bold; font-size: 1.1rem; text-align: right;">TWD $${total.toFixed(2)}</td>
+                    </tr>
+                </table>
+
+                <div class="btn-group" style="margin-top: 1.5rem;">
+                    <button 
+                        class="btn btn-primary"
+                        onclick="this.closest('page-lab-payment').handleCheckout()"
+                        ${unsafe(isSupported ? '' : 'disabled')}>
+                        ${isSupported ? '💳 立即結帳 (Pay Now)' : '⚠️ 此瀏覽器不支援 Payment Request API'}
+                    </button>
+                </div>
+
+                ${this.state.status ? html`
+                    <div style="margin-top: 1rem; padding: 0.8rem 1rem; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 0.9rem; color: #065f46;">
+                        ${this.state.status}
                     </div>
-                </div>
+                ` : ''}
 
-                <button 
-                    class="btn btn-primary" 
-                    style="width:100%; padding: 1rem; font-size: 1.2rem;"
-                    onclick="this.closest('page-lab-payment').handleCheckout()"
-                    ${unsafe(paymentService.isSupported ? '' : 'disabled')}>
-                    💳 立即結帳 (Pay Now)
-                </button>
-
-                <div class="status-box ${this.state.error ? 'error' : this.state.result ? 'success' : ''}">
-                    <strong>狀態：</strong> ${this.state.status}
-                    ${this.state.error ? html`<br><small>${this.state.error}</small>` : ''}
-                </div>
+                ${this.state.error ? html`
+                    <div style="margin-top: 1rem; padding: 0.8rem 1rem; background: #fef2f2; border-left: 3px solid #ef4444; border-radius: 4px; font-size: 0.9rem; color: #991b1b;">
+                        ❌ ${this.state.error}
+                    </div>
+                ` : ''}
 
                 ${this.state.result ? html`
-                    <div style="margin-top: 2rem;">
-                        <h3>收據資料 (模擬)</h3>
-                        <p>原生 API 已成功收集到以下買家資訊：</p>
-                        <pre>${JSON.stringify(this.state.result, null, 2)}</pre>
+                    <div style="margin-top: 1.5rem;">
+                        <p style="font-size: 0.85rem; color: #64748b;">✅ 收到的買家資訊 (模擬)：</p>
+                        <pre style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.8rem; border-radius: 6px; font-size: 0.8rem; overflow-x: auto;">${JSON.stringify(this.state.result, null, 2)}</pre>
                     </div>
                 ` : ''}
             </div>

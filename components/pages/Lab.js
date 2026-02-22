@@ -65,6 +65,11 @@ export class LabPage extends BaseComponent {
         import("./lab/BluetoothPage.js"),
         import("./lab/LayoutPage.js"),
         import("./lab/ServicePatternPage.js"),
+        import("./lab/PaymentPage.js"),
+        import("./lab/BroadcastPage.js"),
+        import("./lab/ModalPage.js"),
+        import("./lab/ChartPage.js"),
+        import("./lab/HistoryPage.js"),
       ]);
 
       // 載入完成後手動觸發一次渲染與更新
@@ -193,6 +198,11 @@ export class LabPage extends BaseComponent {
                                                                                                                         <x-route path="/lab/service-pattern" exact
                                                                                                                           ><page-lab-service-pattern></page-lab-service-pattern
                                                                                                                         ></x-route>
+                                                                                                                        <x-route path="/lab/payment" exact><page-lab-payment></page-lab-payment></x-route>
+                                                                                                                        <x-route path="/lab/broadcast" exact><page-lab-broadcast></page-lab-broadcast></x-route>
+                                                                                                                        <x-route path="/lab/modal" exact><page-lab-modal></page-lab-modal></x-route>
+                                                                                                                        <x-route path="/lab/chart" exact><page-lab-chart></page-lab-chart></x-route>
+                                                                                                                        <x-route path="/lab/history" exact><page-lab-history></page-lab-history></x-route>
                                                                                                                                                                                                                                                                                                                                                                                   <x-route path="/lab/file-system" exact
                                                     ><page-lab-file-system></page-lab-file-system
                                                   ></x-route>

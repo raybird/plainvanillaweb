@@ -191,6 +191,36 @@ export class LabIndex extends BaseComponent {
         title: "🔌 服務交互模式",
         desc: "組件與 Service 單例間的事件驅動通訊規範實驗",
       },
+      {
+        id: "payment",
+        docId: "payment-request",
+        title: "💳 原生支付",
+        desc: "原生 Apple/Google Pay 結帳對話框展示",
+      },
+      {
+        id: "broadcast",
+        docId: "broadcast-channel",
+        title: "📢 跨分頁同源廣播",
+        desc: "免伺服器的多重分頁狀態即時同步",
+      },
+      {
+        id: "modal",
+        docId: "dialog-modal",
+        title: "🪟 原生對話框 (Dialog)",
+        desc: "宣告式 A11y 彈出層與 Focus Trap",
+      },
+      {
+        id: "chart",
+        docId: "canvas-chart",
+        title: "📊 高效圖表 (Canvas)",
+        desc: "極致輕量的純 Canvas 數據資料流畫布",
+      },
+      {
+        id: "history",
+        docId: "", // History 尚未有獨立文件
+        title: "⏪ 狀態回溯器",
+        desc: "原生 Undo/Redo 快照歷史管理實作",
+      },
     ];
 
     if (!experiments || !Array.isArray(experiments)) return "";
@@ -248,23 +278,23 @@ export class LabIndex extends BaseComponent {
 
       <div class="lab-grid">
         ${experiments.map(
-          (exp) => html`
+      (exp) => html`
             <article class="lab-item">
               <h3>${exp.title}</h3>
               <p><small>${exp.desc}</small></p>
               <div class="actions">
                 <a href="#/lab/${exp.id}" class="btn-link primary">開啟實驗</a>
                 ${exp.docId
-                  ? html`
+          ? html`
                       <a href="#/docs/${exp.docId}" class="btn-link"
                         >技術手冊</a
                       >
                     `
-                  : ""}
+          : ""}
               </div>
             </article>
           `,
-        )}
+    )}
       </div>
     `;
   }

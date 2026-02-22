@@ -20,7 +20,7 @@
   --text-subtle: #94a3b8;
 
   /* Sidebar */
-  --nav-bg: #0f172a;
+  --nav-bg: #ffffff;
   --nav-width: 260px;
 
   /* 卡片 */
@@ -194,10 +194,60 @@ h4 {
   position: fixed;
   left: 0;
   top: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  border-right: 1px solid var(--border-color);
   z-index: 1000;
   transition: transform 0.3s ease;
   overflow: hidden;
+}
+
+/* ── Navbar：亮色模式覆蓋 ── */
+:root:not([data-theme="dark"]) .navbar {
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.06);
+}
+
+:root:not([data-theme="dark"]) .nav-brand {
+  border-bottom-color: #e2e8f0;
+}
+
+:root:not([data-theme="dark"]) .brand-link {
+  color: #1e293b !important;
+}
+
+:root:not([data-theme="dark"]) .nav-section-title {
+  color: #94a3b8;
+}
+
+:root:not([data-theme="dark"]) .nav-link {
+  color: #475569;
+}
+
+:root:not([data-theme="dark"]) .nav-link:hover {
+  background: rgba(37, 99, 235, 0.07);
+  color: #1e40af;
+}
+
+:root:not([data-theme="dark"]) .nav-link.active {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+:root:not([data-theme="dark"]) .nav-controls {
+  border-top-color: #e2e8f0;
+}
+
+:root:not([data-theme="dark"]) .control-btn {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+:root:not([data-theme="dark"]) .control-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+:root:not([data-theme="dark"]) .nav-menu {
+  scrollbar-color: #cbd5e1 transparent;
 }
 
 /* Brand Logo 區 */

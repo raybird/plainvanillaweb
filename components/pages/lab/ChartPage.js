@@ -5,10 +5,10 @@ import { CanvasChart } from "../../../lib/canvas-chart.js";
 export class ChartPage extends BaseComponent {
     constructor() {
         super();
-        this.initReactiveState({
-            fps: '0.0',
-            lastValue: 0
-        });
+        // ⚠️ 不使用 initReactiveState！
+        // fps 和 lastValue 需要高頻更新，若放進 reactive state 每次都會觸發
+        // scheduleUpdate() → innerHTML 全量重繪 → Canvas 消失並閃爍。
+        // 改為直接操作目標 DOM 的 textContent，效能更好且無閃爍。
         this._timer = null;
         this._chart = null;
         this._frameCount = 0;
@@ -30,7 +30,7 @@ export class ChartPage extends BaseComponent {
         const canvas = this.querySelector('#realtime-chart');
         if (!canvas) return;
 
-        // 設定實際畫布大小以免模糊 (處理 Retina 螢幕)
+        // 設定實際畫布大小以防模糊 (Retina 螢幕)
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
         canvas.width = rect.width * dpr;
@@ -40,33 +40,16 @@ export class ChartPage extends BaseComponent {
         ctx.scale(dpr, dpr);
 
         this._chart = new CanvasChart(canvas, {
-            color: '#10b981', // 翡翠綠
-            lineWidth: 3,
+            color: '#10b981',
+            lineWidth: 2.5,
             maxDataPoints: 60,
             padding: 30
         });
 
-        // 取代原本的 fillText 來對文字放大
-        const originalDraw = this._chart.draw.bind(this._chart);
+        // 記錄邏輯畫布大小以供 CanvasChart 內部使用
+        this._chart.canvas = { ...canvas, width: rect.width, height: rect.height };
 
-        // 為了支援 dpr，我們微調繪製
-        this._chart.draw = () => {
-            const tempW = canvas.width;
-            const tempH = canvas.height;
-            canvas.width = rect.width;
-            canvas.height = rect.height;
-
-            originalDraw();
-
-            canvas.width = tempW;
-            canvas.height = tempH;
-            ctx.scale(dpr, dpr);
-            originalDraw();
-        };
-
-        this._chart.canvas = { width: rect.width, height: rect.height };
-
-        // 啟動資料流模擬器
+        // 啟動資料流模擬器與 FPS 監控
         this._startSimulation();
         this._startFPSMonitor();
     }
@@ -74,15 +57,17 @@ export class ChartPage extends BaseComponent {
     _startSimulation() {
         let value = 50;
         this._timer = setInterval(() => {
-            // 隨機波動 (Simulate Network Traffic or CPU Load)
             const change = (Math.random() - 0.5) * 10;
             value = Math.max(0, Math.min(100, value + change));
 
-            this.state.lastValue = value.toFixed(1);
+            // 直接更新 DOM textContent，不觸發 reactive state 重繪
+            const valueEl = this.querySelector('#stat-value');
+            if (valueEl) valueEl.textContent = value.toFixed(1);
+
             if (this._chart) {
                 this._chart.addData(value);
             }
-        }, 100); // 100ms 更新一次 (10 FPS)
+        }, 100);
     }
 
     _startFPSMonitor() {
@@ -92,9 +77,13 @@ export class ChartPage extends BaseComponent {
             const elapsed = now - this._lastFpsTime;
 
             if (elapsed >= 1000) {
-                this.state.fps = ((this._frameCount * 1000) / elapsed).toFixed(1);
+                const fps = ((this._frameCount * 1000) / elapsed).toFixed(1);
                 this._frameCount = 0;
                 this._lastFpsTime = now;
+
+                // 直接更新 DOM textContent，不觸發 reactive state 重繪
+                const fpsEl = this.querySelector('#stat-fps');
+                if (fpsEl) fpsEl.textContent = fps;
             }
             if (this.isConnected) requestAnimationFrame(loop);
         };
@@ -122,6 +111,7 @@ export class ChartPage extends BaseComponent {
                     border-radius: 8px;
                     border: 1px solid #e2e8f0;
                     margin: 2rem 0;
+                    display: block;
                 }
                 .stats-grid {
                     display: grid;
@@ -157,7 +147,7 @@ export class ChartPage extends BaseComponent {
                     <h2>📊 高效能原生圖表 (Canvas Chart)</h2>
                     <p>
                         在不引入 Chart.js, D3.js 等龐大依賴的情況下，使用純 <code>CanvasRenderingContext2D</code> 繪製的即時數據。
-                        這套系統每 100ms 刷新一次畫面，具備自動縮放 (Auto-scale) 與平滑漸層渲染的能力。
+                        這套系統每 100ms 刷新一次，具備自動縮放 (Auto-scale) 與平滑漸層渲染的能力。
                     </p>
 
                     <canvas id="realtime-chart"></canvas>
@@ -165,11 +155,11 @@ export class ChartPage extends BaseComponent {
                     <div class="stats-grid">
                         <div class="stat-box">
                             <div class="stat-label">最新採樣數值</div>
-                            <div class="stat-value" style="color: #10b981;">${this.state.lastValue}</div>
+                            <div id="stat-value" class="stat-value" style="color: #10b981;">--</div>
                         </div>
                         <div class="stat-box fps-box">
                             <div class="stat-label">瀏覽器渲染幀率 (FPS)</div>
-                            <div class="stat-value" style="color: #3b82f6;">${this.state.fps}</div>
+                            <div id="stat-fps" class="stat-value" style="color: #3b82f6;">--</div>
                         </div>
                     </div>
                 </div>

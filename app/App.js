@@ -5,7 +5,7 @@ import { themeService } from "../lib/theme-service.js";
 import { prefetchService } from "../lib/prefetch-service.js";
 import { notificationService } from "../lib/notification-service.js";
 import { authService } from "../lib/auth-service.js";
-import { html } from "../lib/html.js";
+import { html, unsafe } from "../lib/html.js";
 import "../components/AppFooter.js";
 import "../components/Modal.js";
 import "../components/route/switch.js";
@@ -136,7 +136,7 @@ export class App extends BaseComponent {
                     </div>
 
                     <div class="nav-menu">
-                        ${navMenuHtml}
+                        ${unsafe(navMenuHtml)}
                     </div>
 
                     <!-- 底部控制區 -->

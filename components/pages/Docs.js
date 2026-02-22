@@ -156,7 +156,8 @@ export class Documentation extends BaseComponent {
         }
         .docs-nav {
           width: 250px;
-          background: var(--nav-bg);
+          background: var(--surface-color);
+          border: 1px solid var(--border-color);
           padding: 1rem;
           border-radius: 8px;
           position: sticky;

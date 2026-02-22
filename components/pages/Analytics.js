@@ -77,7 +77,7 @@ export class AnalyticsPage extends BaseComponent {
                 </div>
             </div>
 
-            <section style="margin-top: 3rem; padding: 2rem; background: var(--nav-bg); border-radius: 12px;">
+            <section style="margin-top: 3rem; padding: 2rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px;">
                 <h3>🎓 教學重點：Canvas vs DOM</h3>
                 <p>為什麼我們在圖表中使用 Canvas 而非 SVG 或多個 Div？</p>
                 <ul>

@@ -222,7 +222,7 @@ export class PlaygroundPage extends BaseComponent {
                 </div>
             </div>
 
-            <section style="margin-top: 2rem; padding: 1.5rem; background: var(--nav-bg); border-radius: 12px;">
+            <section style="margin-top: 2rem; padding: 1.5rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px;">
                 <h3>🎓 技術解析：如何實作「原生開發環境」？</h3>
                 <ul>
                     <li><strong>File System Access API</strong>：讓網頁具備請求存取使用者指定目錄的權限。</li>

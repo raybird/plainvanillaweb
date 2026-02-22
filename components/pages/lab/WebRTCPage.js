@@ -18,7 +18,6 @@ export class WebRTCPage extends BaseComponent {
             localSdp: '',
             remoteSdpInput: '',
             messages: [],
-            chatInput: '',
             isChannelOpen: false,
             statusLabel: '🔴 未連線',
         });
@@ -124,12 +123,14 @@ export class WebRTCPage extends BaseComponent {
     }
 
     sendMessage() {
-        const text = this.state.chatInput.trim();
+        // 直接從 DOM 讀取，不走 reactive state，避免 oninput 觸發全頁重繪
+        const input = this.querySelector('#webrtc-chat-input');
+        const text = input?.value?.trim();
         if (!text) return;
         try {
             webrtcService.send(text);
             this.state.messages = [...this.state.messages, { side: 'local', text }];
-            this.state.chatInput = '';
+            if (input) input.value = '';
         } catch (e) {
             notificationService.error('傳送失敗: ' + e.message);
         }
@@ -308,10 +309,9 @@ export class WebRTCPage extends BaseComponent {
                                 type="text" 
                                 id="webrtc-chat-input"
                                 placeholder="輸入訊息..."
-                                oninput="this.closest('page-lab-webrtc').state.chatInput = this.value"
-                                onkeydown="if(event.key === 'Enter') { this.closest('page-lab-webrtc').sendMessage(); this.value = ''; }"
+                                onkeydown="if(event.key==='Enter'){ this.closest('page-lab-webrtc').sendMessage(); }"
                             />
-                            <button class="btn btn-primary" onclick="const el = this.closest('page-lab-webrtc'); const input = el.querySelector('#webrtc-chat-input'); el.sendMessage(); input.value = '';">發送</button>
+                            <button class="btn btn-primary" onclick="this.closest('page-lab-webrtc').sendMessage()">發送</button>
                         </div>
                     </div>
                 ` : ''}

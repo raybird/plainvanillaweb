@@ -56,10 +56,8 @@ export class AnalyticsPage extends BaseComponent {
         return html`
             <style>
                 .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; }
-                .chart-card { background: white; border: 1px solid #ddd; padding: 1.5rem; border-radius: 12px; }
-                [data-theme="dark"] .chart-card { background: #2d2d2d; border-color: #444; }
-                canvas { width: 100%; height: 200px; background: #fafafa; border-radius: 8px; margin-top: 1rem; }
-                [data-theme="dark"] canvas { background: #1a1a1a; }
+                .chart-card { background: var(--card-bg); border: 1px solid var(--card-border); padding: 1.5rem; border-radius: 12px; box-shadow: var(--card-shadow); }
+                canvas { width: 100%; height: 200px; background: var(--surface-color); border-radius: 8px; margin-top: 1rem; }
             </style>
 
             <h1>📊 性能分析中心 (Analytics Hub)</h1>

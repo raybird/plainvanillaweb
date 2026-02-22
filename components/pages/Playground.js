@@ -71,7 +71,7 @@ export class PlaygroundPage extends BaseComponent {
             // 儲存 HTML
             const hHandle = await fileSystemService.getFileHandle('index.html', true);
             await fileSystemService.writeFile(hHandle, this.state.html);
-            
+
             // 儲存 CSS
             const cHandle = await fileSystemService.getFileHandle('style.css', true);
             await fileSystemService.writeFile(cHandle, this.state.css);
@@ -113,16 +113,16 @@ export class PlaygroundPage extends BaseComponent {
                 .editor-block label {
                     font-size: 0.8rem;
                     font-weight: bold;
-                    color: #666;
+                    color: var(--text-muted);
                     padding: 2px 5px;
-                    background: #eee;
+                    background: var(--surface-color);
                     border-radius: 4px 4px 0 0;
                 }
                 textarea {
                     flex: 1;
                     width: 100%;
-                    background: #272822;
-                    color: #f8f8f2;
+                    background: #1e1e2e;
+                    color: #cdd6f4;
                     font-family: 'Fira Code', monospace;
                     font-size: 0.9rem;
                     padding: 10px;
@@ -132,16 +132,16 @@ export class PlaygroundPage extends BaseComponent {
                     tab-size: 2;
                 }
                 .preview-pane {
-                    border: 1px solid #ddd;
+                    border: 1px solid var(--card-border);
                     border-radius: 8px;
-                    background: white;
+                    background: var(--card-bg);
                     display: flex;
                     flex-direction: column;
                 }
                 .preview-header {
                     padding: 5px 10px;
-                    background: #f8f9fa;
-                    border-bottom: 1px solid #ddd;
+                    background: var(--surface-color);
+                    border-bottom: 1px solid var(--border-color);
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
@@ -163,13 +163,19 @@ export class PlaygroundPage extends BaseComponent {
                     font-size: 0.7rem;
                     padding: 2px 8px;
                     border-radius: 10px;
-                    background: #e9ecef;
-                    color: #495057;
+                    background: var(--surface-color);
+                    color: var(--text-muted);
+                    border: 1px solid var(--border-color);
                 }
                 .mode-badge.local {
-                    background: #d1ecf1;
-                    color: #0c5460;
-                    border: 1px solid #bee5eb;
+                    background: #ecfdf5;
+                    color: #065f46;
+                    border: 1px solid #6ee7b7;
+                }
+                [data-theme="dark"] .mode-badge.local {
+                    background: #052e16;
+                    color: #6ee7b7;
+                    border-color: #166534;
                 }
             </style>
 
@@ -180,13 +186,13 @@ export class PlaygroundPage extends BaseComponent {
                 <button class="btn btn-primary" onclick="this.closest('page-playground').run()">🚀 執行 (Run)</button>
                 <button class="btn btn-secondary" onclick="this.closest('page-playground').openLocalProject()">📂 開啟本地目錄</button>
                 <button class="btn btn-success" 
-                        ?disabled="${!this.state.isLocalMode}"
+                        ${!this.state.isLocalMode ? 'disabled' : ''}
                         onclick="this.closest('page-playground').saveToLocal()">💾 儲存至本地</button>
                 
-                ${this.state.isLocalMode 
-                    ? html`<span class="mode-badge local">💻 本地模式: ${this.state.localDirName}</span>` 
-                    : html`<span class="mode-badge">☁️ 雲端暫存模式</span>`
-                }
+                ${this.state.isLocalMode
+                ? html`<span class="mode-badge local">💻 本地模式: ${this.state.localDirName}</span>`
+                : html`<span class="mode-badge">☁️ 雲端暫存模式</span>`
+            }
             </div>
 
             <div class="playground-container">
@@ -210,7 +216,7 @@ export class PlaygroundPage extends BaseComponent {
                 <div class="preview-pane">
                     <div class="preview-header">
                         <span>預覽視窗 (Live Preview)</span>
-                        <span style="color:#28a745;">● Running</span>
+                        <span style="color:#22c55e;">● Running</span>
                     </div>
                     <iframe src="${this.state.runnerUrl}"></iframe>
                 </div>

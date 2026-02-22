@@ -20,7 +20,7 @@ export class Dashboard extends BaseComponent {
             workerStatus: '閒置',
             idbCount: 0,
             lastUpdate: new Date().toLocaleTimeString(),
-            showState: false, 
+            showState: false,
             memoryUsage: 'N/A',
             networkLogs: [],
             perfMetrics: performanceService.summary,
@@ -58,12 +58,12 @@ export class Dashboard extends BaseComponent {
         syncService.addEventListener('action-synced', this.onSyncUpdate);
         historyService.addEventListener('change', this.onHistoryChange);
         storageService.addEventListener('update', (e) => this.onStorageUpdate(e.detail));
-        
+
         this.state.networkLogs = networkMonitor.logs;
         this.state.perfMetrics = performanceService.summary;
         this.state.canUndo = historyService.canUndo;
         this.state.canRedo = historyService.canRedo;
-        
+
         this.refreshStats();
         this.updateQueueCount();
         storageService.updateEstimate();
@@ -160,16 +160,16 @@ export class Dashboard extends BaseComponent {
         const lastSearch = appStore.state.lastSearch || '無';
         const stateJson = JSON.stringify(appStore.state, null, 2);
         const { perfMetrics, lastSyncTab, syncCount, thisTabId, syncQueueCount, canUndo, canRedo, storageMetrics } = this.state;
-        
+
         const logsHtml = this.state.networkLogs.map(log => {
             const statusColor = log.status >= 400 || log.status === 'Error' ? 'red' : 'green';
             return html`
-                <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 0.5rem; font-size: 0.8rem;">${log.timestamp}</td>
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">${log.timestamp}</td>
                     <td style="padding: 0.5rem; font-weight: bold;">${log.method}</td>
-                    <td style="padding: 0.5rem; color: ${statusColor};">${log.status}</td>
-                    <td style="padding: 0.5rem;">${log.duration}ms</td>
-                    <td style="padding: 0.5rem; word-break: break-all; font-family: monospace;">${log.url}</td>
+                    <td style="padding: 0.5rem; color: ${statusColor}; font-weight: bold;">${log.status}</td>
+                    <td style="padding: 0.5rem; color: var(--text-muted);">${log.duration}ms</td>
+                    <td style="padding: 0.5rem; word-break: break-all; font-family: monospace; font-size: 0.8rem;">${log.url}</td>
                 </tr>
             `;
         });
@@ -177,23 +177,22 @@ export class Dashboard extends BaseComponent {
         return html`
             <style>
                 .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
-                .card { background: var(--bg-color); border: 1px solid #ddd; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+                .card { background: var(--card-bg); border: 1px solid var(--card-border); padding: 1.5rem; border-radius: 12px; box-shadow: var(--card-shadow); }
                 .metric { font-size: 2rem; font-weight: bold; color: var(--primary-color); }
-                .label { color: #666; font-size: 0.9rem; }
+                .label { color: var(--text-muted); font-size: 0.9rem; }
                 .perf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; }
-                .perf-item { border-bottom: 1px solid #eee; padding: 0.25rem 0; font-size: 0.85rem; }
-                pre { background: #f4f4f4; padding: 1rem; border-radius: 8px; overflow-x: auto; max-height: 300px; font-size: 0.85rem; }
-                [data-theme="dark"] pre { background: #2d2d2d; color: #e0e0e0; }
+                .perf-item { border-bottom: 1px solid var(--border-color); padding: 0.25rem 0; font-size: 0.85rem; }
+                pre { background: var(--surface-color); padding: 1rem; border-radius: 8px; overflow-x: auto; max-height: 300px; font-size: 0.85rem; border: 1px solid var(--border-color); color: var(--text-color); }
                 .btn-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
                 button { cursor: pointer; padding: 0.5rem 1rem; border: none; border-radius: 6px; font-weight: 500; transition: opacity 0.2s; }
                 button:hover:not(:disabled) { opacity: 0.9; }
                 button:disabled { opacity: 0.4; cursor: not-allowed; }
                 .btn-primary { background: var(--primary-color); color: white; }
-                .btn-danger { background: #dc3545; color: white; }
-                .btn-secondary { background: #6c757d; color: white; }
+                .btn-danger { background: #dc2626; color: white; }
+                .btn-secondary { background: #334155; color: white; }
                 table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-                th { text-align: left; padding: 0.5rem; border-bottom: 2px solid #ddd; font-size: 0.9rem; }
-                .progress-bar { height: 8px; background: #eee; border-radius: 4px; margin-top: 0.5rem; overflow: hidden; }
+                th { text-align: left; padding: 0.5rem; border-bottom: 2px solid var(--border-color); font-size: 0.9rem; color: var(--text-muted); }
+                .progress-bar { height: 8px; background: var(--surface-color); border-radius: 4px; margin-top: 0.5rem; overflow: hidden; border: 1px solid var(--border-color); }
                 .progress-fill { height: 100%; background: var(--primary-color); transition: width 0.3s; }
             </style>
 
@@ -205,7 +204,7 @@ export class Dashboard extends BaseComponent {
                 <div class="card" style="border-left: 5px solid #28a745;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <h3>💾 儲存配額 (Storage)</h3>
-                        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:${storageMetrics.persisted ? '#d4edda' : '#fff3cd'}; color:${storageMetrics.persisted ? '#155724' : '#856404'};">
+                        <span style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:${storageMetrics.persisted ? '#dcfce7' : '#fef9c3'}; color:${storageMetrics.persisted ? '#166534' : '#854d0e'}; border:1px solid ${storageMetrics.persisted ? '#86efac' : '#fcd34d'};">
                             ${storageMetrics.persisted ? '🛡️ 已持久化' : '⚠️ 暫時性'}
                         </span>
                     </div>
@@ -223,7 +222,7 @@ export class Dashboard extends BaseComponent {
                         <div class="progress-fill" style="width: ${storageMetrics.percent}%"></div>
                     </div>
                     <div class="btn-group">
-                        <button class="btn btn-secondary" style="flex:1; font-size:0.8rem;" ?disabled="${storageMetrics.persisted}"
+                        <button class="btn btn-secondary" style="flex:1; font-size:0.8rem;" ${storageMetrics.persisted ? 'disabled' : ''}
                                 onclick="this.closest('page-dashboard').requestStoragePersistence()">請求持久化</button>
                     </div>
                 </div>
@@ -373,7 +372,7 @@ export class Dashboard extends BaseComponent {
             '原生對話框示範',
             '這是一個利用瀏覽器原生 <dialog> 元素實作的對話框。它具備自動焦點鎖定、背景遮罩以及 Escape 鍵關閉等特性。您確定這很酷嗎？'
         );
-        
+
         if (confirmed) {
             notificationService.success('感謝您的肯定！這確實很酷。');
         } else {

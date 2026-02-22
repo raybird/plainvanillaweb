@@ -101,6 +101,7 @@ export class Documentation extends BaseComponent {
       { id: "MANIFESTO", title: "🍦 Vanilla 開發宣言" },
       { id: "component-architecture", title: "🏗️ 組件開發指南" },
       { id: "service-patterns", title: "🔌 服務模式規範" },
+      { id: "safe-html-rendering", title: "🛡️ SafeHTML 與 XSS 防護" },
       { id: "layout-guide", title: "🎨 原生佈局範式" },
       { id: "state-management", title: "狀態管理與 IDB" },
       { id: "pwa", title: "PWA 離線技術" },

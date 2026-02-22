@@ -108,9 +108,9 @@ export class App extends BaseComponent {
                        onmouseover="prefetchService.preloadModule('${link.module}')">
                        <span class="nav-icon">${link.icon}</span> ${link.label}
                     </a>
-                `).join('')}
+                `)}
             </div>
-        `).join('');
+        `);
 
         return html`
             <div class="app-container">
@@ -136,7 +136,7 @@ export class App extends BaseComponent {
                     </div>
 
                     <div class="nav-menu">
-                        ${unsafe(navMenuHtml)}
+                        ${navMenuHtml}
                     </div>
 
                     <!-- 底部控制區 -->

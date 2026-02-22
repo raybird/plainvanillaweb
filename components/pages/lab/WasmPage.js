@@ -7,20 +7,20 @@ export class WasmPage extends BaseComponent {
         super();
         this.initReactiveState({
             wasmLoaded: false,
-            wasmResult: null,
-            wasmInputA: 10,
-            wasmInputB: 20
+            wasmResult: null
         });
     }
 
     async runWasmDemo() {
+        const a = Number(this.querySelector('#wasm-a')?.value ?? 0);
+        const b = Number(this.querySelector('#wasm-b')?.value ?? 0);
         if (!this.state.wasmLoaded) {
             await wasmService.loadDemoAdd();
             this.state.wasmLoaded = true;
         }
         const exports = wasmService.get('demo-add');
         if (exports && exports.add) {
-            this.state.wasmResult = exports.add(this.state.wasmInputA, this.state.wasmInputB);
+            this.state.wasmResult = exports.add(a, b);
         }
     }
 
@@ -30,9 +30,9 @@ export class WasmPage extends BaseComponent {
                 <h3>⚡ 高效能運算 (WebAssembly)</h3>
                 <p><small>呼叫編譯自 C/Rust 的 WASM 模組。</small></p>
                 <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
-                    <input type="number" placeholder="A" oninput="this.closest('page-lab-wasm').state.wasmInputA = Number(this.value)" value="${this.state.wasmInputA}">
+                    <input id="wasm-a" type="number" placeholder="A" value="10">
                     <span>+</span>
-                    <input type="number" placeholder="B" oninput="this.closest('page-lab-wasm').state.wasmInputB = Number(this.value)" value="${this.state.wasmInputB}">
+                    <input id="wasm-b" type="number" placeholder="B" value="20">
                 </div>
                 <button class="btn btn-primary" onclick="this.closest('page-lab-wasm').runWasmDemo()">執行 WASM 加法</button>
                 ${this.state.wasmResult !== null ? html`<div style="margin-top:1rem;">結果: <strong>${this.state.wasmResult}</strong></div>` : ''}

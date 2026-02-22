@@ -22,7 +22,7 @@ export class PerformancePage extends BaseComponent {
 
     connectedCallback() {
         super.connectedCallback();
-        
+
         performanceService.on('metric-update', ({ name, value, metrics }) => {
             if (name === 'navigation') {
                 this.state.metrics = { ...metrics };
@@ -66,10 +66,8 @@ export class PerformancePage extends BaseComponent {
                 .bar-text { position: absolute; right: 8px; top: 0; font-size: 0.7rem; line-height: 20px; color: #333; }
             </style>
 
-            <div class="lab-header">
-                <h2>⏱️ 原生效能監控 (Web Performance)</h2>
-                <p>利用 <code>PerformanceObserver</code> 與 <code>Navigation Timing API</code> 即時觀察網頁健康度與加載管線。</p>
-            </div>
+            <h2>⏱️ 原生效能監控 (Web Performance)</h2>
+            <p>利用 <code>PerformanceObserver</code> 與 <code>Navigation Timing API</code> 即時觀察網頁健康度與加載管線。</p>
 
             <div class="perf-grid">
                 <div class="metric-card">

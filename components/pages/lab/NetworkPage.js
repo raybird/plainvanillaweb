@@ -49,10 +49,8 @@ export class NetworkPage extends BaseComponent {
                 .info-value { font-size: 1.1rem; font-weight: bold; color: var(--primary-color); }
             </style>
 
-            <div class="lab-header">
-                <h2>🌐 網路資訊與連線性 (Network Information)</h2>
-                <p>監控即時網路狀態、頻寬資訊，並示範可靠的數據背景傳輸技術。</p>
-            </div>
+            <h2>🌐 網路資訊與連線性 (Network Information)</h2>
+            <p>監控即時網路狀態、頻寬資訊，並示範可靠的數據背景傳輸技術。</p>
 
             <div class="net-card">
                 <h3>連線狀態</h3>

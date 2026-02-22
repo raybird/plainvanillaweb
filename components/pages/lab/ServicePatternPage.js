@@ -1,20 +1,21 @@
 import { html } from '../../../lib/html.js';
 import { BaseComponent } from '../../../lib/base-component.js';
+import { BaseService } from '../../../lib/base-service.js';
 import { notificationService } from '../../../lib/notification-service.js';
 
 /**
  * 模擬一個業務服務
  */
-class DemoBusinessService extends (await import('../../../lib/base-service.js')).BaseService {
+class DemoBusinessService extends BaseService {
     constructor() {
         super();
         this.data = { status: 'Idle', lastUpdate: '-' };
     }
-    
+
     performAction(action) {
         this.data = { status: `Processing ${action}`, lastUpdate: new Date().toLocaleTimeString() };
         this.emit('action-started', this.data);
-        
+
         setTimeout(() => {
             this.data.status = `Completed ${action}`;
             this.emit('action-completed', this.data);
@@ -74,10 +75,8 @@ export class ServicePatternPage extends BaseComponent {
                 .action-btn { width: 100%; margin-bottom: 0.5rem; }
             </style>
 
-            <div class="lab-header">
-                <h2>🔌 Service 交互模式 (Pub/Sub)</h2>
-                <p>示範組件如何透過觀察者模式與業務服務進行解耦通訊。</p>
-            </div>
+            <h2>🔌 Service 交互模式 (Pub/Sub)</h2>
+            <p>示範組件如何透過觀察者模式與業務服務進行解耦通訊。</p>
 
             <div class="pattern-grid">
                 <div class="lab-card">

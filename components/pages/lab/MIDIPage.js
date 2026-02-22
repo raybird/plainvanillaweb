@@ -48,10 +48,8 @@ export class MIDIPage extends BaseComponent {
                 .note-display { font-size: 2rem; font-weight: bold; text-align: center; color: var(--primary-color); margin: 1rem 0; }
             </style>
 
-            <div class="lab-header">
-                <h2>🎹 原生 MIDI 互動 (Web MIDI)</h2>
-                <p>將您的電子琴、控制器連上電腦，即時捕獲與解析 MIDI 指令。</p>
-            </div>
+            <h2>🎹 原生 MIDI 互動 (Web MIDI)</h2>
+            <p>將您的電子琴、控制器連上電腦，即時捕獲與解析 MIDI 指令。</p>
 
             ${!this.state.isInitialized ? html`
                 <div class="midi-card" style="text-align: center; padding: 3rem;">

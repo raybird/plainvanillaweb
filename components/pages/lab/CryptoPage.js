@@ -7,8 +7,6 @@ export class CryptoPage extends BaseComponent {
     constructor() {
         super();
         this.initReactiveState({
-            cryptoInput: '這是一段敏感內容',
-            cryptoPass: 'password123',
             encryptedData: null,
             decryptedResult: '',
             hashResult: ''
@@ -16,8 +14,11 @@ export class CryptoPage extends BaseComponent {
     }
 
     async runEncrypt() {
+        const text = this.querySelector('#crypto-input')?.value;
+        const pass = this.querySelector('#crypto-pass')?.value;
+        if (!text || !pass) return;
         try {
-            this.state.encryptedData = await cryptoService.encrypt(this.state.cryptoInput, this.state.cryptoPass);
+            this.state.encryptedData = await cryptoService.encrypt(text, pass);
             notificationService.success('加密成功');
         } catch (err) {
             notificationService.error('加密失敗');
@@ -26,8 +27,10 @@ export class CryptoPage extends BaseComponent {
 
     async runDecrypt() {
         if (!this.state.encryptedData) return;
+        const pass = this.querySelector('#crypto-pass')?.value;
+        if (!pass) return;
         try {
-            this.state.decryptedResult = await cryptoService.decrypt(this.state.encryptedData, this.state.cryptoPass);
+            this.state.decryptedResult = await cryptoService.decrypt(this.state.encryptedData, pass);
             notificationService.success('解密成功');
         } catch (err) {
             notificationService.error('解密失敗，請檢查密碼');
@@ -35,7 +38,9 @@ export class CryptoPage extends BaseComponent {
     }
 
     async runHash() {
-        this.state.hashResult = await cryptoService.hash(this.state.cryptoInput);
+        const text = this.querySelector('#crypto-input')?.value;
+        if (!text) return;
+        this.state.hashResult = await cryptoService.hash(text);
     }
 
     render() {
@@ -43,8 +48,8 @@ export class CryptoPage extends BaseComponent {
             <div class="lab-card">
                 <h3>🔐 原生加密 (SubtleCrypto)</h3>
                 <p><small>基於瀏覽器標準的高強度加解密。</small></p>
-                <input type="text" placeholder="輸入要加密的內容" oninput="this.closest('page-lab-crypto').state.cryptoInput = this.value" value="${this.state.cryptoInput}">
-                <input type="password" placeholder="設定密碼" oninput="this.closest('page-lab-crypto').state.cryptoPass = this.value" value="${this.state.cryptoPass}">
+                <input id="crypto-input" type="text" placeholder="輸入要加密的內容" value="這是一段敏感內容">
+                <input id="crypto-pass" type="password" placeholder="設定密碼" value="password123">
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="this.closest('page-lab-crypto').runEncrypt()">🔒 加密</button>
                     <button class="btn btn-success" ${!this.state.encryptedData ? 'disabled' : ''} onclick="this.closest('page-lab-crypto').runDecrypt()">🔓 解密</button>

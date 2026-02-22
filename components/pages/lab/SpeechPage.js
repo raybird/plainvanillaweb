@@ -29,8 +29,10 @@ export class SpeechPage extends BaseComponent {
     }
 
     speak() {
-        if (!this.state.ttsText) return;
-        speechService.speak(this.state.ttsText);
+        const ta = this.querySelector('#tts-textarea');
+        const text = ta?.value?.trim();
+        if (!text) return;
+        speechService.speak(text);
     }
 
     toggleSpeechRecognition() {
@@ -53,8 +55,8 @@ export class SpeechPage extends BaseComponent {
             <div class="lab-card">
                 <h3>🗣️ 原生語音 (Speech API)</h3>
                 <p><small>文字轉語音 (TTS) 與 語音辨識 (STT)。</small></p>
-                <textarea placeholder="輸入要發音的文字..." 
-                          oninput="this.closest('page-lab-speech').state.ttsText = this.value">${this.state.ttsText}</textarea>
+                <textarea id="tts-textarea" placeholder="輸入要發音的文字..."
+                >${this.state.ttsText}</textarea>
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="this.closest('page-lab-speech').speak()">🔊 朗讀文字</button>
                     <button class="btn ${this.state.isListening ? 'btn-danger' : 'btn-secondary'}" 

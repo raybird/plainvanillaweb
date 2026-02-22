@@ -1,46 +1,77 @@
+/* ═══════════════════════════════════════════════
+   Plain Vanilla Web — 全局設計系統 v2.0
+   設計哲學：專業深色質感 + 清晰層次 + 零框架依賴
+   ═══════════════════════════════════════════════ */
+
+/* ── Design Tokens ── */
 :root {
+  /* 主色系：從工程師藍升級為深邃藍紫系 */
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-subtle: rgba(37, 99, 235, 0.1);
+  --accent-color: #7c3aed;
+
+  /* 中性色系 */
   --bg-color: #ffffff;
-  --text-color: #333333;
-  --primary-color: #007bff;
-  --nav-bg: #f8f9fa;
+  --surface-color: #f8fafc;
+  --border-color: #e2e8f0;
+  --text-color: #1e293b;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+
+  /* Sidebar */
+  --nav-bg: #0f172a;
+  --nav-width: 260px;
+
+  /* 卡片 */
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --card-shadow-hover: 0 10px 30px rgba(0, 0, 0, 0.12);
+
+  /* 間距 */
   --spacing-unit: 1rem;
-  --border-radius: 8px;
+  --border-radius: 10px;
+  --border-radius-lg: 16px;
 }
 
+/* ── Dark Mode ── */
+[data-theme="dark"] {
+  --bg-color: #0a0f1a;
+  --surface-color: #0f172a;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --text-color: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --primary-color: #60a5fa;
+  --primary-hover: #93c5fd;
+  --primary-subtle: rgba(96, 165, 250, 0.12);
+  --card-bg: #111827;
+  --card-border: rgba(255, 255, 255, 0.07);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --card-shadow-hover: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --nav-bg: #060b14;
+}
+
+[data-theme="dark"] .navbar {
+  border-right-color: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Reset & Base ── */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-[data-theme="dark"] {
-  --bg-color: #0f1115;
-  --text-color: #e2e8f0;
-  --primary-color: #3b82f6;
-  --nav-bg: rgba(22, 27, 34, 0.85);
-  /* 半透明支援毛玻璃 */
-}
-
-[data-theme="dark"] .navbar {
-  border-right-color: rgba(255, 255, 255, 0.05);
-  /* 黑夜模式的邊框淡化 */
-}
-
 body {
-  font-family:
-    "Inter",
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-color);
   margin: 0;
   line-height: 1.7;
-  /* 增加行距，提升閱讀舒適度 */
   font-size: 16px;
-  transition:
-    background-color 0.3s,
-    color 0.3s;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 img,
@@ -50,93 +81,122 @@ svg {
   max-width: 100%;
 }
 
-/* 佈局容器 */
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+/* ── 佈局容器 ── */
 .app-container {
   display: flex;
   min-height: 100vh;
-  flex-direction: row;
 }
 
-/* 側邊欄優化 (Sidebar) */
+/* ── Sidebar (深色專業風格) ── */
 .navbar {
-  width: 260px;
+  width: var(--nav-width);
   height: 100vh;
   background: var(--nav-bg);
-  /* 增加一點毛玻璃效果，若背景包含透明度 */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding: 1.5rem 0.5rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
   position: fixed;
   left: 0;
   top: 0;
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
-  /* 拋棄陰影，改用細邊框 */
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
   z-index: 1000;
-  border-radius: 0;
   transition: transform 0.3s ease;
+  overflow: hidden;
 }
 
+/* Brand Logo 區 */
 .nav-brand {
-  font-size: 1.4rem;
-  font-weight: bold;
-  margin-bottom: 2rem;
-  padding: 0 0.6rem;
+  padding: 1.5rem 1.25rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
 }
 
+.brand-link {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f1f5f9 !important;
+  text-decoration: none;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.brand-link:hover {
+  text-decoration: none;
+}
+
+/* Nav Menu */
 .nav-menu {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0;
   flex: 1;
   overflow-y: auto;
+  padding: 0 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .nav-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .nav-section-title {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #888;
-  margin-bottom: 0.5rem;
-  padding: 0 1rem;
-  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #475569;
+  margin-bottom: 0.4rem;
+  padding: 0 0.5rem;
+  font-weight: 700;
 }
 
 .nav-link {
-  color: var(--text-color);
+  color: #94a3b8;
   text-decoration: none;
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 0.75rem;
   border-radius: 8px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   display: flex;
   align-items: center;
-  gap: 12px;
-  transition: all 0.2s ease;
-  margin-bottom: 0.2rem;
+  gap: 0.6rem;
+  transition: all 0.15s ease;
+  margin-bottom: 0.15rem;
+  font-weight: 500;
 }
 
 .nav-icon {
-  font-size: 1.1rem;
-  opacity: 0.8;
+  font-size: 1rem;
+  opacity: 0.7;
   display: inline-block;
   min-width: 20px;
+  text-align: center;
 }
 
 .nav-link:hover {
-  background-color: rgba(0, 123, 255, 0.08);
-  color: var(--primary-color);
+  background: rgba(255, 255, 255, 0.07);
+  color: #e2e8f0;
   text-decoration: none;
 }
 
-/* 啟動狀態樣式 */
+.nav-link:hover .nav-icon {
+  opacity: 1;
+}
+
 .nav-link.active {
-  background-color: rgba(0, 123, 255, 0.15);
-  color: var(--primary-color);
+  background: var(--primary-subtle, rgba(37, 99, 235, 0.18));
+  color: #60a5fa;
   font-weight: 600;
 }
 
@@ -144,20 +204,26 @@ svg {
   opacity: 1;
 }
 
+/* Nav Bottom Controls */
 .nav-controls {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  gap: 0.75rem;
+  padding: 1rem 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
 }
 
 .user-info {
-  padding: 0.5rem 0.6rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  color: #94a3b8;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
+}
+
+.user-greeting {
+  color: #cbd5e1;
 }
 
 .control-group {
@@ -167,40 +233,45 @@ svg {
 
 .control-btn {
   flex: 1;
-  background: var(--bg-color);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  padding: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 7px;
   cursor: pointer;
-  font-size: 0.9rem;
-  color: var(--text-color);
+  font-size: 0.85rem;
+  color: #94a3b8;
   display: flex;
   justify-content: center;
   align-items: center;
+  transition: all 0.15s;
 }
 
-/* 主內容區偏移 */
+.control-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+/* ── 主內容區 ── */
 main#main-content {
   flex: 1;
-  margin-left: 260px;
-  width: calc(100% - 260px);
-  padding: 3rem 2rem;
+  margin-left: var(--nav-width);
+  width: calc(100% - var(--nav-width));
+  padding: 3rem 2.5rem;
   transition: margin-left 0.3s ease;
 }
 
-/* 對內文區域施加最大寬度，提升大型螢幕的長文閱讀體驗 */
 main#main-content>* {
   max-width: 900px;
   margin-left: auto;
   margin-right: auto;
 }
 
-/* Lab 等需要全寬的容器另外覆蓋 */
 .lab-content,
 .docs-container {
   max-width: 1200px !important;
 }
 
+/* ── 漢堡按鈕 ── */
 .hamburger-btn {
   display: none;
   position: fixed;
@@ -212,72 +283,16 @@ main#main-content>* {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  border: none;
+  cursor: pointer;
 }
 
 .hamburger-btn .bar {
   background-color: white;
 }
 
-/* 響應式佈局斷點 (Desktop First) */
-@media (max-width: 1024px) {
-  .navbar {
-    transform: translateX(-100%);
-    width: 280px;
-  }
-
-  .navbar.open {
-    transform: translateX(0);
-  }
-
-  main#main-content {
-    margin-left: 0;
-    max-width: 100%;
-    padding: 1rem;
-    padding-top: 4rem;
-  }
-
-  .hamburger-btn {
-    display: flex;
-  }
-
-  /* 遮罩層 */
-  .menu-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 900;
-  }
-
-  .menu-overlay.open {
-    display: block;
-  }
-}
-
-@media (max-width: 480px) {
-  .nav-brand {
-    font-size: 1rem;
-  }
-
-  .nav-controls {
-    gap: 0.2rem;
-  }
-
-  .control-btn {
-    padding: 2px 4px;
-    font-size: 0.75rem;
-  }
-
-  .divider {
-    margin: 0 0.2rem;
-  }
-}
-
-/* 按鈕與連結基礎樣式 */
+/* ── 按鈕系統 ── */
 a {
   color: var(--primary-color);
   text-decoration: none;
@@ -291,72 +306,251 @@ a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.6rem 1.2rem;
-  border-radius: 6px;
+  gap: 0.4rem;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
   border: none;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   cursor: pointer;
-  transition:
-    filter 0.2s,
-    transform 0.1s;
-  /* 確保觸控熱區符合 A11y 標準 */
+  transition: filter 0.2s, transform 0.15s, box-shadow 0.2s;
   min-height: 44px;
   min-width: 44px;
   box-sizing: border-box;
+  letter-spacing: 0.1px;
 }
 
 .btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .btn-primary {
   background: var(--primary-color);
   color: white;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
 }
 
 .btn-secondary {
-  background: #6c757d;
-  color: white;
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.btn-secondary:hover {
+  filter: brightness(1.15);
 }
 
 .btn-success {
-  background: #28a745;
+  background: #059669;
   color: white;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+}
+
+.btn-success:hover {
+  filter: brightness(1.1);
 }
 
 .btn-danger {
-  background: #dc3545;
+  background: #dc2626;
   color: white;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
 }
 
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.btn-danger:hover {
+  filter: brightness(1.1);
 }
 
-/* 表單元素優化 */
+.btn-outline {
+  background: transparent;
+  color: var(--primary-color);
+  border: 1.5px solid var(--primary-color);
+}
+
+.btn-outline:hover {
+  background: var(--primary-subtle);
+}
+
+.btn-sm {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  min-height: 36px;
+}
+
+.btn-lg {
+  padding: 0.85rem 2rem;
+  font-size: 1.05rem;
+}
+
+/* ── 表單元素 ── */
 input,
 textarea,
 select {
   font-size: 16px;
-  /* 防止 iOS Safari 自動縮放 */
-  padding: 0.8rem;
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--border-radius);
   width: 100%;
   box-sizing: border-box;
   background: var(--bg-color);
   color: var(--text-color);
   margin-bottom: 0.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* 內容區塊響應式 */
-@media (max-width: 768px) {
-  body {
-    padding: 0.5rem;
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-subtle);
+}
+
+/* ── 全局卡片組件 ── */
+.lab-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius-lg);
+  padding: 1.75rem;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 1.5rem;
+  transition: box-shadow 0.2s;
+}
+
+.lab-card:hover {
+  box-shadow: var(--card-shadow-hover);
+}
+
+/* ── Status Badges ── */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.status-badge.success {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.status-badge.danger {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.status-badge.warn {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+/* ── Info Section (教學區塊) ── */
+.info-section {
+  margin-top: 2rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  padding: 1.5rem 2rem;
+}
+
+.info-section h3 {
+  margin-top: 0;
+  color: var(--text-color);
+  font-size: 1rem;
+}
+
+.info-section ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: var(--text-muted);
+}
+
+.info-section li {
+  margin-bottom: 0.4rem;
+}
+
+/* ── Btn Group ── */
+.btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+/* ── HR ── */
+hr {
+  border: 0;
+  border-top: 1px solid var(--border-color);
+  margin: 2rem 0;
+}
+
+/* ── Skip Link ── */
+.skip-link:focus {
+  top: 0 !important;
+}
+
+/* ── Page Transitions ── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+}
+
+/* ═══════════════════════════════════
+   響應式佈局
+   ═══════════════════════════════════ */
+@media (max-width: 1024px) {
+  .navbar {
+    transform: translateX(-100%);
+    width: 280px;
   }
 
-  /* 強制大型容器垂直堆疊 */
+  .navbar.open {
+    transform: translateX(0);
+  }
+
+  main#main-content {
+    margin-left: 0;
+    max-width: 100%;
+    padding: 1.25rem;
+    padding-top: 4.5rem;
+  }
+
+  .hamburger-btn {
+    display: flex;
+  }
+
+  .menu-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 900;
+    backdrop-filter: blur(2px);
+  }
+
+  .menu-overlay.open {
+    display: block;
+  }
+}
+
+@media (max-width: 768px) {
+
   .playground-container,
   .docs-container,
   .lab-grid,
@@ -373,12 +567,12 @@ select {
     margin-bottom: 1.5rem;
     max-height: 300px;
     overflow-y: auto;
-    border: 1px solid #eee;
+    border: 1px solid var(--border-color);
     padding: 0.5rem;
   }
 
   h1 {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
   }
 
   h2 {
@@ -388,21 +582,24 @@ select {
   h3 {
     font-size: 1.1rem;
   }
+
+  .lab-card {
+    padding: 1.25rem;
+  }
 }
 
-hr {
-  border: 0;
-  border-top: 1px solid #ddd;
-  margin: 2rem 0;
-}
+@media (max-width: 480px) {
+  .control-group {
+    flex-wrap: wrap;
+  }
 
-/* Skip Link */
-.skip-link:focus {
-  top: 0 !important;
-}
+  .control-btn {
+    font-size: 0.78rem;
+    padding: 6px;
+  }
 
-/* Page Transitions */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 0.2s;
+  main#main-content {
+    padding: 1rem;
+    padding-top: 4rem;
+  }
 }

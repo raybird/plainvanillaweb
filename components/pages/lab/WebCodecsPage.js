@@ -226,10 +226,10 @@ export class WebCodecsPage extends BaseComponent {
           gap: 1rem;
         }
         .card {
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--border-color);
           border-radius: 12px;
           padding: 1rem;
-          background: #fff;
+          background: var(--card-bg);
         }
         .stats {
           margin-top: 0.75rem;
@@ -240,8 +240,8 @@ export class WebCodecsPage extends BaseComponent {
           margin-top: 0.75rem;
           padding: 0.7rem;
           border-radius: 8px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
+          background: var(--surface-color);
+          border: 1px solid var(--border-color);
         }
         .actions {
           margin-top: 0.9rem;
@@ -258,7 +258,7 @@ export class WebCodecsPage extends BaseComponent {
         }
         .seg button {
           border: none;
-          background: #fff;
+          background: var(--card-bg);
           padding: 0.4rem 0.8rem;
           cursor: pointer;
         }

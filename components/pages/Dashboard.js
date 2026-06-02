@@ -214,7 +214,7 @@ export class Dashboard extends BaseComponent {
                             <div class="label">已使用空間</div>
                         </div>
                         <div>
-                            <div class="metric" style="color: #666; font-size: 1.5rem;">${storageMetrics.percent}%</div>
+                            <div class="metric" style="color: var(--text-muted); font-size: 1.5rem;">${storageMetrics.percent}%</div>
                             <div class="label">佔配額比例</div>
                         </div>
                     </div>
@@ -319,7 +319,7 @@ export class Dashboard extends BaseComponent {
                         <button class="btn-secondary" onclick="this.closest('page-dashboard').clearLogs()">🗑️ 清除日誌</button>
                     </div>
                     <div style="max-height: 300px; overflow-y: auto;">
-                        ${this.state.networkLogs.length === 0 ? '<p style="color:#666; padding:1rem;">尚無網路請求紀錄。</p>' : html`
+                        ${this.state.networkLogs.length === 0 ? '<p style="color:var(--text-muted); padding:1rem;">尚無網路請求紀錄。</p>' : html`
                             <table>
                                 <thead>
                                     <tr>

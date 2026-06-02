@@ -60,9 +60,9 @@ export class CompressionPage extends BaseComponent {
         return html`
             <style>
                 .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-                .data-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #eee; }
+                .data-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); }
                 .size-stat { font-size: 2rem; font-weight: bold; color: var(--primary-color); }
-                .text-preview { background: #f8f9fa; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; height: 150px; overflow-y: auto; border: 1px solid #ddd; white-space: pre-wrap; }
+                .text-preview { background: var(--surface-color); padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; height: 150px; overflow-y: auto; border: 1px solid var(--border-color); white-space: pre-wrap; }
                 .hex-preview { background: #1a202c; color: #48bb78; }
             </style>
 
@@ -92,7 +92,7 @@ export class CompressionPage extends BaseComponent {
                             <div class="size-stat">${this.state.compressedSize} B</div>
                             <small>壓縮後體積</small>
                         </div>
-                        <div style="font-size: 1.5rem; color: #999;">/</div>
+                        <div style="font-size: 1.5rem; color: var(--text-subtle);">/</div>
                         <div>
                             <div style="font-size: 1.2rem;">${this.state.originalSize} B</div>
                             <small>原始體積</small>

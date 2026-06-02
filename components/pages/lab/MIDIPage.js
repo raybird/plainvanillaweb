@@ -41,9 +41,9 @@ export class MIDIPage extends BaseComponent {
         return html`
             <style>
                 .midi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
-                .midi-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #eee; }
+                .midi-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); }
                 .device-list { list-style: none; padding: 0; }
-                .device-item { padding: 0.5rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.9rem; border-left: 4px solid var(--primary-color); }
+                .device-item { padding: 0.5rem; background: var(--surface-color); border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.9rem; border-left: 4px solid var(--primary-color); }
                 .log-area { font-family: monospace; font-size: 0.85rem; background: #2d2d2d; color: #00ff00; padding: 1rem; border-radius: 8px; height: 200px; overflow-y: auto; }
                 .note-display { font-size: 2rem; font-weight: bold; text-align: center; color: var(--primary-color); margin: 1rem 0; }
             </style>
@@ -67,7 +67,7 @@ export class MIDIPage extends BaseComponent {
                             <ul class="device-list">
                                 ${this.state.devices.inputs.length ? this.state.devices.inputs.map(d => html`
                                     <li class="device-item">${d.name} <small>(${d.state})</small></li>
-                                `) : html`<li style="color: #999;">未偵測到輸入設備</li>`}
+                                `) : html`<li style="color: var(--text-subtle);">未偵測到輸入設備</li>`}
                             </ul>
                         </div>
                         <div>
@@ -75,7 +75,7 @@ export class MIDIPage extends BaseComponent {
                             <ul class="device-list">
                                 ${this.state.devices.outputs.length ? this.state.devices.outputs.map(d => html`
                                     <li class="device-item">${d.name}</li>
-                                `) : html`<li style="color: #999;">未偵測到輸出設備</li>`}
+                                `) : html`<li style="color: var(--text-subtle);">未偵測到輸出設備</li>`}
                             </ul>
                         </div>
                     </div>
@@ -86,10 +86,10 @@ export class MIDIPage extends BaseComponent {
                             <div class="note-display">
                                 ${this.state.lastMessage.command}: ${this.state.lastMessage.note}
                             </div>
-                            <div style="text-align: center; color: #666; font-size: 0.8rem;">
+                            <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem;">
                                 力度 (Velocity): ${this.state.lastMessage.velocity} | 頻道: ${this.state.lastMessage.channel}
                             </div>
-                        ` : html`<p style="text-align: center; padding: 2rem; color: #999;">等待 MIDI 訊號...</p>`}
+                        ` : html`<p style="text-align: center; padding: 2rem; color: var(--text-subtle);">等待 MIDI 訊號...</p>`}
                         
                         <div class="log-area">
                             ${this.state.messageHistory.map(m => html`

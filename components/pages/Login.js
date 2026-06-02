@@ -44,7 +44,7 @@ export class LoginPage extends BaseComponent {
                 button.btn-login { width: 100%; padding: 1rem; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: filter 0.2s; box-shadow: 0 2px 8px rgba(37,99,235,0.25); }
                 button.btn-login:hover { filter: brightness(1.1); }
                 button.btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
-                .error-box { color: #dc2626; background: #fee2e2; padding: 0.8rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem; border: 1px solid #fca5a5; }
+                .error-box { color: var(--danger); background: var(--danger-subtle); padding: 0.8rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem; border: 1px solid #fca5a5; }
                 [data-theme="dark"] .error-box { background: #2a0a0a; border-color: #7f1d1d; color: #f87171; }
             </style>
 

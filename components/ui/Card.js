@@ -12,7 +12,7 @@ export class UICard extends BaseComponent {
         return html`
             <style>
                 .vanilla-card {
-                    border: 1px solid #ddd;
+                    border: 1px solid var(--border-color);
                     border-radius: 12px;
                     overflow: hidden;
                     background: var(--bg-color);
@@ -23,8 +23,8 @@ export class UICard extends BaseComponent {
                 }
                 .card-header {
                     padding: 1rem 1.5rem;
-                    background: #f8f9fa;
-                    border-bottom: 1px solid #eee;
+                    background: var(--surface-color);
+                    border-bottom: 1px solid var(--border-color);
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
@@ -39,10 +39,10 @@ export class UICard extends BaseComponent {
                 }
                 .card-footer {
                     padding: 1rem 1.5rem;
-                    background: #fdfdfd;
-                    border-top: 1px solid #eee;
+                    background: var(--card-bg);
+                    border-top: 1px solid var(--border-color);
                     font-size: 0.9rem;
-                    color: #666;
+                    color: var(--text-muted);
                 }
                 [data-theme="dark"] .card-footer {
                     background: #2a2a2a;

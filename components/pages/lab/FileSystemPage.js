@@ -68,14 +68,14 @@ export class FileSystemPage extends BaseComponent {
         return html`
             <style>
                 .fs-container { display: grid; grid-template-columns: 250px 1fr; gap: 1.5rem; height: 500px; }
-                .file-sidebar { border: 1px solid #ddd; border-radius: 8px; overflow-y: auto; background: #f8f9fa; }
-                .editor-main { border: 1px solid #ddd; border-radius: 8px; display: flex; flex-direction: column; }
-                .file-item { padding: 0.6rem 1rem; border-bottom: 1px solid #eee; cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
+                .file-sidebar { border: 1px solid var(--border-color); border-radius: 8px; overflow-y: auto; background: var(--surface-color); }
+                .editor-main { border: 1px solid var(--border-color); border-radius: 8px; display: flex; flex-direction: column; }
+                .file-item { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border-color); cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
                 .file-item:hover { background: #edf2f7; }
                 .file-item.active { background: var(--primary-color); color: white; }
                 .editor-area { flex: 1; border: none; padding: 1rem; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.95rem; resize: none; border-radius: 0 0 8px 8px; }
-                .editor-header { padding: 0.5rem 1rem; background: #eee; border-bottom: 1px solid #ddd; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; }
-                .empty-state { height: 100%; display: flex; align-items: center; justify-content: center; color: #999; text-align: center; }
+                .editor-header { padding: 0.5rem 1rem; background: #eee; border-bottom: 1px solid var(--border-color); border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; }
+                .empty-state { height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-subtle); text-align: center; }
             </style>
 
             <div class="lab-header">

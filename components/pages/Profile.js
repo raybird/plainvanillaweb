@@ -104,7 +104,7 @@ export class UserProfile extends BaseComponent {
     const primaryColor = appStore.state.primaryColor || "#007bff";
     const { errors } = this.state;
     const errorStyle =
-      "color: #dc3545; font-size: 0.8rem; margin-top: 0.25rem; display: block;";
+      "color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display: block;";
 
     return html`
       <h1>👤 個人資料 (Profile Demo)</h1>

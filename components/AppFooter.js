@@ -9,9 +9,9 @@ export class AppFooter extends BaseComponent {
                 footer {
                     margin-top: 3rem;
                     padding: 2rem 0;
-                    border-top: 1px solid #eee;
+                    border-top: 1px solid var(--border-color);
                     text-align: center;
-                    color: #666;
+                    color: var(--text-muted);
                     font-size: 0.9rem;
                 }
                 [data-theme="dark"] footer {

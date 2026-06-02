@@ -65,7 +65,7 @@ export class PaymentPage extends BaseComponent {
                 <h3>💳 原生支付 (Payment Request API)</h3>
                 <p><small>無需第三方金流 SDK，直接喚出瀏覽器原生的 Apple Pay、Google Pay 結帳介面。</small></p>
 
-                <div style="margin: 0.8rem 0; padding: 0.7rem 1rem; background: #fffbeb; border-left: 3px solid #f59e0b; border-radius: 4px; font-size: 0.82rem; color: #92400e;">
+                <div style="margin: 0.8rem 0; padding: 0.7rem 1rem; background: var(--warning-subtle); border-left: 3px solid var(--warning); border-radius: 4px; font-size: 0.82rem; color: var(--warning);">
                     ⚠️ <strong>教學 Demo</strong>：本範本無後端與商家憑證，付款流程為模擬。
                     <code>basic-card</code> 已被瀏覽器移除，此處改用 Google Pay；要真正喚起原生介面，
                     需在支援的環境並設定 merchant（故多數情況下按鈕會停用）。
@@ -74,7 +74,7 @@ export class PaymentPage extends BaseComponent {
                 <h4 style="margin: 1.5rem 0 0.5rem;">🛒 購物車</h4>
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
                     ${this.state.cart.map(item => html`
-                        <tr style="border-bottom: 1px solid #eee;">
+                        <tr style="border-bottom: 1px solid var(--border-color);">
                             <td style="padding: 0.6rem 0;">${item.label}</td>
                             <td style="padding: 0.6rem 0; text-align: right; white-space: nowrap;">${item.amount.currency} $${item.amount.value}</td>
                         </tr>
@@ -95,21 +95,21 @@ export class PaymentPage extends BaseComponent {
                 </div>
 
                 ${this.state.status ? html`
-                    <div style="margin-top: 1rem; padding: 0.8rem 1rem; background: #f0fdf4; border-left: 3px solid #10b981; border-radius: 4px; font-size: 0.9rem; color: #065f46;">
+                    <div style="margin-top: 1rem; padding: 0.8rem 1rem; background: var(--success-subtle); border-left: 3px solid var(--success); border-radius: 4px; font-size: 0.9rem; color: var(--success);">
                         ${this.state.status}
                     </div>
                 ` : ''}
 
                 ${this.state.error ? html`
-                    <div style="margin-top: 1rem; padding: 0.8rem 1rem; background: #fef2f2; border-left: 3px solid #ef4444; border-radius: 4px; font-size: 0.9rem; color: #991b1b;">
+                    <div style="margin-top: 1rem; padding: 0.8rem 1rem; background: var(--danger-subtle); border-left: 3px solid var(--danger); border-radius: 4px; font-size: 0.9rem; color: var(--danger);">
                         ❌ ${this.state.error}
                     </div>
                 ` : ''}
 
                 ${this.state.result ? html`
                     <div style="margin-top: 1.5rem;">
-                        <p style="font-size: 0.85rem; color: #64748b;">✅ 收到的買家資訊 (模擬)：</p>
-                        <pre style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.8rem; border-radius: 6px; font-size: 0.8rem; overflow-x: auto;">${JSON.stringify(this.state.result, null, 2)}</pre>
+                        <p style="font-size: 0.85rem; color: var(--text-muted);">✅ 收到的買家資訊 (模擬)：</p>
+                        <pre style="background: var(--surface-color); border: 1px solid var(--border-color); padding: 0.8rem; border-radius: 6px; font-size: 0.8rem; overflow-x: auto;">${JSON.stringify(this.state.result, null, 2)}</pre>
                     </div>
                 ` : ''}
             </div>

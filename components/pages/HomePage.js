@@ -145,13 +145,13 @@ export class HomePage extends BaseComponent {
                 }
                 .nav-card {
                     padding: 1.75rem;
-                    border: 1px solid #e2e8f0;
+                    border: 1px solid var(--border-color);
                     border-radius: 16px;
                     text-decoration: none;
                     color: inherit;
                     display: block;
                     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-                    background: var(--card-bg, white);
+                    background: var(--card-bg, var(--card-bg));
                     position: relative;
                     overflow: hidden;
                 }
@@ -172,7 +172,7 @@ export class HomePage extends BaseComponent {
                 .nav-card:hover::before { opacity: 1; }
                 .nav-card .icon { font-size: 2.5rem; margin-bottom: 0.75rem; display: block; }
                 .nav-card h3 { margin: 0 0 0.5rem; font-size: 1.2rem; color: var(--card-accent, #2563eb); }
-                .nav-card p { margin: 0; color: #64748b; font-size: 0.9rem; line-height: 1.6; }
+                .nav-card p { margin: 0; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
                 .nav-card .badge {
                     display: inline-block;
                     margin-top: 1rem;
@@ -190,9 +190,9 @@ export class HomePage extends BaseComponent {
                     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
                     gap: 1rem;
                     padding: 2rem;
-                    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+                    background: linear-gradient(135deg, var(--surface-color), var(--surface-color));
                     border-radius: 16px;
-                    border: 1px solid #e2e8f0;
+                    border: 1px solid var(--border-color);
                     text-align: center;
                     margin-bottom: 3rem;
                 }
@@ -205,7 +205,7 @@ export class HomePage extends BaseComponent {
                 }
                 .stat-item .stat-label {
                     font-size: 0.8rem;
-                    color: #94a3b8;
+                    color: var(--text-subtle);
                     margin-top: 0.4rem;
                     font-weight: 500;
                     letter-spacing: 0.5px;
@@ -216,13 +216,13 @@ export class HomePage extends BaseComponent {
                 .manifesto-quote {
                     padding: 2rem 2.5rem;
                     border-left: 4px solid var(--primary-color, #2563eb);
-                    background: var(--nav-bg, #f8fafc);
+                    background: var(--nav-bg, var(--surface-color));
                     border-radius: 0 12px 12px 0;
                     font-style: italic;
-                    color: #475569;
+                    color: var(--text-muted);
                     margin-bottom: 2rem;
                 }
-                .manifesto-quote strong { color: #1e293b; font-style: normal; }
+                .manifesto-quote strong { color: var(--text-color); font-style: normal; }
                 .manifesto-quote a { color: var(--primary-color, #2563eb); }
 
                 @media (max-width: 640px) {

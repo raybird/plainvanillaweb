@@ -50,10 +50,10 @@ export class PopoverPage extends BaseComponent {
           grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         }
         .demo-card {
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--border-color);
           border-radius: 12px;
           padding: 1rem;
-          background: #fff;
+          background: var(--card-bg);
         }
         .theme-chip {
           display: inline-block;

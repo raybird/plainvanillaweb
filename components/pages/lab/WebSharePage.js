@@ -129,10 +129,10 @@ export class WebSharePage extends BaseComponent {
           gap: 1rem;
         }
         .panel {
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-color);
           border-radius: 12px;
           padding: 1rem;
-          background: #fff;
+          background: var(--card-bg);
         }
         .field {
           display: flex;
@@ -163,8 +163,8 @@ export class WebSharePage extends BaseComponent {
           margin-top: 0.7rem;
           padding: 0.65rem;
           border-radius: 8px;
-          border: 1px solid #e2e8f0;
-          background: #f8fafc;
+          border: 1px solid var(--border-color);
+          background: var(--surface-color);
         }
         .support-note {
           margin-top: 0.8rem;

@@ -140,18 +140,18 @@ export class WebRTCPage extends BaseComponent {
         return html`
             <style>
                 .webrtc-page { max-width: 900px; margin: 0 auto; padding: 0 1rem; }
-                .status-bar { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px; margin-bottom: 2rem; font-size: 1rem; border: 1px solid #e2e8f0; }
+                .status-bar { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--surface-color); border-radius: 8px; margin-bottom: 2rem; font-size: 1rem; border: 1px solid var(--border-color); }
                 .status-text { font-weight: 600; }
                 
                 .role-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-                .role-card { padding: 2rem; border: 2px solid #e2e8f0; border-radius: 12px; text-align: center; cursor: pointer; transition: all 0.2s; background: #fff; }
+                .role-card { padding: 2rem; border: 2px solid var(--border-color); border-radius: 12px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--card-bg); }
                 .role-card:hover { border-color: var(--primary-color, #2563eb); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1); transform: translateY(-2px); }
                 .role-card.active { border-color: var(--primary-color, #2563eb); background: #eff6ff; }
                 .role-card h3 { margin-top: 0; color: var(--primary-color, #2563eb); }
                 .role-icon { font-size: 3rem; margin-bottom: 1rem; }
 
-                .guide-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-                .guide-step { padding: 1.5rem 2rem; border-bottom: 1px solid #e2e8f0; }
+                .guide-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+                .guide-step { padding: 1.5rem 2rem; border-bottom: 1px solid var(--border-color); }
                 .guide-step:last-child { border-bottom: none; }
                 .step-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
                 .step-number { width: 36px; height: 36px; border-radius: 50%; background: var(--primary-color, #2563eb); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
@@ -160,15 +160,15 @@ export class WebRTCPage extends BaseComponent {
                 .step-title { font-size: 1.1rem; font-weight: 600; }
                 
                 .sdp-box { font-family: monospace; font-size: 0.8rem; background: #1e293b; color: #a6accd; padding: 1rem; border-radius: 8px; word-break: break-all; max-height: 120px; overflow-y: auto; margin: 0.8rem 0; border: none; width: 100%; resize: vertical; }
-                .sdp-input { font-family: monospace; font-size: 0.8rem; padding: 0.8rem; border: 2px solid #e2e8f0; border-radius: 8px; width: 100%; resize: vertical; line-height: 1.4; }
+                .sdp-input { font-family: monospace; font-size: 0.8rem; padding: 0.8rem; border: 2px solid var(--border-color); border-radius: 8px; width: 100%; resize: vertical; line-height: 1.4; }
                 .sdp-input:focus { outline: none; border-color: var(--primary-color, #2563eb); }
 
-                .chat-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-top: 2rem; }
-                .chat-header { padding: 1rem 1.5rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600; }
-                .chat-messages { height: 200px; overflow-y: auto; padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; background: #f1f5f9; }
+                .chat-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; margin-top: 2rem; }
+                .chat-header { padding: 1rem 1.5rem; background: var(--surface-color); border-bottom: 1px solid var(--border-color); font-weight: 600; }
+                .chat-messages { height: 200px; overflow-y: auto; padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; background: var(--surface-color); }
                 .msg-local { align-self: flex-end; background: var(--primary-color, #2563eb); color: white; padding: 0.6rem 1rem; border-radius: 16px 16px 4px 16px; max-width: 75%; }
-                .msg-remote { align-self: flex-start; background: #fff; color: #334155; padding: 0.6rem 1rem; border-radius: 16px 16px 16px 4px; max-width: 75%; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-                .chat-input-area { display: flex; gap: 0.5rem; padding: 1rem; border-top: 1px solid #e2e8f0; }
+                .msg-remote { align-self: flex-start; background: var(--card-bg); color: #334155; padding: 0.6rem 1rem; border-radius: 16px 16px 16px 4px; max-width: 75%; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+                .chat-input-area { display: flex; gap: 0.5rem; padding: 1rem; border-top: 1px solid var(--border-color); }
                 .chat-input-area input { flex: 1; padding: 0.7rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
                 .chat-input-area input:focus { outline: none; border-color: var(--primary-color, #2563eb); }
                 
@@ -216,11 +216,11 @@ export class WebRTCPage extends BaseComponent {
                                 <div class="step-title">建立 Offer 並複製給對方（Answerer）</div>
                             </div>
                             ${this.state.localSdp && this.state.step === 'offer-ready' ? html`
-                                <p style="color: #16a34a; font-weight: 600;">✅ Offer 已生成！複製這段內容並傳給 Answerer。</p>
+                                <p style="color: var(--success); font-weight: 600;">✅ Offer 已生成！複製這段內容並傳給 Answerer。</p>
                                 <textarea class="sdp-box" readonly rows="4">${this.state.localSdp}</textarea>
                                 <button class="btn btn-secondary" onclick="this.closest('page-lab-webrtc').copySdp()">📋 一鍵複製 Offer SDP</button>
                             ` : html`
-                                <p style="color: #64748b;">點擊按鈕自動建立連線請求。這可能需要幾秒鐘。</p>
+                                <p style="color: var(--text-muted);">點擊按鈕自動建立連線請求。這可能需要幾秒鐘。</p>
                                 <button class="btn btn-primary" onclick="this.closest('page-lab-webrtc').startAsCallerStep1()">
                                     🚀 建立 Offer
                                 </button>
@@ -282,11 +282,11 @@ export class WebRTCPage extends BaseComponent {
                                 <div class="step-title">把你的 Answer SDP 複製給 Caller</div>
                             </div>
                             ${this.state.localSdp ? html`
-                                <p style="color: #16a34a; font-weight: 600;">✅ Answer 已生成！複製這段內容傳回給 Caller。</p>
+                                <p style="color: var(--success); font-weight: 600;">✅ Answer 已生成！複製這段內容傳回給 Caller。</p>
                                 <textarea class="sdp-box" readonly rows="4">${this.state.localSdp}</textarea>
                                 <button class="btn btn-secondary" onclick="this.closest('page-lab-webrtc').copySdp()">📋 一鍵複製 Answer SDP</button>
                             ` : html`
-                                <p style="color: #94a3b8;">完成步驟 1 後，Answer SDP 會出現在這裡。</p>
+                                <p style="color: var(--text-subtle);">完成步驟 1 後，Answer SDP 會出現在這裡。</p>
                             `}
                         </div>
                     </div>
@@ -298,7 +298,7 @@ export class WebRTCPage extends BaseComponent {
                         <div class="chat-header">💬 P2P 聊天（已建立端對端加密連線）</div>
                         <div class="chat-messages" id="webrtc-chat">
                             ${this.state.messages.length === 0 ? html`
-                                <p style="color: #999; text-align: center; margin: auto;">盡情說話吧，這是一條加密的 P2P 連線 🔒</p>
+                                <p style="color: var(--text-subtle); text-align: center; margin: auto;">盡情說話吧，這是一條加密的 P2P 連線 🔒</p>
                             ` : ''}
                             ${this.state.messages.map(m => html`
                                 <div class="msg-${m.side}">${m.text}</div>

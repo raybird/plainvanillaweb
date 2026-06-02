@@ -64,10 +64,10 @@ export class BroadcastPage extends BaseComponent {
     render() {
         return html`
             <style>
-                .bc-messages { height: 220px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 1rem; background: #f8fafc; display: flex; flex-direction: column; gap: 0.5rem; margin: 1rem 0; }
-                .bc-msg-system { text-align: center; font-size: 0.8rem; color: #94a3b8; }
+                .bc-messages { height: 220px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; background: var(--surface-color); display: flex; flex-direction: column; gap: 0.5rem; margin: 1rem 0; }
+                .bc-msg-system { text-align: center; font-size: 0.8rem; color: var(--text-subtle); }
                 .bc-msg-me { align-self: flex-end; background: var(--primary-color, #2563eb); color: #fff; padding: 0.5rem 1rem; border-radius: 16px 16px 4px 16px; max-width: 80%; font-size: 0.9rem; }
-                .bc-msg-other { align-self: flex-start; background: #fff; color: #334155; padding: 0.5rem 1rem; border-radius: 16px 16px 16px 4px; max-width: 80%; font-size: 0.9rem; border: 1px solid #e2e8f0; }
+                .bc-msg-other { align-self: flex-start; background: var(--card-bg); color: #334155; padding: 0.5rem 1rem; border-radius: 16px 16px 16px 4px; max-width: 80%; font-size: 0.9rem; border: 1px solid var(--border-color); }
                 .bc-meta { font-size: 0.72rem; opacity: 0.7; margin-bottom: 0.2rem; }
             </style>
             <div class="lab-card">

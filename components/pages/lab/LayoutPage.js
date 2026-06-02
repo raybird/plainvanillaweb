@@ -28,12 +28,12 @@ export class LayoutPage extends BaseComponent {
                     --demo-spacing: ${this.state.spacing}px;
                     --demo-radius: ${this.state.radius}px;
                     padding: 2rem;
-                    border: 2px dashed #ccc;
+                    border: 2px dashed var(--border-color);
                     border-radius: 12px;
                     margin-top: 1rem;
                 }
                 .demo-card {
-                    background: white;
+                    background: var(--card-bg);
                     padding: var(--demo-spacing);
                     border-radius: var(--demo-radius);
                     border-left: 5px solid var(--demo-primary);
@@ -44,7 +44,7 @@ export class LayoutPage extends BaseComponent {
                     display: grid;
                     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
                     gap: 1rem;
-                    background: #f8f9fa;
+                    background: var(--surface-color);
                     padding: 1.5rem;
                     border-radius: 8px;
                 }

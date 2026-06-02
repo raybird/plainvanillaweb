@@ -56,7 +56,7 @@ export class CryptoPage extends BaseComponent {
                     <button class="btn btn-secondary" onclick="this.closest('page-lab-crypto').runHash()">#️⃣ Hash</button>
                 </div>
                 ${this.state.decryptedResult ? html`<div style="margin-top:1rem; font-size:0.8rem;">解密結果: <br><code>${this.state.decryptedResult}</code></div>` : ''}
-                ${this.state.hashResult ? html`<div style="margin-top:1rem; font-size:0.7rem; color:#666; word-break:break-all;">SHA-256: ${this.state.hashResult}</div>` : ''}
+                ${this.state.hashResult ? html`<div style="margin-top:1rem; font-size:0.7rem; color:var(--text-muted); word-break:break-all;">SHA-256: ${this.state.hashResult}</div>` : ''}
             </div>
             <a href="#/lab" class="btn btn-secondary" style="margin-top: 2rem;">⬅️ 回實驗室首頁</a>
         `;

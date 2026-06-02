@@ -76,7 +76,7 @@ export class PWAAdvancedPage extends BaseComponent {
     return html`
       <style>
         .pwa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
-        .pwa-card { border: 1px solid #ddd; padding: 1.5rem; border-radius: 12px; background: #fff; }
+        .pwa-card { border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 12px; background: var(--card-bg); }
         .progress-container { height: 10px; background: #eee; border-radius: 5px; margin: 1rem 0; overflow: hidden; }
         .progress-bar { height: 100%; background: var(--primary-color); transition: width 0.3s; }
         .code-snippet { background: #2d2d2d; color: #ccc; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; margin-top: 1rem; }

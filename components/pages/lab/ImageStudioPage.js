@@ -78,11 +78,11 @@ export class ImageStudioPage extends BaseComponent {
         return html`
             <style>
                 .studio-layout { display: grid; grid-template-columns: 1fr 300px; gap: 2rem; }
-                .preview-area { background: #f0f0f0; border-radius: 12px; min-height: 400px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border: 2px dashed #ccc; }
+                .preview-area { background: #f0f0f0; border-radius: 12px; min-height: 400px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border: 2px dashed var(--border-color); }
                 .preview-img { max-width: 100%; max-height: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-                .controls-panel { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #eee; }
+                .controls-panel { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); }
                 .filter-group { margin-bottom: 1.2rem; }
-                .filter-group label { display: block; font-size: 0.85rem; margin-bottom: 0.4rem; color: #666; }
+                .filter-group label { display: block; font-size: 0.85rem; margin-bottom: 0.4rem; color: var(--text-muted); }
                 input[type="range"] { width: 100%; }
                 .upload-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.8); cursor: pointer; }
             </style>

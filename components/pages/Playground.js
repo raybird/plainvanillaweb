@@ -168,8 +168,8 @@ export class PlaygroundPage extends BaseComponent {
                     border: 1px solid var(--border-color);
                 }
                 .mode-badge.local {
-                    background: #ecfdf5;
-                    color: #065f46;
+                    background: var(--success-subtle);
+                    color: var(--success);
                     border: 1px solid #6ee7b7;
                 }
                 [data-theme="dark"] .mode-badge.local {
@@ -216,7 +216,7 @@ export class PlaygroundPage extends BaseComponent {
                 <div class="preview-pane">
                     <div class="preview-header">
                         <span>預覽視窗 (Live Preview)</span>
-                        <span style="color:#22c55e;">● Running</span>
+                        <span style="color:var(--success);">● Running</span>
                     </div>
                     <iframe src="${this.state.runnerUrl}"></iframe>
                 </div>

@@ -92,7 +92,7 @@ export class LabPage extends BaseComponent {
       <style>
         .lab-header {
           margin-bottom: 2rem;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid var(--border-color);
           padding-bottom: 1rem;
         }
         .lab-content {

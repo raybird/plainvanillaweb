@@ -44,7 +44,7 @@ export class AudioPage extends BaseComponent {
         return html`
             <style>
                 .audio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
-                .wave-btn { flex: 1; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; background: #fff; }
+                .wave-btn { flex: 1; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; background: var(--card-bg); }
                 .wave-btn.active { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
             </style>
 

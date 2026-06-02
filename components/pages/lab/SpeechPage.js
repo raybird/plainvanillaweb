@@ -66,7 +66,7 @@ export class SpeechPage extends BaseComponent {
                     </button>
                 </div>
                 ${!speechService.isRecognitionSupported ? html`<p style="color:red; font-size:0.7rem; margin-top:0.5rem;">⚠️ 您的瀏覽器不支援語音辨識 (建議使用 Chrome/Edge)</p>` : ''}
-                ${this.state.transcript ? html`<div style="margin-top:1rem; font-size:0.9rem; border-top:1px solid #eee; padding-top:0.5rem;">辨識結果: <strong>${this.state.transcript}</strong></div>` : ''}
+                ${this.state.transcript ? html`<div style="margin-top:1rem; font-size:0.9rem; border-top:1px solid var(--border-color); padding-top:0.5rem;">辨識結果: <strong>${this.state.transcript}</strong></div>` : ''}
             </div>
             
             <a href="#/lab" class="btn btn-secondary" style="margin-top: 2rem;">⬅️ 回實驗室首頁</a>

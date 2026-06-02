@@ -12,10 +12,10 @@ export class IsolatedCard extends BaseComponent {
                     border: 2px solid var(--primary-color, #007bff);
                     border-radius: 12px;
                     padding: 1.5rem;
-                    background: #fff;
+                    background: var(--card-bg);
                     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
                     margin: 1rem 0;
-                    color: #333;
+                    color: var(--text-color);
                 }
                 
                 /* 故意使用一個常見的 class 名稱，展示它不會受到外部影響 */
@@ -24,7 +24,7 @@ export class IsolatedCard extends BaseComponent {
                     font-weight: bold;
                     color: #d63384; /* 粉紅色，與全域標題區隔 */
                     margin-bottom: 0.5rem;
-                    border-bottom: 2px solid #eee;
+                    border-bottom: 2px solid var(--border-color);
                 }
                 
                 .content {
@@ -35,9 +35,9 @@ export class IsolatedCard extends BaseComponent {
                 ::slotted([slot="footer"]) {
                     margin-top: 1rem;
                     padding-top: 0.5rem;
-                    border-top: 1px solid #ddd;
+                    border-top: 1px solid var(--border-color);
                     font-size: 0.8rem;
-                    color: #666;
+                    color: var(--text-muted);
                 }
             `}
             <div class="title">

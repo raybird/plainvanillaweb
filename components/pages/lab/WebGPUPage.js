@@ -43,13 +43,13 @@ export class WebGPUPage extends BaseComponent {
 
         return html`
             <style>
-                .compute-box { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #eee; margin-bottom: 1.5rem; }
+                .compute-box { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 1.5rem; }
                 .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
-                .data-panel { background: #f8f9fa; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.9rem; border: 1px solid #ddd; }
+                .data-panel { background: var(--surface-color); padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.9rem; border: 1px solid var(--border-color); }
                 .status-tag { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; margin-bottom: 1rem; }
                 .tag-success { background: #e6fffa; color: #28a745; border: 1px solid #b2f2bb; }
-                .tag-error { background: #fff5f5; color: #dc3545; border: 1px solid #feb2b2; }
-                .metrics { font-size: 0.85rem; color: #666; margin-top: 0.5rem; }
+                .tag-error { background: #fff5f5; color: var(--danger); border: 1px solid #feb2b2; }
+                .metrics { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; }
             </style>
 
             <div class="lab-header">

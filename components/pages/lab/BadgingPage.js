@@ -106,16 +106,16 @@ export class BadgingPage extends BaseComponent {
           gap: 1rem;
         }
         .card {
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--border-color);
           border-radius: 12px;
           padding: 1rem;
-          background: #fff;
+          background: var(--card-bg);
         }
         .count {
           margin-top: 0.8rem;
           font-size: 2rem;
           font-weight: 700;
-          color: #0f172a;
+          color: var(--text-color);
         }
         .actions {
           margin-top: 1rem;
@@ -127,8 +127,8 @@ export class BadgingPage extends BaseComponent {
           margin-top: 0.8rem;
           padding: 0.7rem;
           border-radius: 8px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
+          background: var(--surface-color);
+          border: 1px solid var(--border-color);
         }
         .support-note {
           margin-top: 1rem;

@@ -144,7 +144,7 @@ export class App extends BaseComponent {
                         <div class="user-info">
                             ${isAuthenticated ? html`
                                 <span class="user-greeting">Hi, <strong>${user.username}</strong></span>
-                                <button id="logout-btn" class="control-btn" style="color: #dc3545; border-color: #dc3545;">登出</button>
+                                <button id="logout-btn" class="control-btn" style="color: var(--danger); border-color: var(--danger);">登出</button>
                             ` : html`
                                 <a href="#/login" class="login-link btn btn-primary" style="min-height: 36px;" onclick="this.closest('x-app').closeMenu()">登入</a>
                             `}

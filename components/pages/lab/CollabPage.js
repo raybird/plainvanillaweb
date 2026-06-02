@@ -43,7 +43,7 @@ export class CollabPage extends BaseComponent {
     this._textarea.id = "collab-note";
     this._textarea.setAttribute('data-persistent', 'editor'); // 標記為持久節點
     this._textarea.rows = 8;
-    this._textarea.style.cssText = "width: 100%; font-family: monospace; padding: 1rem; border-radius: 8px; border: 1px solid #ddd; margin-top: 1rem;";
+    this._textarea.style.cssText = "width: 100%; font-family: monospace; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 1rem;";
     this._textarea.placeholder = "在此輸入文字，其他分頁會即時同步...";
     this._textarea.value = this._collabNote;
 

@@ -35,8 +35,8 @@ export class BluetoothPage extends BaseComponent {
     render() {
         return html`
             <style>
-                .bt-card { background: var(--card-bg); padding: 2rem; border-radius: 12px; border: 1px solid #eee; text-align: center; }
-                .status-ui { margin: 2rem 0; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+                .bt-card { background: var(--card-bg); padding: 2rem; border-radius: 12px; border: 1px solid var(--border-color); text-align: center; }
+                .status-ui { margin: 2rem 0; padding: 1rem; background: var(--surface-color); border-radius: 8px; }
                 .bt-icon { font-size: 3rem; margin-bottom: 1rem; color: ${this.state.isConnected ? '#007bff' : '#ccc'}; }
             </style>
 

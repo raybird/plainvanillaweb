@@ -39,13 +39,13 @@ export class NetworkPage extends BaseComponent {
     render() {
         return html`
             <style>
-                .net-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #eee; margin-bottom: 1rem; }
+                .net-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 1rem; }
                 .status-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
                 .online { background: #28a745; box-shadow: 0 0 8px #28a745; }
                 .offline { background: #dc3545; }
                 .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem; }
-                .info-item { padding: 1rem; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd; text-align: center; }
-                .info-label { font-size: 0.75rem; color: #666; display: block; }
+                .info-item { padding: 1rem; background: var(--surface-color); border-radius: 8px; border: 1px solid var(--border-color); text-align: center; }
+                .info-label { font-size: 0.75rem; color: var(--text-muted); display: block; }
                 .info-value { font-size: 1.1rem; font-weight: bold; color: var(--primary-color); }
             </style>
 
@@ -81,7 +81,7 @@ export class NetworkPage extends BaseComponent {
                 <button class="btn btn-primary" onclick="this.closest('page-lab-network').testBeacon()">
                     🚀 測試發送 Beacon
                 </button>
-                <span style="margin-left: 1rem; font-size: 0.9rem; color: #666;">
+                <span style="margin-left: 1rem; font-size: 0.9rem; color: var(--text-muted);">
                     狀態: ${this.state.beaconStatus}
                 </span>
             </div>

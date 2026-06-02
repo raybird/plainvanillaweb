@@ -46,7 +46,7 @@ export class WorkerDemo extends BaseComponent {
             
             <div style="padding: 1rem; border: 2px dashed var(--border-color); border-radius: 8px; margin-bottom: 1rem;">
                 <strong>🧵 主線程狀態：</strong>
-                <span id="main-thread-counter" style="font-size: 1.5rem; color: #22c55e;">${this.state.counter}</span>
+                <span id="main-thread-counter" style="font-size: 1.5rem; color: var(--success);">${this.state.counter}</span>
                 <small>（此數值每 100ms 更新一次，若卡住代表主線程阻塞）</small>
             </div>
 

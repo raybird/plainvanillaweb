@@ -55,15 +55,15 @@ export class PerformancePage extends BaseComponent {
         return html`
             <style>
                 .perf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-                .metric-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid #eee; text-align: center; }
+                .metric-card { background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); text-align: center; }
                 .metric-value { font-size: 2rem; font-weight: bold; color: var(--primary-color); display: block; margin: 0.5rem 0; }
-                .metric-label { font-size: 0.85rem; color: #666; font-weight: bold; }
-                .waterfall { background: #f8f9fa; padding: 1.5rem; border-radius: 12px; border: 1px solid #ddd; }
+                .metric-label { font-size: 0.85rem; color: var(--text-muted); font-weight: bold; }
+                .waterfall { background: var(--surface-color); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); }
                 .bar-container { display: flex; align-items: center; margin-bottom: 0.8rem; gap: 1rem; }
                 .bar-label { width: 100px; font-size: 0.8rem; flex-shrink: 0; }
                 .bar-wrapper { flex: 1; height: 20px; background: #eee; border-radius: 4px; overflow: hidden; position: relative; }
                 .bar-fill { height: 100%; background: var(--primary-color); min-width: 2px; }
-                .bar-text { position: absolute; right: 8px; top: 0; font-size: 0.7rem; line-height: 20px; color: #333; }
+                .bar-text { position: absolute; right: 8px; top: 0; font-size: 0.7rem; line-height: 20px; color: var(--text-color); }
             </style>
 
             <h2>⏱️ 原生效能監控 (Web Performance)</h2>

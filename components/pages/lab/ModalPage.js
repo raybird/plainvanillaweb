@@ -32,7 +32,7 @@ export class ModalPage extends BaseComponent {
         const content = html`
             <div>
                 <label style="display: block; margin-bottom: 0.5rem;">請輸入您的反饋：</label>
-                <input type="text" id="custom-modal-input" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;" placeholder="任何想法都歡迎！" />
+                <input type="text" id="custom-modal-input" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;" placeholder="任何想法都歡迎！" />
             </div>
         `;
 
@@ -62,9 +62,9 @@ export class ModalPage extends BaseComponent {
                 </div>
 
                 ${this.state.lastAction ? html`
-                    <div style="margin-top: 1.5rem; font-size: 0.85rem; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                    <div style="margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 1rem;">
                         <strong>觸發事件：</strong> ${this.state.lastAction}<br>
-                        <strong>最終結果：</strong> <span style="color: #334155;">${this.state.dialogResult}</span>
+                        <strong>最終結果：</strong> <span style="color: var(--text-color);">${this.state.dialogResult}</span>
                     </div>
                 ` : ''}
             </div>

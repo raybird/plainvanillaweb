@@ -108,10 +108,10 @@ export class PermissionsPreflightPage extends BaseComponent {
     return html`
       <style>
         .preflight-wrap {
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--border-color);
           border-radius: 14px;
           padding: 1rem;
-          background: linear-gradient(140deg, #ffffff 0%, #f8fafc 100%);
+          background: linear-gradient(140deg, var(--card-bg) 0%, var(--surface-color) 100%);
         }
         .preflight-actions {
           display: flex;
@@ -125,10 +125,10 @@ export class PermissionsPreflightPage extends BaseComponent {
           gap: 1rem;
         }
         .panel {
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           padding: 0.8rem;
-          background: #fff;
+          background: var(--card-bg);
         }
         .perm-list {
           margin: 0;
@@ -144,7 +144,7 @@ export class PermissionsPreflightPage extends BaseComponent {
           font-size: 0.75rem;
           font-weight: 700;
           border: 1px solid #cbd5e1;
-          background: #f8fafc;
+          background: var(--surface-color);
         }
         .perm-granted {
           background: #dcfce7;
@@ -152,19 +152,19 @@ export class PermissionsPreflightPage extends BaseComponent {
           color: #166534;
         }
         .perm-denied {
-          background: #fee2e2;
+          background: var(--danger-subtle);
           border-color: #fca5a5;
-          color: #991b1b;
+          color: var(--danger);
         }
         .perm-prompt {
-          background: #fef3c7;
+          background: var(--warning-subtle);
           border-color: #fcd34d;
-          color: #92400e;
+          color: var(--warning);
         }
         .camera-preview {
           width: 100%;
           border-radius: 8px;
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--border-color);
           background: #0f172a;
           aspect-ratio: 16 / 9;
           object-fit: cover;

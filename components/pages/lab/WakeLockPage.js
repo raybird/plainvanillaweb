@@ -157,10 +157,10 @@ export class WakeLockPage extends BaseComponent {
           gap: 1rem;
         }
         .card {
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--border-color);
           border-radius: 12px;
           padding: 1rem;
-          background: #fff;
+          background: var(--card-bg);
         }
         .status-pill {
           display: inline-flex;
@@ -172,14 +172,14 @@ export class WakeLockPage extends BaseComponent {
           border: 1px solid;
         }
         .status-on {
-          color: #065f46;
+          color: var(--success);
           border-color: #6ee7b7;
-          background: #ecfdf5;
+          background: var(--success-subtle);
         }
         .status-off {
-          color: #92400e;
+          color: var(--warning);
           border-color: #fcd34d;
-          background: #fffbeb;
+          background: var(--warning-subtle);
         }
         .actions {
           margin-top: 0.9rem;
@@ -189,7 +189,7 @@ export class WakeLockPage extends BaseComponent {
         }
         .kv {
           margin-top: 0.8rem;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           overflow: hidden;
         }
@@ -198,8 +198,8 @@ export class WakeLockPage extends BaseComponent {
           justify-content: space-between;
           gap: 1rem;
           padding: 0.55rem 0.75rem;
-          background: #f8fafc;
-          border-bottom: 1px solid #e2e8f0;
+          background: var(--surface-color);
+          border-bottom: 1px solid var(--border-color);
           font-size: 0.9rem;
         }
         .row:last-child {

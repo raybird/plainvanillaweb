@@ -64,7 +64,7 @@ export class HistoryPage extends BaseComponent {
                 <p><small>以純 JS 的快照堆疊實現 Undo/Redo，不依賴 Redux 或任何外部狀態庫。防抖機制確保每次「停頓」才算一個操作步驟。</small></p>
 
                 <textarea 
-                    style="width: 100%; height: 180px; margin: 1rem 0; padding: 0.8rem; font-size: 1rem; line-height: 1.6; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit; resize: vertical; color: #1e293b; background: #fff;"
+                    style="width: 100%; height: 180px; margin: 1rem 0; padding: 0.8rem; font-size: 1rem; line-height: 1.6; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; resize: vertical; color: var(--text-color); background: var(--card-bg);"
                     oninput="this.closest('page-lab-history').handleInput(event)"
                     placeholder="開始輸入文字..."
                 >${this.state.documentText}</textarea>
@@ -84,7 +84,7 @@ export class HistoryPage extends BaseComponent {
                             ↪️ 重做 (Redo)
                         </button>
                     </div>
-                    <div style="font-size: 0.85rem; color: #64748b;">
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">
                         復原堆疊：<span style="background: #e0e7ff; color: #4338ca; padding: 0.1rem 0.5rem; border-radius: 999px; font-weight: bold;">${this.state.undoCount}</span>
                         &nbsp;&nbsp;
                         重做堆疊：<span style="background: #e0e7ff; color: #4338ca; padding: 0.1rem 0.5rem; border-radius: 999px; font-weight: bold;">${this.state.redoCount}</span>

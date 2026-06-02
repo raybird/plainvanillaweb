@@ -62,10 +62,10 @@ export class EyeDropperPage extends BaseComponent {
           gap: 1rem;
         }
         .card {
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--border-color);
           border-radius: 12px;
           padding: 1rem;
-          background: #ffffff;
+          background: var(--card-bg);
         }
         .preview {
           border-radius: 12px;
@@ -80,7 +80,7 @@ export class EyeDropperPage extends BaseComponent {
           display: flex;
           align-items: end;
           padding: 1rem;
-          color: #0f172a;
+          color: var(--text-color);
           font-weight: 700;
           box-sizing: border-box;
         }
@@ -113,7 +113,7 @@ export class EyeDropperPage extends BaseComponent {
           border: 1px solid #d1d5db;
           padding: 0.3rem 0.7rem;
           font-size: 0.88rem;
-          background: #f8fafc;
+          background: var(--surface-color);
         }
       </style>
 

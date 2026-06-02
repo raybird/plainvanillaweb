@@ -99,7 +99,7 @@ export class ChartPage extends BaseComponent {
                     padding: 2rem;
                 }
                 .card {
-                    background: var(--surface-color, #fff);
+                    background: var(--surface-color, var(--card-bg));
                     border-radius: 12px;
                     padding: 2rem;
                     box-shadow: 0 4px 6px rgba(0,0,0,0.05);
@@ -107,9 +107,9 @@ export class ChartPage extends BaseComponent {
                 canvas {
                     width: 100%;
                     height: 300px;
-                    background: #f8fafc;
+                    background: var(--surface-color);
                     border-radius: 8px;
-                    border: 1px solid #e2e8f0;
+                    border: 1px solid var(--border-color);
                     margin: 2rem 0;
                     display: block;
                 }
@@ -120,9 +120,9 @@ export class ChartPage extends BaseComponent {
                 }
                 .stat-box {
                     padding: 1.5rem;
-                    background: #f0fdf4;
+                    background: var(--success-subtle);
                     border-radius: 8px;
-                    border-left: 4px solid #10b981;
+                    border-left: 4px solid var(--success);
                 }
                 .stat-box.fps-box {
                     background: #eff6ff;
@@ -130,14 +130,14 @@ export class ChartPage extends BaseComponent {
                 }
                 .stat-label {
                     font-size: 0.85rem;
-                    color: #475569;
+                    color: var(--text-muted);
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                 }
                 .stat-value {
                     font-size: 2rem;
                     font-weight: 700;
-                    color: #0f172a;
+                    color: var(--text-color);
                     margin-top: 0.5rem;
                 }
             </style>
@@ -155,7 +155,7 @@ export class ChartPage extends BaseComponent {
                     <div class="stats-grid">
                         <div class="stat-box">
                             <div class="stat-label">最新採樣數值</div>
-                            <div id="stat-value" class="stat-value" style="color: #10b981;">--</div>
+                            <div id="stat-value" class="stat-value" style="color: var(--success);">--</div>
                         </div>
                         <div class="stat-box fps-box">
                             <div class="stat-label">瀏覽器渲染幀率 (FPS)</div>

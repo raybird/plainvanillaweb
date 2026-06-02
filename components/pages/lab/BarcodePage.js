@@ -259,7 +259,7 @@ export class BarcodePage extends BaseComponent {
         }
         .result-item {
           padding: 0.8rem;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid var(--border-color);
           font-family: monospace;
           font-size: 0.9rem;
         }
@@ -307,7 +307,7 @@ export class BarcodePage extends BaseComponent {
           ${!this.state.isScanning
             ? html`
                 <div
-                  style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #666;"
+                  style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);"
                 >
                   等待啟動...
                 </div>
@@ -325,7 +325,7 @@ export class BarcodePage extends BaseComponent {
                     <span class="format-badge">${r.format}</span>
                     <strong>${r.rawValue}</strong>
                     <div
-                      style="color: #999; font-size: 0.7rem; margin-top: 4px;"
+                      style="color: var(--text-subtle); font-size: 0.7rem; margin-top: 4px;"
                     >
                       辨識時間: ${r.timestamp}
                     </div>

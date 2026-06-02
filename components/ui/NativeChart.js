@@ -25,7 +25,7 @@ export class NativeChart extends BaseComponent {
 
         return html`
             ${BaseComponent.css`
-                :host { display: block; background: #fff; border-radius: 12px; padding: 1rem; border: 1px solid #eee; }
+                :host { display: block; background: var(--card-bg); border-radius: 12px; padding: 1rem; border: 1px solid var(--border-color); }
                 .chart-header { margin-bottom: 1rem; display: flex; justify-content: space-between; }
                 svg { width: 100%; height: auto; overflow: visible; }
                 .line { 

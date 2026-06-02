@@ -71,8 +71,8 @@ export class ViewTransitionsPage extends BaseComponent {
           margin-top: 1rem;
           padding: 1rem;
           border-radius: 14px;
-          border: 1px solid #e5e7eb;
-          background: linear-gradient(140deg, #ffffff 0%, #f8fafc 100%);
+          border: 1px solid var(--border-color);
+          background: linear-gradient(140deg, var(--card-bg) 0%, var(--surface-color) 100%);
         }
         .toolbar {
           display: flex;
@@ -109,7 +109,7 @@ export class ViewTransitionsPage extends BaseComponent {
           border-radius: 999px;
           padding: 0.2rem 0.55rem;
           background: var(--vt-accent);
-          color: #0f172a;
+          color: var(--text-color);
           font-weight: 700;
           font-size: 0.75rem;
         }
@@ -117,8 +117,8 @@ export class ViewTransitionsPage extends BaseComponent {
           margin-top: 1rem;
           padding: 0.7rem;
           border-radius: 8px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
+          background: var(--surface-color);
+          border: 1px solid var(--border-color);
         }
         .actions {
           margin-top: 1rem;

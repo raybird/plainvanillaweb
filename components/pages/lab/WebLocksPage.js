@@ -163,8 +163,8 @@ export class WebLocksPage extends BaseComponent {
           gap: 1rem;
         }
         .panel {
-          background: #ffffff;
-          border: 1px solid #e5e7eb;
+          background: var(--card-bg);
+          border: 1px solid var(--border-color);
           border-radius: 12px;
           padding: 1rem;
         }
@@ -175,14 +175,14 @@ export class WebLocksPage extends BaseComponent {
           margin-top: 0.8rem;
         }
         .stat-item {
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border-color);
           border-radius: 10px;
-          background: #f8fafc;
+          background: var(--surface-color);
           padding: 0.7rem;
         }
         .stat-label {
           font-size: 0.8rem;
-          color: #475569;
+          color: var(--text-muted);
         }
         .stat-value {
           font-size: 1rem;

@@ -92,9 +92,9 @@ export class ModalContainer extends HTMLElement {
                     background: rgba(0, 0, 0, 0.5);
                     backdrop-filter: blur(2px);
                 }
-                .modal-header { padding: 1.5rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+                .modal-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
                 .modal-body { padding: 1.5rem; min-height: 80px; }
-                .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 0.5rem; }
+                .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 0.5rem; }
                 [data-theme="dark"] .modal-header, [data-theme="dark"] .modal-footer { border-color: #333; }
                 .btn { padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; border: none; font-weight: 500; font-size: 1rem; }
                 .btn-primary { background: var(--primary-color); color: white; }

@@ -49,11 +49,11 @@ export class WebAuthnPage extends BaseComponent {
             <style>
                 .cred-list { margin-top: 1.5rem; text-align: left; }
                 .cred-item { 
-                    padding: 1rem; border: 1px solid #eee; border-radius: 8px; margin-bottom: 0.5rem;
-                    display: flex; justify-content: space-between; align-items: center; background: #fff;
+                    padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 0.5rem;
+                    display: flex; justify-content: space-between; align-items: center; background: var(--card-bg);
                 }
                 .cred-info h4 { margin: 0; color: var(--primary-color); }
-                .cred-info small { color: #999; }
+                .cred-info small { color: var(--text-subtle); }
             </style>
 
             <h2>🔐 生物辨識驗證 (WebAuthn)</h2>
@@ -73,7 +73,7 @@ export class WebAuthnPage extends BaseComponent {
 
                 <div class="cred-list">
                     <h3>已註冊憑證 (${this.state.credentials.length})</h3>
-                    ${this.state.credentials.length === 0 ? html`<p style="color:#999; text-align:center;">尚未註冊憑證</p>` : this.state.credentials.map(c => html`
+                    ${this.state.credentials.length === 0 ? html`<p style="color:var(--text-subtle); text-align:center;">尚未註冊憑證</p>` : this.state.credentials.map(c => html`
                         <div class="cred-item">
                             <div class="cred-info">
                                 <h4>👤 ${c.username}</h4>

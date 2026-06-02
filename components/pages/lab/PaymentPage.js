@@ -9,11 +9,18 @@ export class PaymentPage extends BaseComponent {
             status: null,
             result: null,
             error: null,
+            supported: null, // null = 偵測中, true/false = canMakePayment 結果
             cart: [
                 { label: 'Vanilla 專案大師課程', amount: { currency: 'TWD', value: '3000.00' } },
                 { label: '無框架精神紀念 T-Shirt', amount: { currency: 'TWD', value: '500.00' } }
             ]
         });
+    }
+
+    async connectedCallback() {
+        super.connectedCallback();
+        // 以 canMakePayment() 非同步偵測「是否真的有可用付款方式」
+        this.state.supported = await paymentService.isAvailable();
     }
 
     async handleCheckout() {
@@ -43,12 +50,26 @@ export class PaymentPage extends BaseComponent {
 
     render() {
         const total = this.state.cart.reduce((sum, i) => sum + parseFloat(i.amount.value), 0);
-        const isSupported = paymentService.isSupported;
+        const supported = this.state.supported; // null=偵測中, true/false
+
+        // 依偵測結果決定按鈕文案與禁用狀態
+        const btnDisabled = supported !== true;
+        const btnLabel = supported === null
+            ? '⏳ 偵測可用付款方式中…'
+            : supported
+                ? '💳 立即結帳 (Pay Now)'
+                : '⚠️ 此環境無可用付款方式';
 
         return html`
             <div class="lab-card">
                 <h3>💳 原生支付 (Payment Request API)</h3>
-                <p><small>無需第三方金流 SDK，直接喚出瀏覽器原生的 Apple Pay、Google Pay 或信用卡結帳介面。</small></p>
+                <p><small>無需第三方金流 SDK，直接喚出瀏覽器原生的 Apple Pay、Google Pay 結帳介面。</small></p>
+
+                <div style="margin: 0.8rem 0; padding: 0.7rem 1rem; background: #fffbeb; border-left: 3px solid #f59e0b; border-radius: 4px; font-size: 0.82rem; color: #92400e;">
+                    ⚠️ <strong>教學 Demo</strong>：本範本無後端與商家憑證，付款流程為模擬。
+                    <code>basic-card</code> 已被瀏覽器移除，此處改用 Google Pay；要真正喚起原生介面，
+                    需在支援的環境並設定 merchant（故多數情況下按鈕會停用）。
+                </div>
 
                 <h4 style="margin: 1.5rem 0 0.5rem;">🛒 購物車</h4>
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
@@ -65,11 +86,11 @@ export class PaymentPage extends BaseComponent {
                 </table>
 
                 <div class="btn-group" style="margin-top: 1.5rem;">
-                    <button 
+                    <button
                         class="btn btn-primary"
                         onclick="this.closest('page-lab-payment').handleCheckout()"
-                        ${unsafe(isSupported ? '' : 'disabled')}>
-                        ${isSupported ? '💳 立即結帳 (Pay Now)' : '⚠️ 此瀏覽器不支援 Payment Request API'}
+                        ${unsafe(btnDisabled ? 'disabled' : '')}>
+                        ${btnLabel}
                     </button>
                 </div>
 

@@ -19,8 +19,15 @@ if (await request.canMakePayment()) {
 ```
 
 ### 發起請求
+
+> ⚠️ `basic-card` 已被各大瀏覽器移除（Chrome 自 100 版起），改用 URL 型付款方式
+> （Google Pay / Apple Pay）。
+
 ```javascript
-const methods = [{ supportedMethods: 'basic-card' }];
+const methods = [{
+    supportedMethods: 'https://google.com/pay',
+    data: { /* Google Pay merchant 設定 */ }
+}];
 const details = {
     total: { label: '總計', amount: { currency: 'TWD', value: '100.00' } }
 };

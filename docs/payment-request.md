@@ -11,12 +11,24 @@ Payment Request API 旨在標準化網頁上的結帳流程，消除繁瑣的表
 ## 2. 實作流程
 
 ### 初始化請求
+
+> ⚠️ `basic-card` 已於 Chrome 100 (2022) 起被各大瀏覽器移除，請改用 URL 型付款方式
+> （如 Google Pay `https://google.com/pay`、Apple Pay `https://apple.com/apple-pay`）。
+
 ```javascript
-const methods = [{ supportedMethods: 'basic-card' }];
+const methods = [{
+    supportedMethods: 'https://google.com/pay',
+    data: { /* Google Pay merchant 設定 */ }
+}];
 const details = {
     total: { label: '總計', amount: { currency: 'USD', value: '10.00' } }
 };
 const request = new PaymentRequest(methods, details);
+
+// 先以 canMakePayment() 確認是否有可用付款方式，再啟用結帳按鈕
+if (await request.canMakePayment()) {
+    // 顯示／啟用結帳按鈕
+}
 ```
 
 ### 顯示支付介面

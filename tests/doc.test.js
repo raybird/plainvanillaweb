@@ -24,12 +24,11 @@ test('代碼塊保留語言類別並轉義內容', () => {
     assert.match(out, /1 &lt; 2/);  // < 被轉義
 });
 
-test('[KNOWN BUG] 代碼塊內的反引號被誤判為行內代碼', () => {
-    // 已知缺陷：行內代碼的 regex 在代碼塊轉換「之後」才執行，
-    // 因此代碼塊內殘留的反引號 (`x`) 仍會被包成 md-inline-code，破壞渲染。
-    // 本測試先固定現況；待 order 4 重寫解析器時，應改為 doesNotMatch 並修正。
+test('代碼塊內的反引號不被當成行內代碼 (佔位符保護)', () => {
+    // 代碼塊先以佔位符抽出，內部的反引號 (`x`) 不應被包成 md-inline-code。
     const out = parseMarkdown('```js\nconst t = `x`;\n```');
-    assert.match(out, /md-inline-code/);  // 反映 BUG 現況，非預期正確行為
+    assert.doesNotMatch(out, /md-inline-code/);
+    assert.match(out, /<code class="language-js">const t = `x`;<\/code>/);
 });
 
 test('行內代碼轉義 HTML', () => {

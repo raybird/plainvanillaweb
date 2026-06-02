@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>BaseComponent 瀏覽器測試</title>
+    <base href="/plainvanillaweb/">
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+        h1 { font-size: 1.3rem; }
+        #summary { font-weight: bold; padding: .6rem 1rem; border-radius: 8px; margin: 1rem 0; }
+        #summary.pass { background: #d4f7d4; color: #0a5d0a; }
+        #summary.fail { background: #ffd6d6; color: #8a0a0a; }
+        ul { list-style: none; padding: 0; }
+        li { padding: .4rem .6rem; border-bottom: 1px solid #eee; font-family: ui-monospace, monospace; font-size: .9rem; }
+        .ok::before { content: "✅ "; }
+        .ng::before { content: "❌ "; }
+        .ng { color: #b00020; }
+        .err { color: #b00020; white-space: pre-wrap; padding-left: 1.6rem; font-size: .8rem; }
+    </style>
+</head>
+<body>
+    <h1>🍦 BaseComponent 瀏覽器測試</h1>
+    <p>需透過 HTTP 開啟（<code>python3 -m http.server</code> → <code>/tests/browser.html</code>）。需要真實 DOM，故不在 Node 執行。</p>
+    <div id="summary">執行中…</div>
+    <ul id="results"></ul>
+
+    <script type="module">
+        import { BaseComponent } from '../lib/base-component.js';
+
+        // --- 極簡測試骨架 (零依賴) ---
+        const results = [];
+        const tests = [];
+        const test = (name, fn) => tests.push({ name, fn });
+        const assert = (cond, msg) => { if (!cond) throw new Error(msg || '斷言失敗'); };
+        const assertEq = (a, b, msg) =>
+            assert(a === b, `${msg || ''} 期望 ${JSON.stringify(b)}，實得 ${JSON.stringify(a)}`);
+        // 等待 BaseComponent 的 rAF 批次更新刷新（兩個 frame 確保 scheduleUpdate 完成）
+        const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const host = document.createElement('div');
+        host.style.position = 'absolute';
+        host.style.left = '-9999px';
+        document.body.appendChild(host);
+        const mount = (el) => { host.appendChild(el); return el; };
+
+        // === 測試案例 ===
+
+        test('Light DOM 預設將 render() 結果寫入 innerHTML', () => {
+            class C extends BaseComponent { render() { return '<p class="x">hi</p>'; } }
+            customElements.define('t-light', C);
+            const el = mount(document.createElement('t-light'));
+            assert(!el.shadowRoot, '預設不應有 shadowRoot');
+            assertEq(el.querySelector('.x')?.textContent, 'hi');
+        });
+
+        test('initReactiveState 變更後經 rAF 觸發重繪', async () => {
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ n: 0 }); }
+                render() { return `<span class="n">${this.state.n}</span>`; }
+            }
+            customElements.define('t-reactive', C);
+            const el = mount(document.createElement('t-reactive'));
+            assertEq(el.querySelector('.n').textContent, '0');
+            el.state.n = 5;
+            await nextFrame();
+            assertEq(el.querySelector('.n').textContent, '5', '狀態變更後');
+        });
+
+        test('html`` 回傳值的內插值會被自動轉義', async () => {
+            const { html } = await import('../lib/html.js');
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ v: '<img src=x onerror=alert(1)>' }); }
+                render() { return html`<div class="out">${this.state.v}</div>`; }
+            }
+            customElements.define('t-safe', C);
+            const el = mount(document.createElement('t-safe'));
+            // 應為轉義後的文字，而非真的 <img> 元素
+            assertEq(el.querySelector('.out').querySelector('img'), null, '不應產生真實 img');
+            assert(el.querySelector('.out').textContent.includes('<img'), '應保留為轉義文字');
+        });
+
+        test('useShadow=true 時內容渲染進 shadowRoot', () => {
+            class C extends BaseComponent {
+                static useShadow = true;
+                render() { return '<p class="s">shadow</p>'; }
+            }
+            customElements.define('t-shadow', C);
+            const el = mount(document.createElement('t-shadow'));
+            assert(el.shadowRoot, '應有 shadowRoot');
+            assertEq(el.shadowRoot.querySelector('.s')?.textContent, 'shadow');
+            assertEq(el.querySelector('.s'), null, 'Light DOM 不應有內容');
+        });
+
+        test('$slot 擷取首次渲染前的原始子內容', () => {
+            class C extends BaseComponent {
+                render() { return `<div class="wrap">${this.$slot()}</div>`; }
+            }
+            customElements.define('t-slot', C);
+            const el = document.createElement('t-slot');
+            el.innerHTML = '<b>slotted</b>';
+            mount(el);
+            assertEq(el.querySelector('.wrap b')?.textContent, 'slotted');
+        });
+
+        test('data-persistent 節點在重繪後保留 (同一個 DOM 實例)', async () => {
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ n: 0 }); }
+                render() {
+                    return `<div><span class="n">${this.state.n}</span>
+                            <div data-persistent-placeholder="keep"></div></div>`;
+                }
+                afterFirstRender() {
+                    const ph = this.querySelector('[data-persistent-placeholder="keep"]');
+                    const node = document.createElement('div');
+                    node.setAttribute('data-persistent', 'keep');
+                    node.innerHTML = '<input class="pers">';
+                    ph.replaceWith(node);
+                }
+            }
+            customElements.define('t-persist', C);
+            const el = mount(document.createElement('t-persist'));
+            const input = el.querySelector('.pers');
+            input.value = 'typed-by-user';   // 模擬使用者輸入的暫態
+            el.state.n = 1;                   // 觸發重繪
+            await nextFrame();
+            assertEq(el.querySelector('.n').textContent, '1', '計數應更新');
+            assertEq(el.querySelector('.pers')?.value, 'typed-by-user', '持久節點輸入值應保留');
+        });
+
+        test('重繪後恢復輸入框焦點與游標位置', async () => {
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ n: 0 }); }
+                render() { return `<input id="focusable" value="abcdef"><span>${this.state.n}</span>`; }
+            }
+            customElements.define('t-focus', C);
+            const el = mount(document.createElement('t-focus'));
+            const input = el.querySelector('#focusable');
+            input.focus();
+            input.setSelectionRange(2, 4);
+            el.state.n = 1;
+            await nextFrame();
+            const after = el.querySelector('#focusable');
+            assertEq(document.activeElement, after, '焦點應恢復至輸入框');
+            assertEq(after.selectionStart, 2, '游標起點');
+            assertEq(after.selectionEnd, 4, '游標終點');
+        });
+
+        test('$t 在 i18n 未初始化時回傳鍵名 (不拋錯)', () => {
+            class C extends BaseComponent { render() { return `<p class="t">${this.$t('nonexistent.key')}</p>`; } }
+            customElements.define('t-i18n', C);
+            const el = mount(document.createElement('t-i18n'));
+            assertEq(el.querySelector('.t').textContent, 'nonexistent.key');
+        });
+
+        // === 執行 ===
+        (async () => {
+            for (const { name, fn } of tests) {
+                try {
+                    await fn();
+                    results.push({ name, ok: true });
+                } catch (e) {
+                    results.push({ name, ok: false, error: e.message });
+                }
+            }
+
+            const ul = document.getElementById('results');
+            ul.innerHTML = results.map(r =>
+                `<li class="${r.ok ? 'ok' : 'ng'}">${r.name}` +
+                (r.ok ? '' : `<div class="err">${r.error}</div>`) + `</li>`
+            ).join('');
+
+            const passed = results.filter(r => r.ok).length;
+            const summary = document.getElementById('summary');
+            const allPass = passed === results.length;
+            summary.className = allPass ? 'pass' : 'fail';
+            summary.textContent = `${passed} / ${results.length} 通過` + (allPass ? ' 🎉' : '');
+
+            // 供自動化擷取
+            window.__TEST_RESULTS__ = { passed, total: results.length, results };
+        })();
+    </script>
+</body>
+</html>

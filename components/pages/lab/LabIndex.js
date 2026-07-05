@@ -5,6 +5,12 @@ export class LabIndex extends BaseComponent {
   render() {
     const experiments = [
       {
+        id: "indexeddb-backup",
+        docId: "indexeddb-backup",
+        title: "💾 離線資料庫與備份",
+        desc: "IndexedDB 與 Web Worker 背景 Gzip 壓縮備份"
+      },
+      {
         id: "speech",
         docId: "native-speech",
         title: "🗣️ 原生語音",

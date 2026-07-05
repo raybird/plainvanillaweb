@@ -69,6 +69,7 @@ export class LabPage extends BaseComponent {
         import("./lab/BroadcastPage.js"),
         import("./lab/ModalPage.js"),
         import("./lab/ChartPage.js"),
+        import("./lab/IndexedDBBackupPage.js"),
         import("./lab/HistoryPage.js"),
       ]);
 
@@ -211,6 +212,9 @@ export class LabPage extends BaseComponent {
                                                   ></x-route>
                                                   <x-route path="/lab/pwa-advanced" exact
                                                     ><page-pwa-advanced></page-pwa-advanced
+                                                  ></x-route>
+                                                  <x-route path="/lab/indexeddb-backup" exact
+                                                    ><indexeddb-backup-page></indexeddb-backup-page
                                                   ></x-route>
                                                   
                               <!-- 通配符 fallback -->

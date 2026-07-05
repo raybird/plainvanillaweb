@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vanilla-cache-v6';
+const CACHE_NAME = 'vanilla-cache-v7';
 const CORE_ASSETS = [
     './',
     './index.html',
@@ -11,6 +11,7 @@ const CORE_ASSETS = [
     './lib/html.js',
     './lib/idb-service.js',
     './lib/worker-service.js',
+    './lib/lucide.min.js',
     './assets/locales/zh-TW.json',
     './assets/locales/en-US.json'
 ];

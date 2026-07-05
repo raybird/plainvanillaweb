@@ -78,31 +78,31 @@ export class App extends BaseComponent {
             {
                 title: "導覽與核心",
                 links: [
-                    { href: '#/', label: t('app.home'), icon: '🏠', module: './components/pages/HomePage.js' },
-                    { href: '#/manifesto', label: '🍦 宣言', icon: '📜', module: './components/pages/ManifestoPage.js' }
+                    { href: '#/', label: t('app.home'), icon: 'home', module: './components/pages/HomePage.js' },
+                    { href: '#/manifesto', label: '🍦 宣言', icon: 'scroll', module: './components/pages/ManifestoPage.js' }
                 ]
             },
             {
                 title: "學習與實作",
                 links: [
-                    { href: '#/docs', label: t('app.docs'), icon: '📚', module: './components/pages/Docs.js' },
-                    { href: '#/lab', label: t('app.lab'), icon: '🧪', module: './components/pages/Lab.js' },
-                    { href: '#/playground', label: t('app.playground'), icon: '🎡', module: './components/pages/Playground.js' }
+                    { href: '#/docs', label: t('app.docs'), icon: 'book-open', module: './components/pages/Docs.js' },
+                    { href: '#/lab', label: t('app.lab'), icon: 'flask-conical', module: './components/pages/Lab.js' },
+                    { href: '#/playground', label: t('app.playground'), icon: 'terminal', module: './components/pages/Playground.js' }
                 ]
             },
             {
                 title: "監控與開發工具",
                 links: [
-                    { href: '#/dashboard', label: t('app.dashboard'), icon: '📊', module: './components/pages/Dashboard.js' },
-                    { href: '#/analytics', label: t('app.analytics'), icon: '📈', module: './components/pages/Analytics.js' },
-                    { href: '#/worker', label: t('app.worker'), icon: '⚡', module: './components/pages/WorkerDemo.js' },
-                    { href: '#/search', label: t('app.search'), icon: '🔍', module: './components/pages/RepoSearch.js' }
+                    { href: '#/dashboard', label: t('app.dashboard'), icon: 'layout-dashboard', module: './components/pages/Dashboard.js' },
+                    { href: '#/analytics', label: t('app.analytics'), icon: 'bar-chart-2', module: './components/pages/Analytics.js' },
+                    { href: '#/worker', label: t('app.worker'), icon: 'cpu', module: './components/pages/WorkerDemo.js' },
+                    { href: '#/search', label: t('app.search'), icon: 'search', module: './components/pages/RepoSearch.js' }
                 ]
             },
             {
                 title: "使用者",
                 links: [
-                    { href: '#/profile', label: t('app.profile'), icon: '👤', module: './components/pages/Profile.js' }
+                    { href: '#/profile', label: t('app.profile'), icon: 'user', module: './components/pages/Profile.js' }
                 ]
             }
         ];
@@ -115,7 +115,7 @@ export class App extends BaseComponent {
                        class="nav-link ${currentHash === link.href ? 'active' : ''}" 
                        onclick="this.closest('x-app').closeMenu()" 
                        onmouseover="prefetchService.preloadModule('${link.module}')">
-                       <span class="nav-icon">${link.icon}</span> ${link.label}
+                       <span class="nav-icon"><i data-lucide="${link.icon}"></i></span> ${link.label}
                     </a>
                 `)}
             </div>
@@ -141,7 +141,9 @@ export class App extends BaseComponent {
                 <!-- 側邊欄 (Sidebar) -->
                 <nav class="navbar ${this.state.isMenuOpen ? 'open' : ''}">
                     <div class="nav-brand">
-                        <a href="#/" class="brand-link" onclick="this.closest('x-app').closeMenu()">🍦 VanillaWeb</a>
+                        <a href="#/" class="brand-link" onclick="this.closest('x-app').closeMenu()">
+                            <i data-lucide="ice-cream" style="color: var(--primary-color); margin-right: 0.25rem;"></i> VanillaWeb
+                        </a>
                     </div>
 
                     <div class="nav-menu">
@@ -198,11 +200,48 @@ export class App extends BaseComponent {
     }
 
     addEventListeners() {
-        this.querySelector('#theme-toggle')?.addEventListener('click', () => {
+        this.querySelector('#theme-toggle')?.addEventListener('click', (event) => {
             const modes = ['system', 'light', 'dark'];
             const current = appStore.state.theme || 'system';
             const next = modes[(modes.indexOf(current) + 1) % modes.length];
-            appStore.state.theme = next;
+            
+            // 降級處理：如果不支援 View Transition，直接切換
+            if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                appStore.state.theme = next;
+                return;
+            }
+
+            // 計算點擊按鈕的中心坐標
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            
+            // 計算波紋擴散至整個視窗角落所需的最大半徑
+            const endRadius = Math.hypot(
+                Math.max(x, window.innerWidth - x),
+                Math.max(y, window.innerHeight - y)
+            );
+
+            const transition = document.startViewTransition(() => {
+                appStore.state.theme = next;
+            });
+
+            // 圓形波紋擴散 clip-path 動畫
+            transition.ready.then(() => {
+                document.documentElement.animate(
+                    {
+                        clipPath: [
+                            `circle(0px at ${x}px ${y}px)`,
+                            `circle(${endRadius}px at ${x}px ${y}px)`
+                        ]
+                    },
+                    {
+                        duration: 400,
+                        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                        pseudoElement: '::view-transition-new(root)'
+                    }
+                );
+            });
         });
 
         this.querySelector('#lang-toggle')?.addEventListener('click', (e) => {

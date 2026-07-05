@@ -239,12 +239,45 @@ export class LabIndex extends BaseComponent {
           background: var(--card-bg);
           text-decoration: none;
           color: var(--text-color);
-          transition: all 0.2s;
+          /* 物理彈性過渡 */
+          transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, border-color 0.2s;
           cursor: pointer;
           box-shadow: var(--card-shadow);
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+        .lab-card-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 0.75rem;
+        }
+        .lab-icon-box {
+          width: 38px;
+          height: 38px;
+          border-radius: 8px;
+          background: var(--primary-subtle, rgba(37, 99, 235, 0.1));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.3rem;
+          flex-shrink: 0;
+        }
+        .lab-item h3 {
+          margin: 0;
+          color: var(--primary-color);
+          font-size: 1.1rem;
+          font-weight: 700;
+          line-height: 1.3;
+        }
+        .lab-item p {
+          margin: 0 0 1rem;
+          flex: 1;
+          color: var(--text-muted);
         }
         .lab-item .actions {
-          margin-top: 0.8rem;
+          margin-top: auto;
           display: flex;
           gap: 0.5rem;
           flex-wrap: wrap;
@@ -254,48 +287,57 @@ export class LabIndex extends BaseComponent {
         }
         .lab-item .btn-link {
           display: inline-block;
-          padding: 0.35rem 0.6rem;
+          padding: 0.35rem 0.65rem;
           border-radius: 999px;
           font-size: 0.78rem;
           border: 1px solid var(--border-color);
           color: var(--text-muted);
           background: var(--surface-color);
+          transition: all 0.2s;
         }
         .lab-item .btn-link.primary {
           background: var(--primary-color);
           color: #fff;
           border-color: var(--primary-color);
         }
+        .lab-item .btn-link:hover {
+          filter: brightness(1.08);
+          transform: translateY(-1px);
+        }
         .lab-item:hover {
           transform: translateY(-5px);
           box-shadow: var(--card-shadow-hover);
           border-color: var(--primary-color);
         }
-        .lab-item h3 {
-          margin-top: 0;
-          color: var(--primary-color);
-        }
       </style>
 
       <div class="lab-grid">
-        ${experiments.map(
-      (exp) => html`
-            <article class="lab-item">
-              <h3>${exp.title}</h3>
-              <p><small>${exp.desc}</small></p>
+        ${experiments.map((exp) => {
+          // 自動分離 Emoji 與純文字標題
+          const emojiMatch = exp.title.match(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g);
+          const emoji = emojiMatch ? emojiMatch[0] : "🧪";
+          const cleanTitle = exp.title.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, "").trim();
+          
+          return html`
+            <article class="lab-item" onclick="window.location.hash = '#/lab/${exp.id}'">
+              <div>
+                <div class="lab-card-header">
+                  <div class="lab-icon-box">${emoji}</div>
+                  <h3>${cleanTitle}</h3>
+                </div>
+                <p><small>${exp.desc}</small></p>
+              </div>
               <div class="actions">
-                <a href="#/lab/${exp.id}" class="btn-link primary">開啟實驗</a>
+                <a href="#/lab/${exp.id}" class="btn-link primary" onclick="event.stopPropagation()">開啟實驗</a>
                 ${exp.docId
-          ? html`
-                      <a href="#/docs/${exp.docId}" class="btn-link"
-                        >技術手冊</a
-                      >
+                  ? html`
+                      <a href="#/docs/${exp.docId}" class="btn-link" onclick="event.stopPropagation()">技術手冊</a>
                     `
-          : ""}
+                  : ""}
               </div>
             </article>
-          `,
-    )}
+          `;
+        })}
       </div>
     `;
   }

@@ -87,7 +87,8 @@ body {
   margin: 0;
   line-height: 1.7;
   font-size: 16px;
-  transition: background-color 0.3s, color 0.3s;
+  /* 貝氏曲線平滑明暗轉換 */
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s ease;
 }
 
 img,
@@ -188,9 +189,23 @@ h1,
 h2,
 h3,
 h4 {
-  line-height: 1.3;
-  font-weight: 700;
-  letter-spacing: -0.3px;
+  font-family: "Archivo", "Inter", system-ui, sans-serif;
+  line-height: 1.35;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* ── Lucide Icon 預設樣式 ── */
+.lucide-icon {
+  width: 1.2em;
+  height: 1.2em;
+  stroke-width: 2.2;
+  stroke: currentColor;
+  fill: none;
+  vertical-align: text-bottom;
+  display: inline-block;
+  flex-shrink: 0;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ── 佈局容器 ── */
@@ -324,7 +339,7 @@ h4 {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  transition: all 0.15s ease;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   margin-bottom: 0.15rem;
   font-weight: 500;
 }
@@ -332,7 +347,9 @@ h4 {
 .nav-icon {
   font-size: 1rem;
   opacity: 0.7;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 20px;
   text-align: center;
 }
@@ -341,10 +358,15 @@ h4 {
   background: rgba(255, 255, 255, 0.07);
   color: #e2e8f0;
   text-decoration: none;
+  transform: translateX(4px);
 }
 
 .nav-link:hover .nav-icon {
   opacity: 1;
+}
+
+.nav-link:hover .lucide-icon {
+  transform: scale(1.12);
 }
 
 .nav-link.active {
@@ -833,4 +855,23 @@ hr {
 [data-theme="dark"] ::-webkit-scrollbar-thumb {
   background: #334155;
   border-radius: 4px;
+}
+
+/* ── 明暗主題切換 View Transition 圓形擴散 ── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
+}
+[data-theme="dark"]::view-transition-old(root) {
+  z-index: 2;
+}
+[data-theme="dark"]::view-transition-new(root) {
+  z-index: 1;
 }

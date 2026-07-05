@@ -247,10 +247,10 @@ export class HomePage extends BaseComponent {
 
                 <div class="hero-actions">
                     <a href="#/lab" class="btn-hero-primary">
-                        🧪 進入實驗室
+                        <i data-lucide="flask-conical" style="width: 1.2em; height: 1.2em; stroke-width: 2.5;"></i> 進入實驗室
                     </a>
                     <a href="#/docs/manifesto" class="btn-hero-ghost">
-                        📜 閱讀宣言
+                        <i data-lucide="scroll" style="width: 1.2em; height: 1.2em; stroke-width: 2;"></i> 閱讀宣言
                     </a>
                 </div>
             </section>
@@ -279,21 +279,21 @@ export class HomePage extends BaseComponent {
             <h2 style="margin-bottom: 1.25rem;">📍 開始探索</h2>
             <div class="nav-grid">
                 <a href="#/lab" class="nav-card" style="--card-accent: #2563eb;">
-                    <span class="icon">🧪</span>
+                    <span class="icon" style="color: var(--card-accent);"><i data-lucide="flask-conical" style="width: 2.2rem; height: 2.2rem; stroke-width: 1.8;"></i></span>
                     <h3>互動式實驗室</h3>
-                    <p>從 WebRTC 到 WebGPU，以最純粹的 Vanilla 形態體驗 37 個前沿瀏覽器 API。</p>
+                    <p>從 WebRTC 到 WebGPU，以最純粹的原生 (Vanilla) 形態體驗 37 個前沿瀏覽器 API。</p>
                     <span class="badge">37 個實驗 →</span>
                 </a>
 
                 <a href="#/dashboard" class="nav-card" style="--card-accent: #059669;">
-                    <span class="icon">📊</span>
+                    <span class="icon" style="color: var(--card-accent);"><i data-lucide="layout-dashboard" style="width: 2.2rem; height: 2.2rem; stroke-width: 1.8;"></i></span>
                     <h3>開發者儀表板</h3>
                     <p>內建網路監控、IndexedDB 統計、記憶體觀察與服務狀態 — 你的迷你 DevTools。</p>
                     <span class="badge">即時監控 →</span>
                 </a>
 
                 <a href="#/docs/manifesto" class="nav-card" style="--card-accent: #7c3aed;">
-                    <span class="icon">📜</span>
+                    <span class="icon" style="color: var(--card-accent);"><i data-lucide="scroll" style="width: 2.2rem; height: 2.2rem; stroke-width: 1.8;"></i></span>
                     <h3>Vanilla Manifesto</h3>
                     <p>了解本專案的核心哲學：標準優於框架、零建置成本、透明性與安全預設值。</p>
                     <span class="badge">6 項原則 →</span>

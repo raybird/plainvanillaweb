@@ -28,6 +28,15 @@ export class App extends BaseComponent {
         this._unsubscribeAuth = authService.on('auth-change', this._handleAuthChange);
         prefetchService.observeLinks(this);
 
+        // 檢測是否為 PWA Share Target 傳入的分享資料，並自動重定向至對應的實驗室頁面
+        const searchParams = new URLSearchParams(window.location.search);
+        if (searchParams.has('share_title') || searchParams.has('share_text') || searchParams.has('share_url')) {
+            if (window.location.hash !== '#/lab/web-share') {
+                console.log('[Share Target] Detecting inbound payload. Redirecting to #/lab/web-share...');
+                window.location.hash = `#/lab/web-share?${searchParams.toString()}`;
+            }
+        }
+
         // 監聽 hash 變化以更新側邊欄 Active 狀態
         this._handleHashChange = () => this.update();
         window.addEventListener('hashchange', this._handleHashChange);

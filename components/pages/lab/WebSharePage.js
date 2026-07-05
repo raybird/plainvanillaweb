@@ -30,10 +30,25 @@ export class WebSharePage extends BaseComponent {
   }
 
   parseHashQuery() {
+    // 解析 URL Search 參數 (即 # 之前的 query)
+    const searchParams = new URLSearchParams(window.location.search);
+    
+    // 解析 Hash Query 參數 (即 # 之後的 query)
     const hash = window.location.hash || "";
     const queryIndex = hash.indexOf("?");
-    if (queryIndex === -1) return new URLSearchParams();
-    return new URLSearchParams(hash.slice(queryIndex + 1));
+    const hashParams = queryIndex !== -1 
+      ? new URLSearchParams(hash.slice(queryIndex + 1)) 
+      : new URLSearchParams();
+      
+    // 合併兩者
+    const merged = new URLSearchParams();
+    for (const [key, val] of searchParams.entries()) {
+      merged.set(key, val);
+    }
+    for (const [key, val] of hashParams.entries()) {
+      merged.set(key, val);
+    }
+    return merged;
   }
 
   readInboundPayload() {

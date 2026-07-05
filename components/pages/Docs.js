@@ -101,7 +101,7 @@ export class Documentation extends BaseComponent {
       { id: "router", title: "原生路由與 SEO" },
       { id: "boilerplate-getting-started", title: "零建置專案起手式模板" },
       { id: "indexeddb-backup", title: "IndexedDB 離線庫與背景備份" },
-      { id: "MANIFESTO", title: "🍦 Vanilla 開發宣言" },
+      { id: "manifesto", title: "🍦 Vanilla 開發宣言" },
       { id: "component-architecture", title: "🏗️ 組件開發指南" },
       { id: "service-patterns", title: "🔌 服務模式規範" },
       { id: "safe-html-rendering", title: "🛡️ SafeHTML 與 XSS 防護" },

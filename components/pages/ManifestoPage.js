@@ -12,8 +12,8 @@ export class ManifestoPage extends BaseComponent {
 
     async connectedCallback() {
         super.connectedCallback();
-        // 動態抓取 docs/MANIFESTO.md 教學文件並轉為 HTML
-        const htmlContent = await docService.getDoc('MANIFESTO');
+        // 動態抓取 docs/manifesto.md 教學文件並轉為 HTML
+        const htmlContent = await docService.getDoc('manifesto');
         this.state.content = htmlContent;
     }
 

@@ -247,7 +247,8 @@ export class App extends BaseComponent {
                 }
             });
 
-            // 捕獲 finished 狀態的拒絕
+            // 捕獲所有關聯的 Promise，防止瀏覽器在跳過動畫時拋出 Uncaught (in promise)
+            transition.updateCallbackDone.catch(() => {});
             transition.finished.catch(err => {
                 if (err.name !== 'AbortError') {
                     console.error('[ViewTransition] Theme transition finished failed:', err);

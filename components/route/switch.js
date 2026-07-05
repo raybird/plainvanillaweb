@@ -30,7 +30,9 @@ export class SwitchComponent extends HTMLElement {
     }
 
     const transition = document.startViewTransition(() => this._performUpdate());
-    // 捕獲 finished 的 Promise 拒絕，防止未處理的 Promise 拒絕觸發 unhandledrejection
+    // 必須捕獲所有關聯的 Promise，防止瀏覽器在跳過動畫時拋出 Uncaught (in promise)
+    transition.ready.catch(() => {});
+    transition.updateCallbackDone.catch(() => {});
     transition.finished.catch(err => {
       if (err.name !== 'AbortError') {
         console.error('[ViewTransition] Route transition failed:', err);

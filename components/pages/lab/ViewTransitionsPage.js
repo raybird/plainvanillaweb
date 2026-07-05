@@ -17,7 +17,12 @@ export class ViewTransitionsPage extends BaseComponent {
 
   runWithTransition(work) {
     if (this.state.supported) {
-      document.startViewTransition(work);
+      const transition = document.startViewTransition(work);
+      transition.finished.catch(err => {
+        if (err.name !== 'AbortError') {
+          console.error('[ViewTransition] Demo transition failed:', err);
+        }
+      });
       return;
     }
     work();

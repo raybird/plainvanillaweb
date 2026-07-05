@@ -241,6 +241,17 @@ export class App extends BaseComponent {
                         pseudoElement: '::view-transition-new(root)'
                     }
                 );
+            }).catch(err => {
+                if (err.name !== 'AbortError') {
+                    console.error('[ViewTransition] Ready animation failed:', err);
+                }
+            });
+
+            // 捕獲 finished 狀態的拒絕
+            transition.finished.catch(err => {
+                if (err.name !== 'AbortError') {
+                    console.error('[ViewTransition] Theme transition finished failed:', err);
+                }
             });
         });
 

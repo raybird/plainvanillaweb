@@ -29,7 +29,13 @@ export class SwitchComponent extends HTMLElement {
       return;
     }
 
-    document.startViewTransition(() => this._performUpdate());
+    const transition = document.startViewTransition(() => this._performUpdate());
+    // 捕獲 finished 的 Promise 拒絕，防止未處理的 Promise 拒絕觸發 unhandledrejection
+    transition.finished.catch(err => {
+      if (err.name !== 'AbortError') {
+        console.error('[ViewTransition] Route transition failed:', err);
+      }
+    });
   }
 
   _performUpdate() {

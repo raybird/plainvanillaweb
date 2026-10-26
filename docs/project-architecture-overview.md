@@ -149,11 +149,12 @@ plainvanillaweb/
 
 ---
 
-## 6. 工業級聚合入口：Vanilla SDK (v1.0.0)
+## 6. 工業級聚合入口：Vanilla SDK (v1.1.0)
 
-在 `lib/vanilla-sdk.js` 中，專案將 40 多項服務進行了統一聚合與模組化匯出：
-* 支援由外部環境或 CDN 直接單一引入：`import { VanillaSDK } from './lib/vanilla-sdk.js'`。
-* 具備完整的 JSDoc 型別註釋與單例引用，讓本專案不僅是一個展示站點，也能作為獨立的 SDK 提供給其他原生或外部專案使用。
+在 `lib/vanilla-sdk.js` 中，專案將全站的核心架構能力與 40+ 項服務進行了全方位聚合與模組化匯出：
+* **全量一站式導出**：不僅聚合了前沿 Web API 服務單例，更匯出了**核心基底類別 (`BaseComponent`, `BaseService`, `Store`)**、**安全標籤模板 (`html`, `unsafe`, `escapeHTML`)**、**響應式表單引擎 (`FormControl`, `FormGroup`, `Validators`)**，以及**結構化離線資料庫 (`dbService`, `DBService`)** 與 **高頻繪圖工具 (`CanvasChart`)**。
+* **CDN 與外站零建置引用**：支援由外部環境直接引入：`import { VanillaSDK, BaseComponent, html, FormGroup } from './lib/vanilla-sdk.js'`，實現開箱即用的原生 SPA 與前沿 Web 工具庫。
+* **完整 JSDoc 型別提示**：在現代 IDE（如 VS Code）中具備完整的智慧自動補全與型別提示。
 
 ---
 

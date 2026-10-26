@@ -74,7 +74,7 @@ The project is organized into four core functional domains, matching the applica
     - **Dynamic Code Splitting**: Route-level lazy loading via native dynamic `import()`.
     - **View Transitions**: Native single-page transition animations powered by `document.startViewTransition()`.
     - **Light & Dark Theming**: CSS Variables system with circular ripple transition animation.
-    - **Vanilla SDK v1.0.0**: 40+ unified singleton services decoupled for CDN/external distribution.
+    - **Vanilla SDK v1.1.0**: Industrial suite decoupling base classes (`BaseComponent`, `BaseService`, `Store`), `SafeHTML`, reactive form engine, and 40+ singleton services for CDN/external distribution.
 
 ---
 

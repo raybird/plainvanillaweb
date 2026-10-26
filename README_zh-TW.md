@@ -61,7 +61,7 @@
 - **進階交互實踐**：
     - **Native Charts**: 利用 Canvas API 實作零依賴的高效能數據視覺化。
     - **Image Processing**: 純前端圖片濾鏡與縮放處理。
-    - **Vanilla SDK 模式**: 核心服務解耦，支援由外部 URL 直接引用的 CDN 開發模式。
+    - **Vanilla SDK 模式 (v1.1.0)**: 解耦核心基類 (`BaseComponent`, `BaseService`, `Store`)、`SafeHTML`、響應式表單引擎與 40+ 項服務，支援外部 URL 直接引用。
 - **專業級韌性架構**：
     - **安全的預設值 (SafeHTML)**: 實作內建 XSS 防禦的標籤模板渲染機制，將安全視為一等公民。
     - **Offline Action Queue**: 斷網時操作自動排隊，恢復連線後自動同步。

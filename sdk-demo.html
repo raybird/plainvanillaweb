@@ -6,36 +6,45 @@
     <title>Vanilla SDK 接入示範</title>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
-        .card { border: 1px solid #eee; padding: 1.5rem; border-radius: 12px; background: #fafafa; margin-top: 2rem; }
+        .card { border: 1px solid #eee; padding: 1.5rem; border-radius: 12px; background: #fafafa; margin-top: 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
         pre { background: #272822; color: #f8f8f2; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.9rem; }
         code { font-family: 'Fira Code', monospace; }
-        button { background: #007bff; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
-        .success { color: green; font-weight: bold; }
+        button { background: #007bff; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.95rem; margin-right: 0.5rem; }
+        button:hover { background: #0056b3; }
+        .btn-outline { background: transparent; color: #007bff; border: 1px solid #007bff; }
+        .btn-outline:hover { background: #e7f1ff; }
+        .success { color: #28a745; font-weight: bold; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; background: #e7f5ea; color: #1e7e34; }
     </style>
 </head>
 <body>
     <h1>🍦 Vanilla SDK 接入示範</h1>
-    <p>這是一個獨立的 HTML 檔案，展示了如何像使用 CDN 庫一樣引用 <code>plainvanillaweb</code> 的核心模組。</p>
+    <p>這是一個獨立的 HTML 檔案，展示如何像使用 CDN 庫一樣引用 <code>plainvanillaweb</code> 的核心模組與 <code>html</code> 安全渲染標籤模板。</p>
 
     <div class="card">
-        <h3>1. 引入 SDK</h3>
-        <pre><code>import { cryptoService } from './lib/vanilla-sdk.js';</code></pre>
+        <h3>1. 引入 SDK 與 SafeHTML</h3>
+        <p>Vanilla SDK 除了聚合各項原生 API 服務外，也匯出具備 XSS 自動轉義的 <code>html</code> 標籤模板：</p>
+        <pre><code>import { cryptoService, html } from './lib/vanilla-sdk.js';</code></pre>
     </div>
 
     <div class="card">
-        <h3>2. 即時測試：原生加密</h3>
-        <p>點擊按鈕，使用 <code>Web Crypto API</code> (AES-GCM) 進行加密：</p>
-        <button id="testBtn">執行加密測試</button>
+        <h3>2. 即時測試：原生加密與 SafeHTML 渲染</h3>
+        <p>點擊按鈕，使用 <code>Web Crypto API</code> (AES-GCM) 進行加密，並透過 <code>html`...`</code> 安全渲染結果：</p>
+        <div style="margin-bottom: 1rem;">
+            <button id="testBtn">執行加密測試</button>
+            <button id="xssBtn" class="btn-outline">測試 XSS 自動防禦</button>
+        </div>
         <div id="result" style="margin-top: 1rem;"></div>
     </div>
 
     <script type="module">
-        // 模擬外部引用
-        import { cryptoService } from './lib/vanilla-sdk.js';
+        // 一站式引入服務與 SafeHTML 模板
+        import { cryptoService, html } from './lib/vanilla-sdk.js';
 
+        // 1. 加密測試
         document.getElementById('testBtn').addEventListener('click', async () => {
             const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = '正在加密...';
+            resultDiv.innerHTML = html`<span style="color:#666;">⏳ 正在加密...</span>`;
 
             try {
                 const text = "這是來自 SDK 的秘密訊息";
@@ -43,14 +52,31 @@
                 
                 const { ciphertext } = await cryptoService.encrypt(text, pass);
                 
-                resultDiv.innerHTML = `
-                    <p class="success">✅ 加密成功！</p>
+                // ✅ 使用 html`` 標籤模板安全渲染
+                resultDiv.innerHTML = html`
+                    <p class="success">✅ 加密成功！ <span class="badge">SafeHTML Rendered</span></p>
                     <p><strong>密文 (Base64):</strong></p>
                     <pre><code>${ciphertext}</code></pre>
                 `;
             } catch (err) {
-                resultDiv.innerHTML = `<span style="color:red">錯誤: ${err.message}</span>`;
+                // ✅ 即便 err.message 含有特殊字元，亦會自動轉義防禦 XSS
+                resultDiv.innerHTML = html`<span style="color:#dc3545">錯誤: ${err.message}</span>`;
             }
+        });
+
+        // 2. SafeHTML XSS 防禦演練
+        document.getElementById('xssBtn').addEventListener('click', () => {
+            const resultDiv = document.getElementById('result');
+            const maliciousPayload = "<script>alert('XSS Exploit')<\/script><img src=x onerror=\"console.error('XSS')\" /><b>使用者輸入的惡意標籤</b>";
+
+            // 使用 html`` 標籤模板將危險字串安全化
+            resultDiv.innerHTML = html`
+                <div style="padding: 1rem; border-left: 4px solid #28a745; background: #fff;">
+                    <p class="success">🛡️ SafeHTML 自動轉義已生效：</p>
+                    <p>惡意內容已被轉為無害純文字顯示，未觸發腳本執行：</p>
+                    <pre><code>${maliciousPayload}</code></pre>
+                </div>
+            `;
         });
     </script>
 </body>

@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A **zero-build, zero-dependency** Plain Vanilla web app template. No `package.json`, no bundler, no transpiler, no `node_modules`. Everything is native ES Modules, native Custom Elements, and standard browser APIs loaded directly by the browser. The project doubles as an interactive showcase/lab for cutting-edge web platform APIs (WebGPU, WebRTC, WebAuthn, Web Bluetooth, WebCodecs, etc.).
 
-Treat "use the platform, avoid abstractions" as a hard constraint: do not introduce build steps, npm dependencies, or framework runtimes. See `docs/MANIFESTO.md` and `docs/decisions/` (ADRs) for the reasoning behind architectural choices.
+Treat "use the platform, avoid abstractions" as a hard constraint: do not introduce build steps, npm dependencies, or framework runtimes. See `docs/manifesto.md` and `docs/decisions/` (ADRs) for the reasoning behind architectural choices.
 
 ## Commands
 

@@ -1,109 +1,154 @@
 # 🍦 Plain Vanilla Web App Template
 
-> **[📍 檢視 2026 演進路線圖 (Roadmap)](./ROADMAP.md)**
+**[English](./README.md)** | [繁體中文](./README_zh-TW.md)
 
-這是一個遵循 **[Plain Vanilla Web](https://plainvanillaweb.com/)** 精神所構建的現代原生網頁應用範本。
-我們拒絕過度封裝，擁抱瀏覽器原生能力，旨在提供一個高效、安全且具備高度教育意義的開發起點。
+> **[📍 View 2026 Evolution Roadmap](./ROADMAP.md)**
 
-> **💡 發想靈感源自 [jsebrech/plainvanilla](https://github.com/jsebrech/plainvanilla)。**
+A modern, zero-dependency, zero-build web application template built in the spirit of **[Plain Vanilla Web](https://plainvanillaweb.com/)**.
+We reject unnecessary layers of framework abstraction and embrace native browser platform capabilities, offering a high-performance, resilient, and educational foundation for modern web development.
 
----
-
-## 🍦 專案精神 (The Vanilla Way)
-
-> 💡 **了解我們為何堅持「標準優於框架、零建置成本、安全且透明」的哲學：** <br>
-> 閱讀 **[Vanilla Manifesto (原生網頁開發宣言)](./docs/MANIFESTO.md)**
+> **💡 Inspired by [jsebrech/plainvanilla](https://github.com/jsebrech/plainvanilla).**
 
 ---
 
-## 📚 文件與模組導覽地圖 (Navigation Map)
+## 🍦 The Vanilla Philosophy
 
-我們依據功能性質，將專案的模組與文件劃分為以下四大類，與網頁介面的側邊欄導覽 (`Navbar`) 完全對齊：
-
-### 1. 導覽與核心 (Overview)
-- **總覽**：本 `README.md` 所處的專案首頁。
-- **宣言**：[Vanilla Manifesto](./docs/MANIFESTO.md) 專案精神與哲學。
-
-### 2. 學習與實作 (Learning & Lab)
-- **📚 技術手冊 (Docs)**：包含豐富的 Markdown 教學文件，涵蓋：
-    - [這不是框架！組件開發指南](./docs/component-architecture.md)
-    - [SafeHTML：防護 XSS 的安全渲染機制](./docs/safe-html-rendering.md)
-    - [基礎核心：路由、狀態管理、PWA、i18n 等子系統指南](./docs/)
-- **🧪 互動式實驗室 (Lab)**：直接在瀏覽器執行並體驗 WebGPU、WebRTC、Web Bluetooth、FaceID 等數十多種前沿原生 API。
-- **🎡 Vanilla 遊樂場 (Playground)**：內建的所見即所得線上程式碼編輯器。
-
-### 3. 監控與開發工具 (Developer Tools)
-- **📊 開發者儀表板 (Dashboard)**：即時監控 IndexedDB 資料、Network 請求與 Store 全域狀態流向。
-- **📈 效能分析中心 (Analytics)**：利用原生 Canvas API 視覺化監測 Web Vitals (LCP/CLS) 指標。
-- **⚡ Web Worker 展示 (Worker Demo)**：展示耗時運算與主執行緒分離的優化實作。
-- **🔍 開源碼搜尋 (Repo Search)**：串接 GitHub API 的高互動性搜尋介面。
-
-### 4. 使用者 (Account)
-- **👤 個人檔案 (Profile)**：展示基於 LocalStorage/IndexedDB 結合身份驗證 (Auth Guard) 的會員登入機制。
+> 💡 **Discover why we prioritize "Standards over Frameworks, Zero Build, Security by Default, and Transparency":** <br>
+> Read the **[Vanilla Manifesto](./docs/manifesto.md)**
 
 ---
 
-## 🚀 核心特色
+## 📚 Documentation & Navigation Map
 
-- **前沿 Web 技術整合 (Cutting Edge)**：
-    - **WebGPU & WASM**: 高效能並行運算與 C/Rust 編譯模組整合。
-    - **WebRTC (P2P)**：無伺服器去中心化數據傳輸與影音通訊。
-    - **Native Speech**: 整合原生 TTS (語音合成) 與 STT (語音辨識)。
-    - **Hardware Access**: 原生 Web Bluetooth 藍牙通訊與螢幕錄製。
-- **電商與支付 (E-commerce Ready)**：
-    - **Payment Request**: 標準化的瀏覽器原生支付介面，提升轉換率。
-- **進階交互實踐**：
-    - **Native Charts**: 利用 Canvas API 實作零依萊的高效能數據視覺化。
-    - **Image Processing**: 純前端圖片濾鏡 (Grayscale) 與縮放處理。
-    - **Vanilla SDK 模式**: 核心服務解耦，支援由外部 URL 直接引用的 CDN 開發模式。
-- **專業級韌性架構**：
-    - **安全的預設值 (SafeHTML)**: 實作內建 XSS 防禦的標籤模板渲染機制，將安全視為一等公民。
-    - **Offline Action Queue**: 斷網時操作自動排隊，恢復連線後自動同步。
-    - **Undo/Redo History**: 實作狀態快照機制的撤銷與重做功能。
-    - **Virtual List**: 支援萬筆數據的高流暢度虛擬捲動。
-    - **Storage Persistence**: 主動申請數據持久化，防止系統清理。
-- **高性能與開發體驗優化 (Performance & DX)**：
-    - **現代化文件 UI 佈局**: 具備 Tree-view 導覽、毛玻璃質感與強化的閱讀字體學體驗。
-    - **Lazy & Prefetch**: 路由驅動的模組動態載入與智能資源預載。
-    - **Web Workers**: 邏輯計算與主執行緒解耦，保持介面反應。
-    - **Responsive First**: 全面優化手機版面佈局與 Header 響應式體驗。
-    - **Reactive State 2.2**: 具備 Light DOM 插槽模擬機制的反應式組件。
+The project is organized into four core functional domains, matching the application's sidebar navigation (`Navbar`):
+
+### 1. Overview & Core
+- **Overview**: This `README.md` introduction.
+- **Manifesto**: [Vanilla Manifesto](./docs/manifesto.md) — The guiding philosophy of evergreen code.
+- **Architecture Guide**: [Comprehensive Architecture Overview](./docs/project-architecture-overview.md) — Deep dive into components, state, and rendering.
+- **AI Agent Guide**: [AI Agent Knowledge & Example Library Guide](./docs/ai-agent-example-library.md) — Why this codebase is an ideal reference for AI coding agents.
+
+### 2. Learning & Lab
+- **📚 Technical Docs**: In-depth Markdown documentation parsed and rendered at runtime:
+    - [Component Architecture Guide](./docs/component-architecture.md) — Reactive Custom Elements without a virtual DOM.
+    - [SafeHTML & XSS Defense](./docs/safe-html-rendering.md) — Automatic escaping tagged template rendering.
+    - [Service Pattern Standards](./docs/service-patterns.md) — Singleton services and event-driven architecture.
+    - [Core Subsystems](./docs/) — Routing, state management, PWA, i18n, and more.
+- **🧪 Interactive Lab**: 38+ self-contained labs showcasing cutting-edge native browser APIs (WebGPU, WebRTC, WebAuthn, Web Bluetooth, Web Serial, etc.).
+- **🎡 Vanilla Playground**: Built-in WYSIWYG online code playground powered by native Blob and ObjectURL.
+
+### 3. Developer Tools & Monitoring
+- **📊 Developer Dashboard**: Real-time monitoring of IndexedDB storage, network traffic, and global Store state.
+- **📈 Performance Analytics**: Native Canvas-based real-time visualization of Web Vitals (LCP, CLS).
+- **⚡ Web Worker Demo**: Offloading heavy computations from the UI main thread.
+- **🔍 Repo Search**: Responsive search interface integrating the GitHub REST API.
+
+### 4. Account
+- **👤 User Profile**: Authentication demonstration with LocalStorage/IndexedDB integration and Auth Guard protected routes.
 
 ---
 
-## 📂 專案目錄結構
+## 🚀 Key Features
+
+- **Cutting-Edge Web Platform APIs**:
+    - **WebGPU & WASM**: Hardware-accelerated parallel computing (Compute Shaders) and streaming WebAssembly execution.
+    - **WebRTC (P2P)**：Serverless, decentralized peer-to-peer data and media streaming.
+    - **Native Speech**: Native Web Speech API integration for TTS (Text-to-Speech) and STT (Speech-to-Text).
+    - **Hardware Access**: Web Bluetooth (BLE), Web Serial (hardware communication), and Screen Capture.
+    - **WebAuthn**: Passwordless authentication with FaceID, TouchID, and physical FIDO2 security keys.
+    - **Web NFC & Barcode Detection**: Physical NDEF tag read/write and native QR/Barcode scanning.
+    - **WebCodecs & Media Streams**: Low-latency video decoding/encoding and real-time canvas stream filtering.
+    - **Compression Streams**: Native streaming Gzip and Deflate compression and decompression.
+- **E-Commerce Ready**:
+    - **Payment Request API**: Standardized browser-native checkout interface.
+- **Industrial-Grade Resilience**:
+    - **SafeHTML by Default**: Tagged template literal rendering with automatic HTML entity escaping against XSS.
+    - **Deep Reactive State**: Proxied state with `requestAnimationFrame` debouncing, input focus & cursor preservation, and `data-persistent` node caching.
+    - **Offline Action Queue**: Automatic queuing of mutations during offline mode, synchronizing upon reconnect.
+    - **Cross-Tab Synchronization**: Real-time state broadcasting across browser tabs via `BroadcastChannel`.
+    - **Undo/Redo History**: Snapshot-based state history management.
+    - **Virtual List**: High-performance rendering of 10,000+ items without frame drops.
+    - **Storage Persistence**: Proactive storage quota requests to prevent eviction.
+- **Zero-Build Developer Experience**:
+    - **No Bundler, No Transpiler**: Pure ES Modules directly executed by the browser.
+    - **Dynamic Code Splitting**: Route-level lazy loading via native dynamic `import()`.
+    - **View Transitions**: Native single-page transition animations powered by `document.startViewTransition()`.
+    - **Light & Dark Theming**: CSS Variables system with circular ripple transition animation.
+    - **Vanilla SDK v1.0.0**: 40+ unified singleton services decoupled for CDN/external distribution.
+
+---
+
+## 📂 Project Structure
 
 ```text
 .
-├── app/                # 應用程式進入點 (App.js)
-├── assets/             # 靜態資源 (images, locales)
-├── components/         # UI 組件庫 (ui/, pages/, route/)
-├── docs/               # 💡 技術說明文件 (Markdown)
-├── lib/                # 核心服務層 (Services)
-│   ├── base-*.js       # 基礎類別 (Component, Service)
-│   ├── store.js        # 全域狀態
-│   ├── idb-service.js  # IndexedDB 管理
-│   └── ...             # 其他功能服務 (Speech, Image, Storage...)
-├── workers/            # Web Worker 腳本
-├── index.html          # HTML 入口
-├── manifest.json       # PWA 配置
-├── sw.js               # Service Worker
-└── scripts/            # 自動化維護腳本 (sync.sh, scaffolding...)
-```
-
-## 🛠 快速啟動
-
-由於專案採用 ES Modules 與 Service Worker，必須使用 HTTP 伺服器運行：
-
-```bash
-# 使用 Python (內建)
-python3 -m http.server
-
-# 或使用 npx
-npx serve .
+├── app/                  # Application root & chrome layout (App.js)
+├── assets/               # Static assets (images, locales: zh-TW, en-US)
+├── components/           # Custom Element components
+│   ├── pages/            # Top-level view pages (HomePage, Docs, Dashboard, Login...)
+│   │   └── lab/          # 38+ cutting-edge Web API interactive labs
+│   ├── route/            # Native router elements (<x-switch>, <x-route>)
+│   └── ui/               # Reusable UI elements (Card, NativeChart, VirtualList, Modal...)
+├── docs/                 # Runtime-loaded documentation (Markdown)
+│   └── decisions/        # 90+ Architecture Decision Records (ADRs)
+├── lib/                  # Core services & base classes
+│   ├── base-component.js # Reactive Custom Element base class
+│   ├── base-service.js   # EventTarget-backed singleton service base
+│   ├── store.js          # Cross-tab proxied reactive state store
+│   ├── html.js           # SafeHTML tagged template literal & XSS escape
+│   ├── vanilla-sdk.js    # Aggregated industrial SDK entry point
+│   └── ...               # Native services (WebGPU, WebRTC, Bluetooth, Crypto...)
+├── workers/              # Web Worker scripts (off-thread compute, IDB backup)
+├── tests/                # Tests (Node built-in test runner & browser.html)
+├── index.html            # Single page entry point
+├── index.css             # Global CSS design tokens & responsive styles
+├── index.js              # Application bootstrapper & SW registration
+├── sw.js                 # Service Worker (stale-while-revalidate & offline sync)
+└── manifest.json         # PWA configuration & Web Share Target
 ```
 
 ---
 
-## 授權
-MIT License
+## 🛠 Quick Start
+
+Because this project relies on ES Modules and Service Workers, it **must be served over HTTP** (opening `index.html` via `file://` will not work):
+
+```bash
+# Using Python (built-in)
+python3 -m http.server
+
+# Or using npx
+npx serve .
+```
+
+Open `http://localhost:8000/` in your browser.
+
+---
+
+## 🧪 Testing & Code Quality
+
+No test frameworks or linters need to be installed. We utilize Node.js built-in tooling:
+
+```bash
+# Run all unit tests (Node.js built-in test runner)
+node --test tests/*.test.js
+
+# Run DOM & lifecycle tests in the browser
+# Serve via HTTP and open http://localhost:8000/tests/browser.html
+
+# Run syntax check across all JavaScript files
+find . -name "*.js" -not -path "./node_modules/*" -not -path "./.git/*" | xargs -n 1 node -c
+```
+
+---
+
+## 📄 Architecture Decision Records (ADR)
+
+Significant architectural choices are strictly documented under [`docs/decisions/`](./docs/decisions/).
+Run `node scripts/update-adr-index.js` to regenerate the ADR index after adding a new decision.
+
+---
+
+## License
+
+[MIT License](./LICENSE)

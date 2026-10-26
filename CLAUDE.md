@@ -32,6 +32,15 @@ node --test tests/store.test.js      # run a single test file
 
 Tests run in Node, not a browser, so they **mock browser globals** they depend on (`localStorage`, `BroadcastChannel`, etc. — see `tests/store.test.js`). When testing browser-coupled code, add the globals the module touches.
 
+Browser tests (requires real DOM — open via HTTP server):
+
+```bash
+python3 -m http.server
+# then open http://localhost:8000/tests/browser.html
+```
+
+`tests/browser.html` tests BaseComponent rendering lifecycle, Light DOM, Shadow DOM, reactive state, and `data-persistent` preservation — things that need real `innerHTML`/DOM behavior.
+
 Lint / syntax check (also what CI runs):
 
 ```bash
@@ -82,6 +91,17 @@ Two base classes underpin everything; learn them first.
 
 ### Deployment constraints (GitHub Pages)
 - The app is served from a subpath; `index.html` sets `<base href="/plainvanillaweb/">`. **Use relative paths** (`./...`) and resolve module/asset URLs against `document.baseURI` (see `route.js`, `doc-service.js`). Hardcoded absolute paths will break the deployed site.
+
+### Bootstrap & startup (`index.js`)
+1. `networkMonitor.enable()` — starts offline/online monitoring
+2. Core pages (`HomePage.js`, `Lab.js`) are **statically imported** (needed immediately; avoids dynamic-path issues on GitHub Pages)
+3. `registerRoute()` — defines `<x-route>` custom element
+4. `i18n.init()` — loads locale JSON before first render
+5. `registerApp()` — defines `<x-app>` and mounts the app
+6. Service Worker registration at the bottom — `sw.js` with versioned cache (`CACHE_NAME`). When adding/removing core assets, **bump the cache version** in `sw.js` (`CORE_ASSETS` array) so the new `install` handler precaches correctly.
+
+### `index.html` debug hooks
+- `window.__LAB_DEBUG__ = { errors: [], logs: [] }` — catches `console.error`, `error` events, and `unhandledrejection`. Lab pages use this for displaying errors inline.
 
 ## Conventions
 - **Naming:** custom element tags use prefixes — `x-*` (app/framework), `page-*` (route pages), `ui-*` (reusable UI), `app-*` (app chrome). Service files are `lib/<name>-service.js` exporting a singleton.

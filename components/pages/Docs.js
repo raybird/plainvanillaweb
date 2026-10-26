@@ -98,6 +98,8 @@ export class Documentation extends BaseComponent {
 
   render() {
     const docs = [
+      { id: "project-architecture-overview", title: "🏛️ 專案架構全貌深度解析" },
+      { id: "ai-agent-example-library", title: "🤖 AI Agent 知識與範例庫指南" },
       { id: "router", title: "原生路由與 SEO" },
       { id: "boilerplate-getting-started", title: "零建置專案起手式模板" },
       { id: "indexeddb-backup", title: "IndexedDB 離線庫與背景備份" },

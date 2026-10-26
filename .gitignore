@@ -1,1 +1,3 @@
 tao-of-opencode
+__pycache__/
+*.pyc

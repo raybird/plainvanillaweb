@@ -8,6 +8,8 @@ import { connectivityService } from "./lib/connectivity-service.js";
 import { appStore } from "./lib/store.js";
 import { i18n } from "./lib/i18n-service.js";
 import { notificationService } from "./lib/notification-service.js"; // 引入通知服務
+import { router } from "./lib/router.js";
+import { authService } from "./lib/auth-service.js";
 
 // 啟動網路監控
 networkMonitor.enable();
@@ -19,7 +21,8 @@ import './components/pages/Lab.js';
 // 初始化國際化並啟動應用
 async function bootstrap() {
     try {
-        // 1. 基礎服務註冊與元件定義
+        // 1. 基礎服務註冊與元件定義；auth-required 路由以展示用的 authService 判斷是否已登入
+        router.authGuard = () => authService.isAuthenticated;
         registerRoute();
 
         // 2. 初始化核心資源 (國際化)

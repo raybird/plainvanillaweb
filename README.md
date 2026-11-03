@@ -92,6 +92,7 @@ The project is organized into four core functional domains, matching the applica
 ├── docs/                 # Runtime-loaded documentation (Markdown)
 │   └── decisions/        # 90+ Architecture Decision Records (ADRs)
 ├── lib/                  # Core services & base classes
+│   ├── core.js           # Core-only entry point (no showcase services)
 │   ├── base-component.js # Reactive Custom Element base class
 │   ├── base-service.js   # EventTarget-backed singleton service base
 │   ├── store.js          # Cross-tab proxied reactive state store
@@ -122,6 +123,31 @@ npx serve .
 ```
 
 Open `http://localhost:8000/` in your browser.
+
+### Use only the core
+
+The reusable foundation is about 1,000 lines and has its own entry point, `lib/core.js`, which never loads the showcase services (WebGPU, WebRTC, WebAuthn, …). A test guards that boundary ([ADR 0101](./docs/decisions/0101-core-entry-point.md)).
+
+```javascript
+import { BaseComponent, html, router, registerRoute } from './lib/core.js';
+
+class HelloCard extends BaseComponent {
+    constructor() { super(); this.initReactiveState({ count: 0 }); }
+    render() {
+        return html`<button onclick="this.closest('hello-card').state.count++">Clicked ${this.state.count}</button>`;
+    }
+}
+customElements.define('hello-card', HelloCard);
+
+registerRoute();                                   // defines <x-route>; <x-switch> is defined on import
+router.authGuard = () => Boolean(localStorage.token); // optional: guard for auth-required routes
+```
+
+| Layer | Entry point | Contents |
+| :--- | :--- | :--- |
+| Core | `lib/core.js` | `html`, `BaseComponent` + DOM morphing, `BaseService`, `Store`, hash router (`<x-route>`, `<x-switch>`), i18n |
+| Everything | `lib/vanilla-sdk.js` | Core plus all 45 showcase services and the form engine |
+| Showcase | `index.html` | Labs, Docs and Dashboard built on top of the core |
 
 ---
 

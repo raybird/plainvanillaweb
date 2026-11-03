@@ -66,6 +66,8 @@ CI (`.github/workflows/deploy.yml`) runs the unit tests, the syntax check, `upda
 
 Two base classes underpin everything; learn them first.
 
+`lib/core.js` is the core-only entry point (html, BaseComponent/morph, BaseService, Store, router, `<x-route>`/`<x-switch>`, i18n); `lib/vanilla-sdk.js` re-exports everything. `tests/core.test.js` walks core.js's static import graph against an allowlist (ADR 0101) — core modules must not import showcase services; when you add a core module, add it to that allowlist.
+
 ### `BaseComponent` (`lib/base-component.js`) — all UI
 - Extends `HTMLElement`. **Light DOM by default** (`static useShadow = false`); set `useShadow = true` per-component to opt into Shadow DOM.
 - Reactive state: call `this.initReactiveState({...})` in the constructor. State is a **deep Proxy** — any mutation schedules a re-render batched via `requestAnimationFrame` (`scheduleUpdate`).
@@ -88,7 +90,7 @@ Two base classes underpin everything; learn them first.
 ### Routing — hash-based
 - `lib/router.js` (`router` singleton) emits `route-change` on `hashchange`.
 - Path matching lives in one place, `matchRoute()` in `lib/router.js` (`*`, `:name` params, trailing `/*` prefix wildcard, `exact`, otherwise segment-boundary prefix match, case-insensitive); see `docs/router.md`. Matched params are on `route.params`.
-- `<x-switch>` (`components/route/switch.js`) renders only the first matching `<x-route>`, wrapped in a View Transition when supported. `<x-route>` (`components/route/route.js`) supports `path`, `exact`, `module` (lazy `import()` of the page component), `auth-required` (auth guard → redirects to `/login` via `authService`), and `meta-title`/`meta-desc` (drives `metaService` for SEO/a11y).
+- `<x-switch>` (`components/route/switch.js`) renders only the first matching `<x-route>`, wrapped in a View Transition when supported. `<x-route>` (`components/route/route.js`) supports `path`, `exact`, `module` (lazy `import()` of the page component), `auth-required` (calls `router.authGuard(route)`, redirects to `router.loginPath` when it returns false; the guard defaults to allow and `index.js` wires it to `authService` — the router itself must not import `authService`), and `meta-title`/`meta-desc` (drives `metaService` for SEO/a11y).
 - **All routes and nav links are declared in `app/App.js`'s `render()`** — the `navSections` array (sidebar) and the `<x-switch>` block must be kept in sync.
 
 ### Adding a page (the wiring)

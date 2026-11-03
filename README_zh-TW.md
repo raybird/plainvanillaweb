@@ -88,6 +88,7 @@
 ├── docs/               # 💡 技術說明文件 (Markdown)
 │   └── decisions/      # 90+ 篇架構決策紀錄 (ADRs)
 ├── lib/                # 核心服務層 (Services)
+│   ├── core.js         # 只含核心的入口（不載入展示用 service）
 │   ├── base-*.js       # 基礎類別 (Component, Service)
 │   ├── store.js        # 全域狀態
 │   ├── idb-service.js  # IndexedDB 管理
@@ -113,6 +114,31 @@ npx serve .
 ```
 
 啟動後請使用瀏覽器開啟 `http://localhost:8000/`。
+
+### 只使用核心
+
+可重用的基礎建設約 1,000 行，有獨立的入口 `lib/core.js`，不會載入任何展示用 service（WebGPU、WebRTC、WebAuthn…），並由測試守住這條邊界（[ADR 0101](./docs/decisions/0101-core-entry-point.md)）。
+
+```javascript
+import { BaseComponent, html, router, registerRoute } from './lib/core.js';
+
+class HelloCard extends BaseComponent {
+    constructor() { super(); this.initReactiveState({ count: 0 }); }
+    render() {
+        return html`<button onclick="this.closest('hello-card').state.count++">已點擊 ${this.state.count} 次</button>`;
+    }
+}
+customElements.define('hello-card', HelloCard);
+
+registerRoute();                                   // 定義 <x-route>；<x-switch> 在 import 時就已定義
+router.authGuard = () => Boolean(localStorage.token); // 選用：auth-required 路由的登入判斷
+```
+
+| 層級 | 入口 | 內容 |
+| :--- | :--- | :--- |
+| 核心 | `lib/core.js` | `html`、`BaseComponent` 與 DOM morphing、`BaseService`、`Store`、hash 路由（`<x-route>`、`<x-switch>`）、i18n |
+| 全部 | `lib/vanilla-sdk.js` | 核心加上 45 個展示用 service 與表單引擎 |
+| 展示站 | `index.html` | 以核心打造的 Lab、文件與 Dashboard |
 
 ### 測試與代碼檢查
 

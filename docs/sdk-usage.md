@@ -8,6 +8,12 @@
 
 ---
 
+> 只需要元件、模板、Store 與路由時，改用只含核心的入口 `lib/core.js`，不會載入任何前沿 Web API service（[ADR 0101](./decisions/0101-core-entry-point.md)）：
+>
+> ```javascript
+> import { BaseComponent, html, router } from 'https://raybird.github.io/plainvanillaweb/lib/core.js';
+> ```
+
 ## 🚀 快速開始 (Quick Start)
 
 無需任何 Webpack、Vite 或 npm 建置工具，只要在任何 HTML 中以原生 ES Modules 方式引入即可：

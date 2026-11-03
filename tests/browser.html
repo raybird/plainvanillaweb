@@ -321,6 +321,45 @@
             assert(next && next !== svg && next.classList.contains('spin'), '來源改變時應重新產生並帶上新 class');
         });
 
+        test('核心入口：只用 lib/core.js 組出路由，authGuard 擋下受保護的路由', async () => {
+            const core = await import('./lib/core.js');
+            for (const name of ['html', 'BaseComponent', 'BaseService', 'appStore', 'router', 'matchRoute', 'registerRoute']) {
+                assert(core[name], `core.js 應匯出 ${name}`);
+            }
+            if (!customElements.get('x-route')) core.registerRoute();
+            const waitUntil = async (cond, ms = 3000) => {
+                const start = performance.now();
+                while (!cond()) {
+                    if (performance.now() - start > ms) return false;
+                    await nextFrame();
+                }
+                return true;
+            };
+            const { router } = core;
+            const saved = { guard: router.authGuard, loginPath: router.loginPath, hash: location.hash };
+            const box = mount(document.createElement('div'));
+            box.innerHTML = `<x-switch>
+                <x-route path="/core-secret" auth-required><b id="core-secret">secret</b></x-route>
+                <x-route path="/core-login"><b id="core-login">login</b></x-route>
+            </x-switch>`;
+            const active = (id) => box.querySelector(`#${id}`).closest('x-route').hasAttribute('active');
+            try {
+                router.loginPath = '/core-login';
+                router.authGuard = () => false;
+                location.hash = '#/core-secret';
+                assert(await waitUntil(() => location.hash === '#/core-login' && active('core-login')), '守衛不通過時應導向 loginPath');
+                assert(!active('core-secret'), '受保護的路由不應啟用');
+                router.authGuard = () => true;
+                location.hash = '#/core-secret';
+                assert(await waitUntil(() => active('core-secret')), '守衛通過時應啟用受保護的路由');
+            } finally {
+                router.authGuard = saved.guard;
+                router.loginPath = saved.loginPath;
+                history.replaceState(null, '', saved.hash || location.pathname);
+                box.remove();
+            }
+        });
+
         test('morphUpdates = false 時改回整塊重繪', async () => {
             class C extends BaseComponent {
                 static morphUpdates = false;

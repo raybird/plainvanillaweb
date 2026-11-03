@@ -24,6 +24,7 @@
     *   `path`: 匹配路徑，語法見上表。符合後可由 `route.params` 取得路徑參數。
     *   `exact`: 是否完全匹配。
     *   `meta-title` / `meta-desc`: 定義該頁面的 SEO 資訊 (支援 i18n key)。
+    *   `auth-required`: 進入前呼叫 `router.authGuard(route)`，回傳 `false` 時導向 `router.loginPath`（預設 `/login`）。守衛預設一律放行，由應用程式在啟動時設定，例如 `router.authGuard = () => authService.isAuthenticated`（見 `index.js`）。
 *   **`<x-switch>`**: 互斥渲染容器。確保同一時間只顯示**第一個**匹配的子路由 (類似 React Router `<Switch>`)。
 
 ```html

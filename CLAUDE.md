@@ -40,7 +40,7 @@ node tests/browser-runner.mjs   # DEBUG=1 prints per-page timing
 
 The runner serves the repo twice — at `/` and at `/plainvanillaweb/` (subpath only, so wrong relative paths 404 instead of silently hitting the root) — and in each:
 1. runs `tests/browser.html` (BaseComponent rendering lifecycle, Light/Shadow DOM, reactive state, `data-persistent` preservation) and reads `window.__TEST_RESULTS__`;
-2. smoke-tests the whole site: visits every `<x-route>` it discovers (including lazily loaded lab sub-routes) and every doc linked from the pages, failing on uncaught exceptions, `console.error`, 4xx/5xx responses, or when the visited route is not the active `<x-route>` (unless it redirected). A new page that logs `console.error` in headless Chrome (e.g. missing hardware) needs a matching pattern in `IGNORED_ERRORS`.
+2. smoke-tests the whole site: visits every `<x-route>` it discovers (including lazily loaded lab sub-routes) and every doc linked from the pages, failing on uncaught exceptions, `console.error`, 4xx/5xx responses, when the visited route is not the active `<x-route>` (unless it redirected), or when an `<i data-lucide>` icon is left unrendered. A new page that logs `console.error` in headless Chrome (e.g. missing hardware) needs a matching pattern in `IGNORED_ERRORS`.
 
 To debug `tests/browser.html` by hand: `python3 -m http.server`, then open `http://localhost:8000/tests/browser.html`.
 

@@ -160,6 +160,38 @@
             assertEq(el.querySelector('.t').textContent, 'nonexistent.key');
         });
 
+        test('Lucide 圖示只在本元件內渲染，Light DOM 與 Shadow DOM 都會處理', async () => {
+            // 動態插入（而非寫在 HTML）：預載掃描器會在 <base> 設定前以 tests/ 解析靜態 <script src>，造成 404
+            if (typeof lucide === 'undefined') {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = new URL('./lib/lucide.min.js', document.baseURI).href;
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error('無法載入 lucide.min.js'));
+                    document.head.appendChild(script);
+                });
+            }
+
+            const outside = document.createElement('i');
+            outside.setAttribute('data-lucide', 'home');
+            host.appendChild(outside);
+
+            class Light extends BaseComponent { render() { return '<i data-lucide="home"></i>'; } }
+            class Shadow extends BaseComponent {
+                static useShadow = true;
+                render() { return '<i data-lucide="home"></i>'; }
+            }
+            customElements.define('t-icon-light', Light);
+            customElements.define('t-icon-shadow', Shadow);
+            const light = mount(document.createElement('t-icon-light'));
+            const shadow = mount(document.createElement('t-icon-shadow'));
+
+            assert(light.querySelector('svg.lucide-icon'), 'Light DOM 元件的圖示應被渲染');
+            assert(shadow.shadowRoot.querySelector('svg.lucide-icon'), 'Shadow DOM 元件的圖示應被渲染');
+            assert(outside.isConnected && outside.tagName === 'I', '元件外的圖示不應被元件更新順帶處理');
+            outside.remove();
+        });
+
         // === 執行 ===
         (async () => {
             for (const { name, fn } of tests) {

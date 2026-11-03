@@ -230,6 +230,16 @@ async function runSmokeTests(page, base, tracker, network) {
             failures.push(`${label}：${err.message}`);
         }
         if (process.env.DEBUG) console.log(`    ${label}（${Date.now() - started}ms）`);
+        // Lucide 會把 <i data-lucide> 換成 <svg>；留下來的就是沒被渲染的圖示（含 Shadow DOM 內）
+        try {
+            const unrendered = await page.evaluate(`(() => {
+                const roots = [document, ...[...document.querySelectorAll('*')].map((el) => el.shadowRoot).filter(Boolean)];
+                return [...new Set(roots.flatMap((root) => [...root.querySelectorAll('i[data-lucide]')].map((i) => i.dataset.lucide)))];
+            })()`);
+            if (unrendered.length) failures.push(`${label}：有圖示沒有被渲染：${unrendered.join(', ')}`);
+        } catch (err) {
+            failures.push(`${label}：${err.message}`);
+        }
         const problems = tracker.take();
         if (problems.length) failures.push(...problems.map((p) => `${label}：${p}`));
     };

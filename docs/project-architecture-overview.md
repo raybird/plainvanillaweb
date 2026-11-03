@@ -58,7 +58,7 @@
   * **焦點與選取範圍保護**：更新前自動記錄使用者的 `activeElement.id` 與文字游標選取範圍（`selectionStart`/`selectionEnd`），重繪後自動恢復，確保輸入體驗流暢不跳動。
   * **持久化節點保持 (`data-persistent`)**：針對 `<canvas>`、`<video>` 或內部複雜 DOM，在 `innerHTML` 覆蓋前將標有 `data-persistent` 的節點提取暫存，渲染後替換回佔位符，避免真實 DOM 重建導致內部狀態丟失。
   * **Light DOM 插槽模擬 (`$slot`)**：在首次掛載前呼叫 `_captureSlots()` 暫存原始標籤內的子節點，透過 `$slot(name)` 模擬原生 Web Component 的插槽功能。
-  * **圖示自動渲染**：每次 `update()` 完畢後自動觸發 `lucide.createIcons()` 渲染向量圖示。
+  * **圖示自動渲染**：每次 `update()` 完畢後，若元件內有 `data-lucide` 標記，就以 `lucide.createIcons({ root })` 只掃描本元件的內容（Light DOM 為元件本身、Shadow DOM 為 `shadowRoot`）渲染向量圖示，不掃描整份文件。
 
 ### 2.2 安全渲染機制：`SafeHTML` 與標籤模板 (`lib/html.js`)
 

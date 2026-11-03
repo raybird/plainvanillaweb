@@ -5,8 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Plain Vanilla Web Demo</title>
-    <!-- GitHub Pages 子網域相對路徑修復 -->
-    <base href="/plainvanillaweb/">
+    <!-- 依實際部署路徑設定 <base>：GitHub Pages 為 /plainvanillaweb/，在 repo 根目錄啟動本機伺服器時為 / -->
+    <script>
+        (function () {
+            var base = document.createElement('base');
+            base.href = location.pathname.replace(/[^/]*$/, '');
+            document.head.appendChild(base);
+        })();
+    </script>
     <script>
         window.__LAB_DEBUG__ = { errors: [], logs: [] };
         const originalError = console.error;

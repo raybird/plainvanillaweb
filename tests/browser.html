@@ -3,7 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <title>BaseComponent 瀏覽器測試</title>
-    <base href="/plainvanillaweb/">
+    <!-- 依實際部署路徑設定 <base> 為 tests/ 的上一層（應用根目錄） -->
+    <script>
+        (function () {
+            var base = document.createElement('base');
+            base.href = location.pathname.replace(/tests\/[^/]*$/, '');
+            document.head.appendChild(base);
+        })();
+    </script>
     <style>
         body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
         h1 { font-size: 1.3rem; }
@@ -25,7 +32,7 @@
     <ul id="results"></ul>
 
     <script type="module">
-        import { BaseComponent } from '../lib/base-component.js';
+        import { BaseComponent } from './lib/base-component.js';
 
         // --- 極簡測試骨架 (零依賴) ---
         const results = [];
@@ -67,7 +74,7 @@
         });
 
         test('html`` 回傳值的內插值會被自動轉義', async () => {
-            const { html } = await import('../lib/html.js');
+            const { html } = await import('./lib/html.js');
             class C extends BaseComponent {
                 constructor() { super(); this.initReactiveState({ v: '<img src=x onerror=alert(1)>' }); }
                 render() { return html`<div class="out">${this.state.v}</div>`; }

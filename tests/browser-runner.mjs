@@ -267,9 +267,99 @@ async function runSmokeTests(page, base, tracker, network) {
         docLinks.forEach((d) => docs.add(d));
     }
 
-    for (const doc of docs) await visit(`#/docs/${doc}`, `/docs/${doc}`);
+    for (const doc of docs) {
+        await visit(`#/docs/${doc}`, `/docs/${doc}`);
+        // 文件頁必須真的載入了網址指定的文件（子元件重建／重新讀取網址的行為被改壞時會停在上一份）
+        const loaded = await page.evaluate("document.querySelector('page-docs')?.state?.currentDoc ?? null");
+        if (loaded !== doc) failures.push(`/docs/${doc}：文件頁載入的是 ${loaded}`);
+    }
     console.log(`  冒煙測試：${visited.size} 個路由、${docs.size} 份文件`);
     return failures;
+}
+
+/** App 層級的互動：主題、語系切換與登入登出流程（驗證事件委派與重繪後監聽器仍有效） */
+async function runInteractionTests(page, base, tracker, network) {
+    const failures = [];
+    try {
+        await interact(page, base, network, failures);
+    } catch (err) {
+        failures.push(`互動：測試中斷：${err.message.split('\n')[0]}`);
+    }
+    failures.push(...tracker.take().map((p) => `互動：${p}`));
+    console.log('  互動測試：主題、語系、登入登出');
+    return failures;
+}
+
+async function interact(page, base, network, failures) {
+    const check = (ok, message) => { if (!ok) failures.push(`互動：${message}`); };
+    const settle = async (ms = 0) => {
+        await waitForNetworkIdle(network);
+        await page.evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))', 3000);
+        if (ms) await sleep(ms);
+    };
+    const theme = () => page.evaluate("JSON.parse(localStorage.getItem('app_state') || '{}').theme || 'system'");
+
+    await page.send('Page.navigate', { url: base });
+    await waitFor(page, "document.querySelector('#theme-toggle') !== null", 15000);
+    await page.evaluate('localStorage.clear()');
+    await page.send('Page.reload');
+    await waitFor(page, "document.querySelector('#theme-toggle') !== null", 15000);
+    await settle();
+    await page.evaluate('window.__noReload = true');
+
+    // 主題：每按一次只前進一步（重複綁定監聽器會一次跳好幾步）
+    const modes = ['system', 'light', 'dark'];
+    for (let i = 0; i < 3; i++) {
+        const before = await theme();
+        await page.evaluate("document.querySelector('#theme-toggle').click()");
+        await settle(100);
+        const after = await theme();
+        const expected = modes[(modes.indexOf(before) + 1) % modes.length];
+        check(after === expected, `第 ${i + 1} 次切換主題後應為 ${expected}，實際為 ${after}`);
+    }
+
+    // 語系：按下後按鈕改為顯示另一個語系，再按一次切回
+    const langBefore = await page.evaluate("document.querySelector('#lang-toggle').dataset.lang");
+    await page.evaluate("document.querySelector('#lang-toggle').click()");
+    await settle(100);
+    const langAfter = await page.evaluate("document.querySelector('#lang-toggle').dataset.lang");
+    check(langAfter !== langBefore, `切換語系後按鈕應改變（前後都是 ${langBefore}）`);
+    await page.evaluate("document.querySelector('#lang-toggle').click()");
+    await settle(100);
+
+    // 登入：先輸入錯誤密碼，錯誤訊息重繪後再以正確密碼登入（submit 監聽器必須仍有效，否則表單會原生送出並重新載入頁面）
+    const submitLogin = (password) => page.evaluate(`(() => {
+        const form = document.querySelector('#login-form');
+        form.username.value = 'admin';
+        form.password.value = ${JSON.stringify(password)};
+        form.requestSubmit();
+    })()`);
+    await page.evaluate("location.hash = '#/profile'");
+    await waitFor(page, "location.hash === '#/login' && document.querySelector('#login-form') !== null", 5000);
+    check(await page.evaluate("location.hash === '#/login'"), '未登入進入 /profile 應導向 /login');
+    await submitLogin('wrong');
+    await waitFor(page, "document.querySelector('.error-box') !== null", 5000);
+    check(await page.evaluate("document.querySelector('.error-box') !== null"), '密碼錯誤時應顯示錯誤訊息');
+    await submitLogin('1234');
+    await waitFor(page, "localStorage.getItem('vanilla_auth_token') !== null", 5000);
+    await settle();
+    check(await page.evaluate('window.__noReload === true'), '重試登入時頁面被重新載入（submit 監聽器在重繪後遺失）');
+    check(await page.evaluate("localStorage.getItem('vanilla_auth_token') !== null"), '以正確密碼重試後應登入成功');
+
+    await page.evaluate("location.hash = '#/profile'");
+    await waitFor(page, "document.querySelector('x-route[path=\"/profile\"][active]') !== null", 5000);
+    check(await page.evaluate("document.querySelector('x-route[path=\"/profile\"][active]') !== null"), '登入後應能進入 /profile');
+
+    // 登出（confirm 由對話框處理器自動確認）；監聽器重複綁定時會跳出多次 confirm
+    if (!(await page.evaluate("document.querySelector('#logout-btn') !== null"))) {
+        failures.push('互動：找不到登出按鈕（登入沒有成功）');
+        return;
+    }
+    const dialogsBefore = page.dialogCount;
+    await page.evaluate("document.querySelector('#logout-btn').click()");
+    await settle();
+    check(page.dialogCount - dialogsBefore === 1, `按一次登出應只跳出 1 次確認對話框，實際 ${page.dialogCount - dialogsBefore} 次（監聽器重複綁定）`);
+    check(await page.evaluate("localStorage.getItem('vanilla_auth_token') === null"), '登出後應清除登入狀態');
 }
 
 async function main() {
@@ -288,8 +378,10 @@ async function main() {
         await page.send('Page.enable');
         await page.send('Runtime.enable');
         // alert()/confirm() 會卡住頁面，記錄後自動關閉
+        page.dialogCount = 0;
         page.on('Page.javascriptDialogOpening', ({ type, message }) => {
-            console.log(`  ⚠️ 自動關閉 ${type} 對話框：${message}`);
+            page.dialogCount++;
+            if (process.env.DEBUG) console.log(`  ⚠️ 自動關閉 ${type} 對話框：${message}`);
             page.send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {});
         });
         await page.send('Network.enable');
@@ -309,6 +401,7 @@ async function main() {
                 ...(await runComponentTests(page, base)),
                 ...tracker.take().map((p) => `tests/browser.html：${p}`),
                 ...(await runSmokeTests(page, base, tracker, network)),
+                ...(await runInteractionTests(page, base, tracker, network)),
             ];
             // 同一個問題常在多頁重複出現（例如背景預載失敗），只列一次並註明第一次出現的頁面與次數
             const grouped = new Map();

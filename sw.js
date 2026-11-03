@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vanilla-cache-120e378ddac1';
+const CACHE_NAME = 'vanilla-cache-b744da0a0e2f';
 const CORE_ASSETS = [
     './',
     './index.html',
@@ -6,6 +6,7 @@ const CORE_ASSETS = [
     './index.js',
     './app/App.js',
     './lib/base-component.js',
+    './lib/morph.js',
     './lib/base-service.js',
     './lib/store.js',
     './lib/html.js',

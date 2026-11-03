@@ -6,7 +6,7 @@
 
 ## 🌟 1. 核心理念：按需渲染與物理 DOM 保護
 
-我們主張「最少抽象、回歸原生」。透過 Proxy 觀察狀態變更，自動排程重繪。為了避免每次重繪都擦除真實 DOM state（例如輸入框焦點、選取游標等），`BaseComponent` 內建了 DOM 焦點重建與 `data-persistent` 持久節點保護，使原生 Web 開發同時具備超高渲染效能與良好的 UI 穩定性。
+我們主張「最少抽象、回歸原生」。透過 Proxy 觀察狀態變更，自動排程重繪。重繪時 `BaseComponent` 不會整塊替換 `innerHTML`，而是以 `lib/morph.js` 把新 HTML 與現有 DOM 逐節點比對、就地更新（[ADR 0100](./decisions/0100-dom-morphing-updates.md)），輸入框焦點、游標、捲動位置與綁定的監聽器都會保留；需要完整保留內部狀態的節點（例如 `<canvas>`、`<video>`）可再以 `data-persistent` 保護。
 
 ---
 
@@ -66,12 +66,14 @@ customElements.define('my-counter', MyCounter);
 
 ---
 
-## ⚠️ 4. 關鍵陷阱：重新重繪時的事件監聽器丟失 (Listener Detachment)
+## ⚠️ 4. 事件綁定：重繪會保留哪些節點 (Listener Lifetime)
 
-在無 Virtual DOM 的原生網頁開發中，這是一個最常遇到的 Bug：
-> **「當 this.state 改變，render() 重新執行，組件的 innerHTML 被全量替換，原本綁定在 DOM 上的 addEventListener 事件監聽器會全部消失！」**
+`render()` 重新執行時，`BaseComponent` 以 morph 就地更新 DOM（[ADR 0100](./decisions/0100-dom-morphing-updates.md)）：
+* **一般元素**（同位置或同 `id`、同標籤）會保留同一個節點，綁在上面的監聽器繼續有效。
+* **條件渲染新出現的元素**是新節點，上面沒有任何監聽器。
+* **子元件（自訂元素）**在父元件重繪時一律重建，與它的 `connectedCallback`／`disconnectedCallback` 生命週期一致。
 
-為了解決這個問題，`BaseComponent` 支援以下兩種優雅的事件綁定策略：
+因此請依下列策略綁定事件，**不要在 `update()` 裡重複 `addEventListener`**：節點被保留時，每次重繪都會再疊加一個監聽器，按一下就觸發好幾次。
 
 ### 策略 A：事件委派 (Event Delegation) — 最推薦、免綁定
 回歸最 Vanilla 的寫法，在模板中直接使用 inline attribute。因為事件會向上冒泡，我們只要在按鈕的 `onclick` 中使用 `this.closest()` 找到對應的組件並執行其方法即可。這種方式**完全不懼重繪，且沒有記憶體洩漏風險**：
@@ -91,27 +93,21 @@ increment() {
 }
 ```
 
-### 策略 B：手動綁定與 `update()` 重複綁定
-如果您需要綁定非同步事件、自定義事件或複雜的監聽，可以在組件中宣告 `addEventListeners()`，並同時在 `afterFirstRender()` 與 `update()` 中呼叫它。重繪前會自動把舊的 listeners 清理：
+### 策略 B：在 `afterFirstRender()` 對元件本身做事件委派
+需要 `event` 物件、非同步處理或多個按鈕共用邏輯時，在 `afterFirstRender()` 對元件本身綁**一次**監聽器，再以 `closest()` 判斷點到的是誰。元件本身不會被重繪替換，條件渲染新出現的按鈕也一樣有效（`app/App.js` 即採用此寫法）：
 
 ```javascript
 afterFirstRender() {
-    this.addEventListeners();
-}
-
-// 覆寫 update 鉤子，在 DOM 被替換後重新綁定事件
-update() {
-    super.update(); // 1. 執行 DOM 替換與焦點恢復
-    this.addEventListeners(); // 2. 重新綁定事件監聽器
-}
-
-addEventListeners() {
-    // ⚠️ 記得使用可選鏈 ?. 防止 DOM 尚未渲染完成時出錯
-    this.querySelector('#add-btn')?.addEventListener('click', () => {
-        this.state.count++;
+    this.addEventListener('click', (event) => {
+        const addButton = event.target.closest('#add-btn');
+        if (addButton) this.state.count++;
     });
 }
 ```
+
+只有一定存在、不會被條件渲染移除的元素（例如表單本身），才適合在 `afterFirstRender()` 直接綁在該元素上。
+
+> 需要整塊重繪的特殊元件可設定 `static morphUpdates = false`，此時每次重繪都會建立新節點，綁在子元素上的監聽器也會隨之消失。
 
 ---
 

@@ -50,6 +50,14 @@
         host.style.left = '-9999px';
         document.body.appendChild(host);
         const mount = (el) => { host.appendChild(el); return el; };
+        // 動態插入（而非寫在 HTML）：預載掃描器會在 <base> 設定前以 tests/ 解析靜態 <script src>，造成 404
+        const loadLucide = () => typeof lucide !== 'undefined' ? Promise.resolve() : new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = new URL('./lib/lucide.min.js', document.baseURI).href;
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('無法載入 lucide.min.js'));
+            document.head.appendChild(script);
+        });
 
         // === 測試案例 ===
 
@@ -161,16 +169,7 @@
         });
 
         test('Lucide 圖示只在本元件內渲染，Light DOM 與 Shadow DOM 都會處理', async () => {
-            // 動態插入（而非寫在 HTML）：預載掃描器會在 <base> 設定前以 tests/ 解析靜態 <script src>，造成 404
-            if (typeof lucide === 'undefined') {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = new URL('./lib/lucide.min.js', document.baseURI).href;
-                    script.onload = resolve;
-                    script.onerror = () => reject(new Error('無法載入 lucide.min.js'));
-                    document.head.appendChild(script);
-                });
-            }
+            await loadLucide();
 
             const outside = document.createElement('i');
             outside.setAttribute('data-lucide', 'home');
@@ -190,6 +189,151 @@
             assert(shadow.shadowRoot.querySelector('svg.lucide-icon'), 'Shadow DOM 元件的圖示應被渲染');
             assert(outside.isConnected && outside.tagName === 'I', '元件外的圖示不應被元件更新順帶處理');
             outside.remove();
+        });
+
+        test('morph：一般元素重繪後保留同一節點，afterFirstRender 綁的監聽器仍有效', async () => {
+            let clicks = 0;
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ n: 0 }); }
+                render() { return `<p class="label">${this.state.n}</p><button class="btn">+</button>`; }
+                afterFirstRender() { this.querySelector('.btn').addEventListener('click', () => clicks++); }
+            }
+            customElements.define('t-morph-keep', C);
+            const el = mount(document.createElement('t-morph-keep'));
+            const p = el.querySelector('.label');
+            el.state.n = 1;
+            await nextFrame();
+            assertEq(el.querySelector('.label'), p, '應保留同一個 <p>');
+            assertEq(p.textContent, '1', '文字應更新');
+            el.querySelector('.btn').click();
+            assertEq(clicks, 1, '重繪後監聽器應仍有效且只觸發一次');
+        });
+
+        test('morph：子元件（自訂元素）在父元件重繪時重建，維持生命週期', async () => {
+            let connects = 0, disconnects = 0;
+            class Child extends HTMLElement {
+                connectedCallback() { connects++; }
+                disconnectedCallback() { disconnects++; }
+            }
+            customElements.define('t-morph-child', Child);
+            class Parent extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ n: 0 }); }
+                render() { return `<span>${this.state.n}</span><t-morph-child></t-morph-child>`; }
+            }
+            customElements.define('t-morph-parent', Parent);
+            const el = mount(document.createElement('t-morph-parent'));
+            const child = el.querySelector('t-morph-child');
+            el.state.n = 1;
+            await nextFrame();
+            assert(el.querySelector('t-morph-child') !== child, '子元件應為新實例');
+            assertEq(connects, 2, 'connectedCallback 次數');
+            assertEq(disconnects, 1, 'disconnectedCallback 次數');
+        });
+
+        test('morph：重建的自訂元素之後，後面的兄弟元素仍被保留', async () => {
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ n: 0 }); }
+                render() { return `<t-morph-sibling-child></t-morph-sibling-child><nav class="after"><b>${this.state.n}</b></nav>`; }
+            }
+            customElements.define('t-morph-sibling-child', class extends HTMLElement {});
+            customElements.define('t-morph-sibling', C);
+            const el = mount(document.createElement('t-morph-sibling'));
+            const nav = el.querySelector('.after');
+            el.state.n = 1;
+            await nextFrame();
+            assertEq(el.querySelector('.after'), nav, '自訂元素後面的 <nav> 應保留同一節點');
+            assertEq(nav.textContent, '1');
+        });
+
+        test('morph：帶 id 的元素順序改變時搬移而不重建', async () => {
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ items: ['a', 'b', 'c'] }); }
+                render() { return `<ul>${this.state.items.map(i => `<li id="item-${i}">${i}</li>`).join('')}</ul>`; }
+            }
+            customElements.define('t-morph-keyed', C);
+            const el = mount(document.createElement('t-morph-keyed'));
+            const [a, b, c] = el.querySelectorAll('li');
+            el.state.items = ['c', 'a'];
+            await nextFrame();
+            const after = [...el.querySelectorAll('li')];
+            assertEq(after.length, 2, '項目數');
+            assertEq(after[0], c, 'c 應為原節點並移到第一位');
+            assertEq(after[1], a, 'a 應為原節點');
+            assert(!b.isConnected, 'b 應被移除');
+        });
+
+        test('morph：表單控制項的值以新 HTML 為準（與重建結果相同）', async () => {
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ v: 'one', on: true, pick: 'y' }); }
+                render() {
+                    return `<input class="text" value="${this.state.v}">
+                            <input class="check" type="checkbox" ${this.state.on ? 'checked' : ''}>
+                            <select class="sel">${['x', 'y'].map(o => `<option ${o === this.state.pick ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+                }
+            }
+            customElements.define('t-morph-form', C);
+            const el = mount(document.createElement('t-morph-form'));
+            const text = el.querySelector('.text');
+            text.value = 'typed';
+            el.state.v = 'two';
+            el.state.on = false;
+            el.state.pick = 'x';
+            await nextFrame();
+            assertEq(el.querySelector('.text'), text, '應保留同一個 input');
+            assertEq(text.value, 'two', 'value 應更新');
+            assertEq(el.querySelector('.check').checked, false, 'checked 應更新');
+            assertEq(el.querySelector('.sel').value, 'x', 'select 應更新');
+        });
+
+        test('morph：沒有 id 的輸入框重繪後仍保有焦點與游標', async () => {
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ n: 0 }); }
+                render() { return `<input class="no-id" value="abcdef"><span>${this.state.n}</span>`; }
+            }
+            customElements.define('t-morph-focus', C);
+            const el = mount(document.createElement('t-morph-focus'));
+            const input = el.querySelector('.no-id');
+            input.focus();
+            input.setSelectionRange(1, 3);
+            el.state.n = 1;
+            await nextFrame();
+            assertEq(document.activeElement, input, '焦點應保留在同一個輸入框');
+            assertEq(input.selectionStart, 1, '游標起點');
+            assertEq(input.selectionEnd, 3, '游標終點');
+        });
+
+        test('morph：Lucide svg 在來源不變時保留，來源改變時重新產生', async () => {
+            await loadLucide();
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ n: 0, spin: false }); }
+                render() { return `<i data-lucide="home" class="${this.state.spin ? 'spin' : ''}"></i><span>${this.state.n}</span>`; }
+            }
+            customElements.define('t-morph-icon', C);
+            const el = mount(document.createElement('t-morph-icon'));
+            const svg = el.querySelector('svg');
+            assert(svg && !svg.hasAttribute('data-lucide') && svg.getAttribute('data-lucide-icon') === 'home', '產生的 svg 應改用 data-lucide-icon');
+            el.state.n = 1;
+            await nextFrame();
+            assertEq(el.querySelector('svg'), svg, '來源不變時應保留同一個 svg');
+            el.state.spin = true;
+            await nextFrame();
+            const next = el.querySelector('svg');
+            assert(next && next !== svg && next.classList.contains('spin'), '來源改變時應重新產生並帶上新 class');
+        });
+
+        test('morphUpdates = false 時改回整塊重繪', async () => {
+            class C extends BaseComponent {
+                static morphUpdates = false;
+                constructor() { super(); this.initReactiveState({ n: 0 }); }
+                render() { return `<p class="label">${this.state.n}</p>`; }
+            }
+            customElements.define('t-morph-off', C);
+            const el = mount(document.createElement('t-morph-off'));
+            const p = el.querySelector('.label');
+            el.state.n = 1;
+            await nextFrame();
+            assert(el.querySelector('.label') !== p, '應為新的 <p>');
+            assertEq(el.querySelector('.label').textContent, '1');
         });
 
         // === 執行 ===

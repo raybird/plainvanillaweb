@@ -54,9 +54,9 @@
 * **深層反應式代理 (`initReactiveState`)**：
   * 使用深度 `Proxy` 遞迴監控狀態物件的各層屬性變更。
   * 攔截到屬性賦值時，透過 `scheduleUpdate()` 使用 `requestAnimationFrame` 進行非同步緩衝合批，避免同一幀內多次渲染引發介面卡頓。
-* **全量 InnerHTML 重繪與狀態保持**：
+* **DOM 就地更新 (morphing) 與狀態保持**：首次渲染寫入 `innerHTML`，之後由 `lib/morph.js` 把新 HTML 與現有 DOM 逐節點比對，一般元素保留節點只改屬性與文字，子元件（自訂元素）一律重建以維持生命週期（[ADR 0100](./decisions/0100-dom-morphing-updates.md)）。另外還有以下保護：
   * **焦點與選取範圍保護**：更新前自動記錄使用者的 `activeElement.id` 與文字游標選取範圍（`selectionStart`/`selectionEnd`），重繪後自動恢復，確保輸入體驗流暢不跳動。
-  * **持久化節點保持 (`data-persistent`)**：針對 `<canvas>`、`<video>` 或內部複雜 DOM，在 `innerHTML` 覆蓋前將標有 `data-persistent` 的節點提取暫存，渲染後替換回佔位符，避免真實 DOM 重建導致內部狀態丟失。
+  * **持久化節點保持 (`data-persistent`)**：針對 `<canvas>`、`<video>` 或內部複雜 DOM，標有 `data-persistent` 的節點遇到同 id 的佔位符時原樣保留，位置改變時則先提取暫存、渲染後替換回佔位符，避免真實 DOM 重建導致內部狀態丟失。
   * **Light DOM 插槽模擬 (`$slot`)**：在首次掛載前呼叫 `_captureSlots()` 暫存原始標籤內的子節點，透過 `$slot(name)` 模擬原生 Web Component 的插槽功能。
   * **圖示自動渲染**：每次 `update()` 完畢後，若元件內有 `data-lucide` 標記，就以 `lucide.createIcons({ root })` 只掃描本元件的內容（Light DOM 為元件本身、Shadow DOM 為 `shadowRoot`）渲染向量圖示，不掃描整份文件。
 

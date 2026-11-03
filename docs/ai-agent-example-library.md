@@ -107,7 +107,7 @@ AI 在編寫 Vanilla JS 時最常出現的安全漏洞就是直接拼接字串�
 雖然本專案作為範例庫極具價值，但 AI Agent 在使用時仍應注意以下邊界：
 
 1. **不可生搬硬套 UI 重繪機制**：
-   * 本專案的 `BaseComponent` 採用全量 innerHTML 重繪搭配節點保護與游標記錄，適用於中小型頁面或教學範例。
+   * 本專案的 `BaseComponent` 以字串模板搭配 DOM morphing 就地更新（[ADR 0100](./decisions/0100-dom-morphing-updates.md)），適用於中小型頁面或教學範例。
    * 若使用者的目標是巨型企業級系統（如百萬行 React / Vue 專案），Agent 不應強推這套 UI 機制，而應專注於借鑑其 **Web API 調用策略** 與 **純邏輯服務設計**。
 2. **Node 測試環境的 Mock 規範**：
    * 由於專案直接調用瀏覽器全域物件（如 `BroadcastChannel`, `localStorage`, `PaymentRequest`），Agent 在 Node 環境撰寫單元測試時，需參考 `tests/store.test.js` 與 `tests/payment.test.js`，主動 mock 對應的全域環境變數。

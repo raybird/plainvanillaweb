@@ -100,8 +100,9 @@
 | 0097 | [Service Worker 改採網路優先，並依檔案內容自動產生快取版本](./0097-network-first-sw-versioning.md) | [已實作] |
 | 0098 | [引入 Shadow DOM 支援與元件隔離策略](./0098-shadow-dom-encapsulation.md) | [已實作] |
 | 0099 | [原生背景抓取 (Background Fetch) 整合](./0099-background-fetch-integration.md) | [已實作] |
+| 0100 | [BaseComponent 重繪改為 DOM 就地更新（morphing）](./0100-dom-morphing-updates.md) | [已實作] |
 
 ---
-*未使用的編號：0064、0085、0089、0090、0091（保留空號，不回填）。新增 ADR 請使用 0100。*
+*未使用的編號：0064、0085、0089、0090、0091（保留空號，不回填）。新增 ADR 請使用 0101。*
 *詳細內容請參閱 `docs/decisions/*.md`。*
 *此檔案由 `scripts/update-adr-index.js` 自動生成。*

@@ -69,8 +69,9 @@ Two base classes underpin everything; learn them first.
 ### `BaseComponent` (`lib/base-component.js`) — all UI
 - Extends `HTMLElement`. **Light DOM by default** (`static useShadow = false`); set `useShadow = true` per-component to opt into Shadow DOM.
 - Reactive state: call `this.initReactiveState({...})` in the constructor. State is a **deep Proxy** — any mutation schedules a re-render batched via `requestAnimationFrame` (`scheduleUpdate`).
-- `update()` does a **full `innerHTML` re-render** of the component, then re-applies focus + cursor selection and preserves any element marked `data-persistent` (matched to a `data-persistent-placeholder`). There is no virtual DOM / diffing.
-- `render()` must return an `html\`\`` result (a `SafeHTML` object) or a string. Override `afterFirstRender()` to attach event listeners; re-attach them in an overridden `update()` since the DOM is replaced (see `app/App.js`).
+- `update()` renders via `innerHTML` the first time, then **morphs** the existing DOM to the new HTML (`lib/morph.js`, ADR 0100): plain elements matched by position or `id` are kept and only their attributes/text/form values change; **custom elements are always recreated** (so child components keep their old connect/disconnect lifecycle — pages release cameras on navigation, `Docs` re-reads the URL); `data-persistent` nodes and Lucide `<svg>`s with unchanged source are kept as-is. `static morphUpdates = false` opts a component back into full re-render.
+- Listeners: because nodes survive re-renders, **never `addEventListener` inside `update()`** — it stacks a new listener on the kept node every render. Bind once in `afterFirstRender()`, preferably delegated on the component itself with `event.target.closest(...)` (see `app/App.js`), or use inline `onclick="this.closest('my-el').method()"`.
+- `render()` must return an `html\`\`` result (a `SafeHTML` object) or a string. Override `afterFirstRender()` to attach event listeners (see the listener note above).
 - Slots are simulated in Light DOM: `$slot(name)` returns captured original child markup (captured once before first render). `$t(key, params)` is the i18n helper.
 
 ### `BaseService` (`lib/base-service.js`) — all logic/state

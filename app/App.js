@@ -191,80 +191,74 @@ export class App extends BaseComponent {
     }
 
     afterFirstRender() {
-        this.addEventListeners();
-    }
+        // 事件委派：只在元件本身綁一次，按鈕被 morph 保留或重建都不影響，也不會重複綁定（ADR 0100）
+        this.addEventListener('click', (event) => {
+            const themeToggle = event.target.closest('#theme-toggle');
+            if (themeToggle) return this.toggleTheme(themeToggle);
 
-    update() {
-        super.update();
-        this.addEventListeners();
-    }
+            const langToggle = event.target.closest('#lang-toggle');
+            if (langToggle) return i18n.setLocale(langToggle.dataset.lang);
 
-    addEventListeners() {
-        this.querySelector('#theme-toggle')?.addEventListener('click', (event) => {
-            const modes = ['system', 'light', 'dark'];
-            const current = appStore.state.theme || 'system';
-            const next = modes[(modes.indexOf(current) + 1) % modes.length];
-            
-            // 降級處理：如果不支援 View Transition，直接切換
-            if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                appStore.state.theme = next;
-                return;
-            }
-
-            // 計算點擊按鈕的中心坐標
-            const rect = event.currentTarget.getBoundingClientRect();
-            const x = rect.left + rect.width / 2;
-            const y = rect.top + rect.height / 2;
-            
-            // 計算波紋擴散至整個視窗角落所需的最大半徑
-            const endRadius = Math.hypot(
-                Math.max(x, window.innerWidth - x),
-                Math.max(y, window.innerHeight - y)
-            );
-
-            const transition = document.startViewTransition(() => {
-                appStore.state.theme = next;
-            });
-
-            // 圓形波紋擴散 clip-path 動畫
-            transition.ready.then(() => {
-                document.documentElement.animate(
-                    {
-                        clipPath: [
-                            `circle(0px at ${x}px ${y}px)`,
-                            `circle(${endRadius}px at ${x}px ${y}px)`
-                        ]
-                    },
-                    {
-                        duration: 400,
-                        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
-                        pseudoElement: '::view-transition-new(root)'
-                    }
-                );
-            }).catch(err => {
-                if (err.name !== 'AbortError') {
-                    console.error('[ViewTransition] Ready animation failed:', err);
-                }
-            });
-
-            // 捕獲所有關聯的 Promise，防止瀏覽器在跳過動畫時拋出 Uncaught (in promise)
-            transition.updateCallbackDone.catch(() => {});
-            transition.finished.catch(err => {
-                if (err.name !== 'AbortError') {
-                    console.error('[ViewTransition] Theme transition finished failed:', err);
-                }
-            });
-        });
-
-        this.querySelector('#lang-toggle')?.addEventListener('click', (e) => {
-            const nextLang = e.target.dataset.lang;
-            i18n.setLocale(nextLang);
-        });
-
-        this.querySelector('#logout-btn')?.addEventListener('click', () => {
-            if (confirm('確定要登出嗎？')) {
+            if (event.target.closest('#logout-btn') && confirm('確定要登出嗎？')) {
                 authService.logout();
                 notificationService.info('已成功登出。');
+            }
+        });
+    }
+
+    /** 切換主題（system → light → dark），支援時以 View Transition 做圓形波紋擴散 */
+    toggleTheme(button) {
+        const modes = ['system', 'light', 'dark'];
+        const current = appStore.state.theme || 'system';
+        const next = modes[(modes.indexOf(current) + 1) % modes.length];
+        
+        // 降級處理：如果不支援 View Transition，直接切換
+        if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            appStore.state.theme = next;
+            return;
+        }
+
+        // 計算點擊按鈕的中心坐標
+        const rect = button.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        
+        // 計算波紋擴散至整個視窗角落所需的最大半徑
+        const endRadius = Math.hypot(
+            Math.max(x, window.innerWidth - x),
+            Math.max(y, window.innerHeight - y)
+        );
+
+        const transition = document.startViewTransition(() => {
+            appStore.state.theme = next;
+        });
+
+        // 圓形波紋擴散 clip-path 動畫
+        transition.ready.then(() => {
+            document.documentElement.animate(
+                {
+                    clipPath: [
+                        `circle(0px at ${x}px ${y}px)`,
+                        `circle(${endRadius}px at ${x}px ${y}px)`
+                    ]
+                },
+                {
+                    duration: 400,
+                    easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                    pseudoElement: '::view-transition-new(root)'
+                }
+            );
+        }).catch(err => {
+            if (err.name !== 'AbortError') {
+                console.error('[ViewTransition] Ready animation failed:', err);
+            }
+        });
+
+        // 捕獲所有關聯的 Promise，防止瀏覽器在跳過動畫時拋出 Uncaught (in promise)
+        transition.updateCallbackDone.catch(() => {});
+        transition.finished.catch(err => {
+            if (err.name !== 'AbortError') {
+                console.error('[ViewTransition] Theme transition finished failed:', err);
             }
         });
     }

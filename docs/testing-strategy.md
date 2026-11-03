@@ -37,7 +37,7 @@ global.localStorage = {
 
 ## 4. 真實瀏覽器測試 (Headless Chrome)
 
-需要真實 DOM 的行為（`innerHTML` 重繪、Shadow DOM、焦點還原）放在 `tests/browser.html`，由 `tests/browser-runner.mjs` 自動執行。執行器同樣零依賴：只用 Node 內建的 `http` 與 `WebSocket`，透過 **Chrome DevTools Protocol** 操作系統上的 Chrome。
+需要真實 DOM 的行為（morph 更新、Shadow DOM、焦點還原、圖示渲染）放在 `tests/browser.html`，由 `tests/browser-runner.mjs` 自動執行。執行器同樣零依賴：只用 Node 內建的 `http` 與 `WebSocket`，透過 **Chrome DevTools Protocol** 操作系統上的 Chrome。
 
 ```bash
 node tests/browser-runner.mjs

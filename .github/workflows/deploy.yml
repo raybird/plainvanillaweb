@@ -26,6 +26,9 @@ jobs:
       - name: Syntax Check
         # 簡單的語法檢查，確保沒有基本的 JS 錯誤
         run: find . -name "*.js" -not -path "./node_modules/*" | xargs -n 1 node -c
+      - name: Service Worker Version Check
+        # 網站檔案內容有變動卻沒更新 sw.js 的 CACHE_NAME 時失敗，避免使用者一直拿到舊快取
+        run: node scripts/update-sw-version.js --check
 
   deploy-info:
     needs: [test, lint]

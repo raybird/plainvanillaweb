@@ -6,7 +6,7 @@
 ## 決策
 引入 PWA 標準支援：
 1.  **Web App Manifest**: 透過 `manifest.json` 定義應用程式的中繼資料（名稱、圖示、啟動模式），使其滿足「可安裝 (Installable)」條件。
-2.  **Service Worker**: 實作 `sw.js`，採用 **Stale-While-Revalidate** 策略快取核心資產（HTML/CSS/JS）。這確保了應用在無網路環境下仍能啟動，並在背景自動更新至最新版本。
+2.  **Service Worker**: 實作 `sw.js`，採用 **Stale-While-Revalidate** 策略快取核心資產（HTML/CSS/JS）。（快取策略已由 [ADR 0097](./0097-network-first-sw-versioning.md) 改為網路優先。）這確保了應用在無網路環境下仍能啟動，並在背景自動更新至最新版本。
 
 ## 後果
 - **優點**: 大幅提升載入速度（二次訪問直接讀取快取）。

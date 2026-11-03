@@ -54,19 +54,12 @@ if ('serviceWorker' in navigator) {
             .then(reg => {
                 console.log('[SW] Registered:', reg.scope);
 
-                // 檢查是否有更新
+                // SW 採網路優先：上線時這次載入的已是最新檔案，新版 SW 只是更新離線快取，不需要請使用者重新整理
                 reg.addEventListener('updatefound', () => {
                     const newWorker = reg.installing;
                     newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // 跨分頁防抖機制：利用 localStorage 確保 10 秒內只通知一次
-                            const lastUpdateNotify = localStorage.getItem('sw-update-notified-at');
-                            const now = Date.now();
-
-                            if (!lastUpdateNotify || (now - parseInt(lastUpdateNotify)) > 10000) {
-                                notificationService.info("✨ 應用程式有新版本，請重新整理頁面以套用更新。");
-                                localStorage.setItem('sw-update-notified-at', now.toString());
-                            }
+                        if (newWorker.state === 'activated') {
+                            console.log('[SW] Offline cache updated');
                         }
                     });
                 });

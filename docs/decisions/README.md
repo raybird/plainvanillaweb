@@ -99,6 +99,7 @@
 | 0094 | [原生 CSS 變數主題引擎與佈局教學實作](./0094-layout-theme-lab.md) | [已實作] |
 | 0095 | [原生 Service 交互模式與注入規範 (Standardized Patterns)](./0095-service-interaction-patterns.md) | [已實作] |
 | 0096 | [原生 Vanilla 宣言與長青代碼準則實作](./0096-vanilla-manifesto.md) | [已實作] |
+| 0097 | [Service Worker 改採網路優先，並依檔案內容自動產生快取版本](./0097-network-first-sw-versioning.md) | [已實作] |
 
 ---
 *詳細內容請參閱 `docs/decisions/*.md`。*

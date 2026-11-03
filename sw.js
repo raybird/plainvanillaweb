@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vanilla-cache-v7';
+const CACHE_NAME = 'vanilla-cache-519f21816f64';
 const CORE_ASSETS = [
     './',
     './index.html',
@@ -16,13 +16,14 @@ const CORE_ASSETS = [
     './assets/locales/en-US.json'
 ];
 
-// 安裝階段：快取核心資產
+// 安裝階段：快取核心資產（供離線使用；上線時一律走網路）
 self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             console.log('[Service Worker] Caching core assets');
-            return cache.addAll(CORE_ASSETS);
+            // cache: 'reload' 略過 HTTP 快取，避免把 CDN 上仍在有效期內的舊檔放進新版快取
+            return cache.addAll(CORE_ASSETS.map((url) => new Request(url, { cache: 'reload' })));
         })
     );
 });
@@ -46,27 +47,38 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// 請求攔截：Stale-While-Revalidate 策略
+// 請求攔截：網路優先策略，離線時才回退到快取
+// 全部檔案都走網路，確保同一次載入拿到的 HTML 與 JS 屬於同一版，不會新舊混用
 self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
         return;
     }
 
-    event.respondWith(
-        caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
-            const fetchPromise = fetch(event.request).then((networkResponse) => {
-                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseToCache);
-                    });
-                }
-                return networkResponse;
-            });
-            return cachedResponse || fetchPromise;
-        })
-    );
+    event.respondWith(networkFirst(event));
 });
+
+async function networkFirst(event) {
+    const { request } = event;
+    try {
+        // no-cache：一律向伺服器驗證（檔案沒變時只回 304），不讓 HTTP 快取裡的舊檔混進來
+        const response = await fetch(request, { cache: 'no-cache' });
+        if (response.status === 200 && response.type === 'basic') {
+            const copy = response.clone();
+            event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)));
+        }
+        return response;
+    } catch (err) {
+        // ignoreSearch：讓帶 query 的網址（例如 Share Target）離線時也能命中快取
+        const cached = await caches.match(request, { ignoreSearch: true });
+        if (cached) return cached;
+        // 採 hash 路由，任何頁面導覽都可以回退到 index.html
+        if (request.mode === 'navigate') {
+            const shell = await caches.match('./index.html');
+            if (shell) return shell;
+        }
+        throw err;
+    }
+}
 
 // --- 進階 PWA 特性 ---
 

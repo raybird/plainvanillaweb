@@ -124,6 +124,14 @@ node --test tests/*.test.js
 find . -name "*.js" -not -path "./node_modules/*" -not -path "./.git/*" | xargs -n 1 node -c
 ```
 
+### 發版前更新快取版本
+
+網站檔案有變動時，提交前請執行下列指令，並把更新後的 `sw.js` 與 `index.html` 一起提交；否則回訪的使用者會一直拿到 Service Worker 裡的舊快取。CI 會檢查版本號與檔案內容是否一致。
+
+```bash
+node scripts/update-sw-version.js
+```
+
 ---
 
 ## 授權

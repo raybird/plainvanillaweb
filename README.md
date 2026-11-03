@@ -103,7 +103,7 @@ The project is organized into four core functional domains, matching the applica
 ├── index.html            # Single page entry point
 ├── index.css             # Global CSS design tokens & responsive styles
 ├── index.js              # Application bootstrapper & SW registration
-├── sw.js                 # Service Worker (stale-while-revalidate & offline sync)
+├── sw.js                 # Service Worker (network-first with offline fallback)
 └── manifest.json         # PWA configuration & Web Share Target
 ```
 
@@ -138,6 +138,14 @@ node --test tests/*.test.js
 
 # Run syntax check across all JavaScript files
 find . -name "*.js" -not -path "./node_modules/*" -not -path "./.git/*" | xargs -n 1 node -c
+```
+
+### Bump the cache version before release
+
+When served files change, run the command below before committing and commit the updated `sw.js` and `index.html` with it; otherwise returning visitors keep getting the old Service Worker cache. CI checks that the version matches the file contents.
+
+```bash
+node scripts/update-sw-version.js
 ```
 
 ---

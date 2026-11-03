@@ -52,9 +52,12 @@ Scaffolding & maintenance scripts:
 ```bash
 node scripts/new-page.js ProductInfo   # generates components/pages/ProductInfo.js (see its output for follow-up wiring)
 node scripts/update-adr-index.js        # regenerates the ADR index in docs/decisions/
+node scripts/update-sw-version.js       # rewrites sw.js CACHE_NAME and index.html index.js?v= from a hash of served files
 ```
 
-CI (`.github/workflows/deploy.yml`) runs the unit tests and the syntax check on push/PR to `master`. `scripts/sync.sh` runs tests + syntax check then **auto-commits and pushes to master** (and references an external cleanup script that may not exist) — do not run it casually.
+**Before committing any change to served files** (anything outside `tests/`, `scripts/`, `.github/`, `.agent/` and root `*.md`), run `node scripts/update-sw-version.js` and commit the updated `sw.js` / `index.html` with it; otherwise returning visitors keep getting the old Service Worker cache. The hash covers git-tracked files only, so `git add` new files first.
+
+CI (`.github/workflows/deploy.yml`) runs the unit tests, the syntax check and `update-sw-version.js --check` on push/PR to `master`. `scripts/sync.sh` runs tests + syntax check then **auto-commits and pushes to master** (and references an external cleanup script that may not exist) — do not run it casually.
 
 ## Architecture
 

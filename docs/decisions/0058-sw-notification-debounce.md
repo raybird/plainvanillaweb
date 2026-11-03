@@ -1,7 +1,7 @@
 # ADR 0058: 解決 Service Worker 更新通知在多分頁環境下的重複顯示問題
 
 ## 狀態
-已接受 (Accepted)
+已被取代 (Superseded)：[ADR 0097](./0097-network-first-sw-versioning.md) 改採網路優先策略後，頁面上線時載入的已是最新版，不再顯示「有新版本」通知。
 
 ## 背景
 使用者回報在 `plainvanillaweb` 開啟多個分頁的情況下，切換分頁時會重複收到「應用程式有新版本」的通知。這是因為每個分頁的 Service Worker 註冊對象都會獨立觸發 `updatefound` 事件，導致通知在每個分頁中重複發送。

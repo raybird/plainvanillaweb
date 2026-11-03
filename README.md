@@ -63,7 +63,7 @@ The project is organized into four core functional domains, matching the applica
     - **Payment Request API**: Standardized browser-native checkout interface.
 - **Industrial-Grade Resilience**:
     - **SafeHTML by Default**: Tagged template literal rendering with automatic HTML entity escaping against XSS.
-    - **Deep Reactive State**: Proxied state with `requestAnimationFrame` debouncing, input focus & cursor preservation, and `data-persistent` node caching.
+    - **Deep Reactive State**: Proxied state with `requestAnimationFrame` batching. Re-renders morph the existing DOM in place ([ADR 0100](./docs/decisions/0100-dom-morphing-updates.md)): unchanged elements keep their nodes, listeners, focus, cursor and scroll position, while `data-persistent` nodes (e.g. `<canvas>`, `<video>`) are kept untouched.
     - **Offline Action Queue**: Automatic queuing of mutations during offline mode, synchronizing upon reconnect.
     - **Cross-Tab Synchronization**: Real-time state broadcasting across browser tabs via `BroadcastChannel`.
     - **Undo/Redo History**: Snapshot-based state history management.

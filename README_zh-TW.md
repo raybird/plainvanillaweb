@@ -73,7 +73,7 @@
     - **Lazy & Prefetch**: 路由驅動的模組動態載入與智能資源預載。
     - **Web Workers**: 邏輯計算與主執行緒解耦，保持介面反應。
     - **Responsive First**: 全面優化手機版面佈局與 Header 響應式體驗。
-    - **Reactive State 2.2**: 具備 Light DOM 插槽模擬機制的反應式組件。
+    - **Reactive State 2.2**: 具備 Light DOM 插槽模擬機制的反應式組件。狀態以 Proxy 深度監聽、`requestAnimationFrame` 合併更新；重繪時以 DOM morphing 就地更新（[ADR 0100](./docs/decisions/0100-dom-morphing-updates.md)），沒變的元素保留原節點、監聽器、焦點、游標與捲動位置，`data-persistent` 節點（如 `<canvas>`、`<video>`）則原樣保留。
 
 ---
 

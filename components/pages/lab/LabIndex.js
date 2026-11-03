@@ -205,19 +205,19 @@ export class LabIndex extends BaseComponent {
       },
       {
         id: "broadcast",
-        docId: "broadcast-channel",
+        docId: "", // 尚未有獨立文件（原指向不存在的 broadcast-channel.md）
         title: "📢 跨分頁同源廣播",
         desc: "免伺服器的多重分頁狀態即時同步",
       },
       {
         id: "modal",
-        docId: "dialog-modal",
+        docId: "", // 尚未有獨立文件（原指向不存在的 dialog-modal.md）
         title: "🪟 原生對話框 (Dialog)",
         desc: "宣告式 A11y 彈出層與 Focus Trap",
       },
       {
         id: "chart",
-        docId: "canvas-chart",
+        docId: "", // 尚未有獨立文件（原指向不存在的 canvas-chart.md）
         title: "📊 高效圖表 (Canvas)",
         desc: "極致輕量的純 Canvas 數據資料流畫布",
       },

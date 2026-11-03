@@ -30,8 +30,22 @@ jobs:
         # 網站檔案內容有變動卻沒更新 sw.js 的 CACHE_NAME 時失敗，避免使用者一直拿到舊快取
         run: node scripts/update-sw-version.js --check
 
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 執行器使用內建 WebSocket（Node 22 起為全域物件）連線 Chrome DevTools Protocol
+          node-version: '22'
+      - name: Browser Tests
+        # 以 runner 內建的 Chrome 執行 tests/browser.html 與整站冒煙測試（根目錄與 /plainvanillaweb/ 子路徑各一次）
+        run: node tests/browser-runner.mjs
+
   deploy-info:
-    needs: [test, lint]
+    needs: [test, lint, browser]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
     steps:

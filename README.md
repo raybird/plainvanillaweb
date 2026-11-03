@@ -133,8 +133,8 @@ No test frameworks or linters need to be installed. We utilize Node.js built-in 
 # Run all unit tests (Node.js built-in test runner)
 node --test tests/*.test.js
 
-# Run DOM & lifecycle tests in the browser
-# Serve via HTTP and open http://localhost:8000/tests/browser.html
+# Run DOM & lifecycle tests plus a whole-site smoke test in headless Chrome (Node 22+, no dependencies)
+node tests/browser-runner.mjs
 
 # Run syntax check across all JavaScript files
 find . -name "*.js" -not -path "./node_modules/*" -not -path "./.git/*" | xargs -n 1 node -c

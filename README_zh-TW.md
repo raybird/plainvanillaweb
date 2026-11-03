@@ -120,6 +120,9 @@ npx serve .
 # 執行所有單元測試 (Node 內建 test runner)
 node --test tests/*.test.js
 
+# 以 headless Chrome 執行 DOM 與生命週期測試，並對全站路由與文件做冒煙測試 (Node 22+，零依賴)
+node tests/browser-runner.mjs
+
 # 語法檢查
 find . -name "*.js" -not -path "./node_modules/*" -not -path "./.git/*" | xargs -n 1 node -c
 ```

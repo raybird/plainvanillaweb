@@ -32,14 +32,17 @@ node --test tests/store.test.js      # run a single test file
 
 Tests run in Node, not a browser, so they **mock browser globals** they depend on (`localStorage`, `BroadcastChannel`, etc. — see `tests/store.test.js`). When testing browser-coupled code, add the globals the module touches.
 
-Browser tests (requires real DOM — open via HTTP server):
+Browser tests (real DOM, headless Chrome via DevTools Protocol — no dependencies; needs Node 22+ and a local Chrome, override with `CHROME_PATH`; also what CI runs, ~1.5 min):
 
 ```bash
-python3 -m http.server
-# then open http://localhost:8000/tests/browser.html
+node tests/browser-runner.mjs   # DEBUG=1 prints per-page timing
 ```
 
-`tests/browser.html` tests BaseComponent rendering lifecycle, Light DOM, Shadow DOM, reactive state, and `data-persistent` preservation — things that need real `innerHTML`/DOM behavior.
+The runner serves the repo twice — at `/` and at `/plainvanillaweb/` (subpath only, so wrong relative paths 404 instead of silently hitting the root) — and in each:
+1. runs `tests/browser.html` (BaseComponent rendering lifecycle, Light/Shadow DOM, reactive state, `data-persistent` preservation) and reads `window.__TEST_RESULTS__`;
+2. smoke-tests the whole site: visits every `<x-route>` it discovers (including lazily loaded lab sub-routes) and every doc linked from the pages, failing on uncaught exceptions, `console.error` or 4xx/5xx responses. A new page that logs `console.error` in headless Chrome (e.g. missing hardware) needs a matching pattern in `IGNORED_ERRORS`.
+
+To debug `tests/browser.html` by hand: `python3 -m http.server`, then open `http://localhost:8000/tests/browser.html`.
 
 Lint / syntax check (also what CI runs):
 
@@ -57,7 +60,7 @@ node scripts/update-sw-version.js       # rewrites sw.js CACHE_NAME and index.ht
 
 **Before committing any change to served files** (anything outside `tests/`, `scripts/`, `.github/`, `.agent/` and root `*.md`), run `node scripts/update-sw-version.js` and commit the updated `sw.js` / `index.html` with it; otherwise returning visitors keep getting the old Service Worker cache. The hash covers git-tracked files only, so `git add` new files first.
 
-CI (`.github/workflows/deploy.yml`) runs the unit tests, the syntax check and `update-sw-version.js --check` on push/PR to `master`. `scripts/sync.sh` runs tests + syntax check then **auto-commits and pushes to master** (and references an external cleanup script that may not exist) — do not run it casually.
+CI (`.github/workflows/deploy.yml`) runs the unit tests, the syntax check, `update-sw-version.js --check` and the browser tests on push/PR to `master`. `scripts/sync.sh` runs tests + syntax check then **auto-commits and pushes to master** (and references an external cleanup script that may not exist) — do not run it casually.
 
 ## Architecture
 

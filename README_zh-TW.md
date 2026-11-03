@@ -4,123 +4,44 @@
 
 > **[📍 檢視 2026 演進路線圖 (Roadmap)](./ROADMAP.md)**
 
-這是一個遵循 **[Plain Vanilla Web](https://plainvanillaweb.com/)** 精神所構建的現代原生網頁應用範本。
-我們拒絕過度封裝，擁抱瀏覽器原生能力，旨在提供一個高效、安全且具備高度教育意義的開發起點。
+這是一個遵循 **[Plain Vanilla Web](https://plainvanillaweb.com/)** 精神所構建的現代原生網頁應用範本：沒有打包工具、沒有轉譯器、沒有 `node_modules`，全部是瀏覽器直接載入的原生 ES Modules、Custom Elements 與標準 Web API。
 
 > **💡 發想靈感源自 [jsebrech/plainvanilla](https://github.com/jsebrech/plainvanilla)。**
 
----
+這個 repo 分成兩層：
 
-## 🍦 專案精神 (The Vanilla Way)
+| 層級 | 是什麼 | 入口 | 適合什麼時候用 |
+| :--- | :--- | :--- | :--- |
+| **① 核心** | 約 1,100 行可重用的基礎建設：安全模板、具 DOM morphing 的反應式元件、服務基底、跨分頁 Store 與 hash 路由 | [`lib/core.js`](./lib/core.js) | 想用原生方式打造自己的應用 |
+| **② 展示站** | 以核心打造的完整網站：37 個前沿 Web API 互動實驗室、執行期渲染的文件、儀表板與遊樂場 | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | 想學某個 Web API，或直接借用寫好的 service |
 
-> 💡 **了解我們為何堅持「標準優於框架、零建置成本、安全且透明」的哲學：** <br>
-> 閱讀 **[Vanilla Manifesto (原生網頁開發宣言)](./docs/manifesto.md)**
+核心不會 import 任何展示站的程式，並由測試守住這條邊界（[ADR 0101](./docs/decisions/0101-core-entry-point.md)）。
 
----
-
-## 📚 文件與模組導覽地圖 (Navigation Map)
-
-我們依據功能性質，將專案的模組與文件劃分為以下四大類，與網頁介面的側邊欄導覽 (`Navbar`) 完全對齊：
-
-### 1. 導覽與核心 (Overview)
-- **總覽**：本 `README.md` 所處的專案首頁。
-- **宣言**：[Vanilla Manifesto](./docs/manifesto.md) 專案精神與哲學。
-- **架構解析**：[專案架構全貌深度解析](./docs/project-architecture-overview.md)。
-- **AI 範例庫指南**：[AI Agent 知識與範例庫指南](./docs/ai-agent-example-library.md)。
-
-### 2. 學習與實作 (Learning & Lab)
-- **📚 技術手冊 (Docs)**：包含豐富的 Markdown 教學文件，涵蓋：
-    - [這不是框架！組件開發指南](./docs/component-architecture.md)
-    - [SafeHTML：防護 XSS 的安全渲染機制](./docs/safe-html-rendering.md)
-    - [服務模式規範](./docs/service-patterns.md)
-    - [基礎核心：路由、狀態管理、PWA、i18n 等子系統指南](./docs/)
-- **🧪 互動式實驗室 (Lab)**：直接在瀏覽器執行並體驗 WebGPU、WebRTC、Web Bluetooth、FaceID 等 38+ 種前沿原生 API。
-- **🎡 Vanilla 遊樂場 (Playground)**：內建的所見即所得線上程式碼編輯器。
-
-### 3. 監控與開發工具 (Developer Tools)
-- **📊 開發者儀表板 (Dashboard)**：即時監控 IndexedDB 資料、Network 請求與 Store 全域狀態流向。
-- **📈 效能分析中心 (Analytics)**：利用原生 Canvas API 視覺化監測 Web Vitals (LCP/CLS) 指標。
-- **⚡ Web Worker 展示 (Worker Demo)**：展示耗時運算與主執行緒分離的優化實作。
-- **🔍 開源碼搜尋 (Repo Search)**：串接 GitHub API 的高互動性搜尋介面。
-
-### 4. 使用者 (Account)
-- **👤 個人檔案 (Profile)**：展示基於 LocalStorage/IndexedDB 結合身份驗證 (Auth Guard) 的會員登入機制。
+> 💡 **為何堅持「標準優於框架、零建置成本、安全且透明」？** 閱讀 **[Vanilla Manifesto (原生網頁開發宣言)](./docs/manifesto.md)**。
 
 ---
 
-## 🚀 核心特色
+## ① 核心
 
-- **前沿 Web 技術整合 (Cutting Edge)**：
-    - **WebGPU & WASM**: 高效能並行運算與 C/Rust 編譯模組整合。
-    - **WebRTC (P2P)**：無伺服器去中心化數據傳輸與影音通訊。
-    - **Native Speech**: 整合原生 TTS (語音合成) 與 STT (語音辨識)。
-    - **Hardware Access**: 原生 Web Bluetooth 藍牙通訊、Web Serial 序列埠通訊與螢幕錄製。
-    - **WebAuthn**: 支援 FaceID、指紋辨識與實體 FIDO2 安全金鑰。
-- **電商與支付 (E-commerce Ready)**：
-    - **Payment Request**: 標準化的瀏覽器原生支付介面，提升轉換率。
-- **進階交互實踐**：
-    - **Native Charts**: 利用 Canvas API 實作零依賴的高效能數據視覺化。
-    - **Image Processing**: 純前端圖片濾鏡與縮放處理。
-    - **Vanilla SDK 模式 (v1.1.0)**: 解耦核心基類 (`BaseComponent`, `BaseService`, `Store`)、`SafeHTML`、響應式表單引擎與 40+ 項服務，支援外部 URL 直接引用。
-- **專業級韌性架構**：
-    - **安全的預設值 (SafeHTML)**: 實作內建 XSS 防禦的標籤模板渲染機制，將安全視為一等公民。
-    - **Offline Action Queue**: 斷網時操作自動排隊，恢復連線後自動同步。
-    - **Undo/Redo History**: 實作狀態快照機制的撤銷與重做功能。
-    - **Virtual List**: 支援萬筆數據的高流暢度虛擬捲動。
-    - **Storage Persistence**: 主動申請數據持久化，防止系統清理。
-- **高性能與開發體驗優化 (Performance & DX)**：
-    - **現代化文件 UI 佈局**: 具備 Tree-view 導覽、毛玻璃質感與強化的閱讀字體學體驗。
-    - **Lazy & Prefetch**: 路由驅動的模組動態載入與智能資源預載。
-    - **Web Workers**: 邏輯計算與主執行緒解耦，保持介面反應。
-    - **Responsive First**: 全面優化手機版面佈局與 Header 響應式體驗。
-    - **Reactive State 2.2**: 具備 Light DOM 插槽模擬機制的反應式組件。狀態以 Proxy 深度監聽、`requestAnimationFrame` 合併更新；重繪時以 DOM morphing 就地更新（[ADR 0100](./docs/decisions/0100-dom-morphing-updates.md)），沒變的元素保留原節點、監聽器、焦點、游標與捲動位置，`data-persistent` 節點（如 `<canvas>`、`<video>`）則原樣保留。
+### 包含哪些模組
 
----
+| 模組 | 用途 |
+| :--- | :--- |
+| `lib/html.js` | `html` 標籤模板，**自動跳脫**所有插入的值（預設防 XSS）；受信任的標記用 `unsafe()` |
+| `lib/base-component.js` | `BaseComponent`：Custom Element 基底，具深度反應式狀態、`requestAnimationFrame` 合併更新、預設 Light DOM（可選用 Shadow DOM）、插槽模擬與 `$t()` 國際化 |
+| `lib/morph.js` | 重繪時**就地更新現有 DOM**：沒變的元素保留原節點、監聽器、焦點、游標與捲動位置；子元件重建以維持生命週期（[ADR 0100](./docs/decisions/0100-dom-morphing-updates.md)） |
+| `lib/base-service.js` | `BaseService`：以 `EventTarget` 為基礎的單例服務基底，提供 `on`／`off`／`emit` |
+| `lib/store.js` | `appStore`：Proxy 全域狀態，自動存入 `localStorage`、透過 `BroadcastChannel` 跨分頁同步，支援快照（`applySnapshot`）與 TTL 快取 |
+| `lib/router.js`、`components/route/` | hash 路由：`matchRoute()`（`:參數`、`/*` 萬用字元、`exact`），`<x-switch>`／`<x-route>` 支援頁面延遲 `import()`、View Transition、可注入的 `authGuard` 與 SEO meta |
+| `lib/i18n-service.js`、`lib/meta-service.js` | 語系載入與翻譯；依路由更新 `document.title` 與描述 |
 
-## 📂 專案目錄結構
+### 在自己的頁面使用
 
-```text
-.
-├── app/                # 應用程式進入點 (App.js)
-├── assets/             # 靜態資源 (images, locales)
-├── components/         # UI 組件庫 (ui/, pages/, route/)
-│   └── pages/lab/      # 38+ 個獨立原生 Web API 實驗室
-├── docs/               # 💡 技術說明文件 (Markdown)
-│   └── decisions/      # 90+ 篇架構決策紀錄 (ADRs)
-├── lib/                # 核心服務層 (Services)
-│   ├── core.js         # 只含核心的入口（不載入展示用 service）
-│   ├── base-*.js       # 基礎類別 (Component, Service)
-│   ├── store.js        # 全域狀態
-│   ├── idb-service.js  # IndexedDB 管理
-│   ├── vanilla-sdk.js  # 聚合 SDK
-│   └── ...             # 其他功能服務 (Speech, Image, Storage...)
-├── workers/            # Web Worker 腳本
-├── index.html          # HTML 入口
-├── manifest.json       # PWA 配置
-├── sw.js               # Service Worker
-└── scripts/            # 自動化維護腳本 (new-page.js, update-adr-index.js...)
-```
-
-## 🛠 快速啟動
-
-由於專案採用 ES Modules 與 Service Worker，必須使用 HTTP 伺服器運行：
-
-```bash
-# 使用 Python (內建)
-python3 -m http.server
-
-# 或使用 npx
-npx serve .
-```
-
-啟動後請使用瀏覽器開啟 `http://localhost:8000/`。
-
-### 只使用核心
-
-可重用的基礎建設約 1,000 行，有獨立的入口 `lib/core.js`，不會載入任何展示用 service（WebGPU、WebRTC、WebAuthn…），並由測試守住這條邊界（[ADR 0101](./docs/decisions/0101-core-entry-point.md)）。
+複製 `lib/` 與 `components/route/`（保持相對路徑），或直接從 GitHub Pages import。需透過 HTTP 開啟，ES Modules 無法從 `file://` 載入。
 
 ```javascript
 import { BaseComponent, html, router, registerRoute } from './lib/core.js';
+// 或：import { ... } from 'https://raybird.github.io/plainvanillaweb/lib/core.js';
 
 class HelloCard extends BaseComponent {
     constructor() { super(); this.initReactiveState({ count: 0 }); }
@@ -130,17 +51,107 @@ class HelloCard extends BaseComponent {
 }
 customElements.define('hello-card', HelloCard);
 
-registerRoute();                                   // 定義 <x-route>；<x-switch> 在 import 時就已定義
+registerRoute();                                      // 定義 <x-route>；<x-switch> 在 import 時就已定義
 router.authGuard = () => Boolean(localStorage.token); // 選用：auth-required 路由的登入判斷
 ```
 
-| 層級 | 入口 | 內容 |
-| :--- | :--- | :--- |
-| 核心 | `lib/core.js` | `html`、`BaseComponent` 與 DOM morphing、`BaseService`、`Store`、hash 路由（`<x-route>`、`<x-switch>`）、i18n |
-| 全部 | `lib/vanilla-sdk.js` | 核心加上 45 個展示用 service 與表單引擎 |
-| 展示站 | `index.html` | 以核心打造的 Lab、文件與 Dashboard |
+```html
+<x-switch>
+    <x-route path="/" exact><hello-card></hello-card></x-route>
+    <x-route path="/admin" auth-required module="./pages/Admin.js"><page-admin></page-admin></x-route>
+    <x-route path="*"><h1>Not Found</h1></x-route>
+</x-switch>
+```
 
-### 測試與代碼檢查
+### 核心文件
+
+- [這不是框架！組件開發指南](./docs/component-architecture.md)：反應式 Custom Elements、morphing 與事件綁定方式
+- [SafeHTML：防護 XSS 的安全渲染機制](./docs/safe-html-rendering.md)：`html`／`unsafe` 的跳脫規則
+- [服務模式規範](./docs/service-patterns.md)：單例服務與事件驅動架構
+- [狀態管理](./docs/state-management.md) · [路由](./docs/router.md) · [國際化](./docs/i18n.md)
+- [專案架構全貌深度解析](./docs/project-architecture-overview.md)：各部分如何組合
+
+---
+
+## ② 展示站
+
+### 啟動
+
+```bash
+python3 -m http.server   # 或：npx serve .
+```
+
+開啟 `http://localhost:8000/`，側邊欄分為：
+
+- **📚 技術手冊 (Docs)**：`docs/*.md` 文件，於執行期載入並渲染。
+- **🧪 互動式實驗室 (Lab)**：37 個獨立的前沿原生 API 實驗室，多數附對應文件。
+- **🎡 Vanilla 遊樂場 (Playground)**：以 `Blob` 與 object URL 實作的所見即所得程式碼編輯器。
+- **📊 開發者儀表板／📈 效能分析中心**：即時檢視 IndexedDB、網路請求與 Store 狀態；以原生 Canvas 圖表呈現 Web Vitals（LCP、CLS）。
+- **⚡ Web Worker 展示／🔍 開源碼搜尋**：主執行緒外的運算；串接 GitHub REST API、搭配虛擬清單的搜尋介面。
+- **👤 個人檔案 (Profile)**：位於 `auth-required` 路由後方的登入示範。
+
+### 展示的 Web API
+
+- **WebGPU 與 WebAssembly**：Compute Shader 並行運算與串流 WASM 執行。
+- **WebRTC (P2P)**：無伺服器的點對點資料與影音傳輸。
+- **硬體存取**：Web Bluetooth、Web Serial、Web MIDI、Web NFC、Barcode Detection、螢幕錄製。
+- **WebAuthn**：以 FaceID、指紋與 FIDO2 安全金鑰登入的 Passkey。
+- **媒體**：WebCodecs、即時 Canvas 濾鏡的 Media Streams、Web Audio、Web Speech（語音合成與辨識）。
+- **平台能力**：Payment Request、Compression Streams、File System Access、Web Share 與 Share Target、Web Locks、Background Fetch、Badging、Screen Wake Lock、EyeDropper、Popover。
+
+### 一次全部引入：`lib/vanilla-sdk.js`
+
+SDK 匯出核心，以及 40 多個展示用 service（加密、IndexedDB、WebRTC、WebGPU、通知…）、響應式表單引擎與 `CanvasChart`。詳見 [SDK 使用指南](./docs/sdk-usage.md)。
+
+```javascript
+import { BaseComponent, html, cryptoService, FormGroup } from 'https://raybird.github.io/plainvanillaweb/lib/vanilla-sdk.js';
+```
+
+### 建立在核心之上的應用層功能
+
+- **PWA**：網路優先的 Service Worker，離線時回退快取，快取版本依檔案內容自動產生（[ADR 0097](./docs/decisions/0097-network-first-sw-versioning.md)）。
+- **Offline Action Queue**：斷網時操作自動排隊，恢復連線後重送。
+- **Undo／Redo**：以 `appStore.applySnapshot()` 實作的快照歷史。
+- **Virtual List**：萬筆資料也能流暢捲動。
+- **主題**：CSS 變數、亮色／暗色模式與圓形擴散的切換動畫。
+- **Prefetch**：滑鼠移到導覽連結上時預先載入頁面模組。
+- **Storage Persistence**：主動申請持久化儲存，避免被系統清除。
+
+---
+
+## 📂 專案目錄結構
+
+```text
+.
+├── lib/                  # ① 核心模組 + ② 展示用 service
+│   ├── core.js           # ① 只含核心的入口
+│   ├── html.js, base-component.js, morph.js, base-service.js,
+│   │   store.js, broadcast-service.js, router.js,
+│   │   i18n-service.js, meta-service.js        # ① 核心
+│   ├── vanilla-sdk.js    # ② 一次全部引入的入口
+│   └── *-service.js      # ② WebGPU、WebRTC、Bluetooth、Crypto…
+├── components/
+│   ├── route/            # ① <x-switch>、<x-route>
+│   ├── pages/            # ② 路由頁面（Home、Docs、Dashboard、Login…）
+│   │   └── lab/          # ② 37 個 Web API 實驗室
+│   └── ui/               # ② 可重用 UI（Card、NativeChart…）
+├── app/App.js            # ② 網站外框：側邊欄與所有路由
+├── docs/                 # 執行期載入的文件（Markdown）
+│   └── decisions/        # 90+ 篇架構決策紀錄 (ADR)
+├── workers/              # ② Web Worker 腳本
+├── assets/               # 圖片、語系檔（zh-TW、en-US）
+├── tests/                # 單元測試（Node）與瀏覽器測試（headless Chrome）
+├── scripts/              # 產生頁面與維護用腳本
+├── index.html, index.js, index.css   # ② 網站入口、啟動程式、全域樣式
+├── sw.js                 # ② Service Worker
+└── manifest.json         # ② PWA 設定與 Web Share Target
+```
+
+---
+
+## 🧪 測試與代碼檢查
+
+不需安裝任何測試框架或 linter，全部使用 Node.js 內建工具：
 
 ```bash
 # 執行所有單元測試 (Node 內建 test runner)
@@ -160,6 +171,12 @@ find . -name "*.js" -not -path "./node_modules/*" -not -path "./.git/*" | xargs 
 ```bash
 node scripts/update-sw-version.js
 ```
+
+---
+
+## 📄 架構決策紀錄 (ADR)
+
+重要的架構選擇都記錄在 [`docs/decisions/`](./docs/decisions/)。新增決策後請執行 `node scripts/update-adr-index.js` 重新產生索引。
 
 ---
 

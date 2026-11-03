@@ -4,132 +4,44 @@
 
 > **[📍 View 2026 Evolution Roadmap](./ROADMAP.md)**
 
-A modern, zero-dependency, zero-build web application template built in the spirit of **[Plain Vanilla Web](https://plainvanillaweb.com/)**.
-We reject unnecessary layers of framework abstraction and embrace native browser platform capabilities, offering a high-performance, resilient, and educational foundation for modern web development.
+A modern, zero-dependency, zero-build web application template built in the spirit of **[Plain Vanilla Web](https://plainvanillaweb.com/)**: no bundler, no transpiler, no `node_modules` — native ES Modules, Custom Elements and standard browser APIs, loaded directly by the browser.
 
 > **💡 Inspired by [jsebrech/plainvanilla](https://github.com/jsebrech/plainvanilla).**
 
----
+This repository is two things, in two layers:
 
-## 🍦 The Vanilla Philosophy
+| Layer | What it is | Entry point | Use it when |
+| :--- | :--- | :--- | :--- |
+| **① Core** | ~1,100 lines of reusable foundation: safe templates, reactive components with DOM morphing, services, a cross-tab store and a hash router | [`lib/core.js`](./lib/core.js) | You want to build your own app the vanilla way |
+| **② Showcase** | A full site built on the core: 37 interactive labs of cutting-edge Web APIs, runtime-rendered docs, a dashboard and a playground | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | You want to learn a Web API or borrow a ready-made service |
 
-> 💡 **Discover why we prioritize "Standards over Frameworks, Zero Build, Security by Default, and Transparency":** <br>
-> Read the **[Vanilla Manifesto](./docs/manifesto.md)**
+The core never imports anything from the showcase; a test enforces that boundary ([ADR 0101](./docs/decisions/0101-core-entry-point.md)).
 
----
-
-## 📚 Documentation & Navigation Map
-
-The project is organized into four core functional domains, matching the application's sidebar navigation (`Navbar`):
-
-### 1. Overview & Core
-- **Overview**: This `README.md` introduction.
-- **Manifesto**: [Vanilla Manifesto](./docs/manifesto.md) — The guiding philosophy of evergreen code.
-- **Architecture Guide**: [Comprehensive Architecture Overview](./docs/project-architecture-overview.md) — Deep dive into components, state, and rendering.
-- **AI Agent Guide**: [AI Agent Knowledge & Example Library Guide](./docs/ai-agent-example-library.md) — Why this codebase is an ideal reference for AI coding agents.
-
-### 2. Learning & Lab
-- **📚 Technical Docs**: In-depth Markdown documentation parsed and rendered at runtime:
-    - [Component Architecture Guide](./docs/component-architecture.md) — Reactive Custom Elements without a virtual DOM.
-    - [SafeHTML & XSS Defense](./docs/safe-html-rendering.md) — Automatic escaping tagged template rendering.
-    - [Service Pattern Standards](./docs/service-patterns.md) — Singleton services and event-driven architecture.
-    - [Core Subsystems](./docs/) — Routing, state management, PWA, i18n, and more.
-- **🧪 Interactive Lab**: 38+ self-contained labs showcasing cutting-edge native browser APIs (WebGPU, WebRTC, WebAuthn, Web Bluetooth, Web Serial, etc.).
-- **🎡 Vanilla Playground**: Built-in WYSIWYG online code playground powered by native Blob and ObjectURL.
-
-### 3. Developer Tools & Monitoring
-- **📊 Developer Dashboard**: Real-time monitoring of IndexedDB storage, network traffic, and global Store state.
-- **📈 Performance Analytics**: Native Canvas-based real-time visualization of Web Vitals (LCP, CLS).
-- **⚡ Web Worker Demo**: Offloading heavy computations from the UI main thread.
-- **🔍 Repo Search**: Responsive search interface integrating the GitHub REST API.
-
-### 4. Account
-- **👤 User Profile**: Authentication demonstration with LocalStorage/IndexedDB integration and Auth Guard protected routes.
+> 💡 **Why "Standards over Frameworks, Zero Build, Security by Default, and Transparency"?** Read the **[Vanilla Manifesto](./docs/manifesto.md)**.
 
 ---
 
-## 🚀 Key Features
+## ① The Core
 
-- **Cutting-Edge Web Platform APIs**:
-    - **WebGPU & WASM**: Hardware-accelerated parallel computing (Compute Shaders) and streaming WebAssembly execution.
-    - **WebRTC (P2P)**：Serverless, decentralized peer-to-peer data and media streaming.
-    - **Native Speech**: Native Web Speech API integration for TTS (Text-to-Speech) and STT (Speech-to-Text).
-    - **Hardware Access**: Web Bluetooth (BLE), Web Serial (hardware communication), and Screen Capture.
-    - **WebAuthn**: Passwordless authentication with FaceID, TouchID, and physical FIDO2 security keys.
-    - **Web NFC & Barcode Detection**: Physical NDEF tag read/write and native QR/Barcode scanning.
-    - **WebCodecs & Media Streams**: Low-latency video decoding/encoding and real-time canvas stream filtering.
-    - **Compression Streams**: Native streaming Gzip and Deflate compression and decompression.
-- **E-Commerce Ready**:
-    - **Payment Request API**: Standardized browser-native checkout interface.
-- **Industrial-Grade Resilience**:
-    - **SafeHTML by Default**: Tagged template literal rendering with automatic HTML entity escaping against XSS.
-    - **Deep Reactive State**: Proxied state with `requestAnimationFrame` batching. Re-renders morph the existing DOM in place ([ADR 0100](./docs/decisions/0100-dom-morphing-updates.md)): unchanged elements keep their nodes, listeners, focus, cursor and scroll position, while `data-persistent` nodes (e.g. `<canvas>`, `<video>`) are kept untouched.
-    - **Offline Action Queue**: Automatic queuing of mutations during offline mode, synchronizing upon reconnect.
-    - **Cross-Tab Synchronization**: Real-time state broadcasting across browser tabs via `BroadcastChannel`.
-    - **Undo/Redo History**: Snapshot-based state history management.
-    - **Virtual List**: High-performance rendering of 10,000+ items without frame drops.
-    - **Storage Persistence**: Proactive storage quota requests to prevent eviction.
-- **Zero-Build Developer Experience**:
-    - **No Bundler, No Transpiler**: Pure ES Modules directly executed by the browser.
-    - **Dynamic Code Splitting**: Route-level lazy loading via native dynamic `import()`.
-    - **View Transitions**: Native single-page transition animations powered by `document.startViewTransition()`.
-    - **Light & Dark Theming**: CSS Variables system with circular ripple transition animation.
-    - **Vanilla SDK v1.1.0**: Industrial suite decoupling base classes (`BaseComponent`, `BaseService`, `Store`), `SafeHTML`, reactive form engine, and 40+ singleton services for CDN/external distribution.
+### What's inside
 
----
+| Module | Role |
+| :--- | :--- |
+| `lib/html.js` | `html` tagged template that **auto-escapes** every interpolated value (XSS-safe by default); `unsafe()` for trusted markup |
+| `lib/base-component.js` | `BaseComponent` — Custom Element base with deep reactive state, `requestAnimationFrame` batching, Light DOM by default (Shadow DOM opt-in), slot simulation and `$t()` i18n |
+| `lib/morph.js` | Re-renders **morph the existing DOM in place**: unchanged elements keep their nodes, listeners, focus, cursor and scroll position; child components are recreated to keep their lifecycle ([ADR 0100](./docs/decisions/0100-dom-morphing-updates.md)) |
+| `lib/base-service.js` | `BaseService` — `EventTarget`-based singleton service base with `on` / `off` / `emit` |
+| `lib/store.js` | `appStore` — Proxy-backed global state persisted to `localStorage`, synced across tabs via `BroadcastChannel`, with snapshots (`applySnapshot`) and a TTL cache |
+| `lib/router.js`, `components/route/` | Hash router: `matchRoute()` (`:params`, `/*` wildcards, `exact`), `<x-switch>` / `<x-route>` with lazy `import()` of pages, View Transitions, an injectable `authGuard`, and SEO meta |
+| `lib/i18n-service.js`, `lib/meta-service.js` | Locale loading & translation; `document.title` / description per route |
 
-## 📂 Project Structure
+### Use it in your own page
 
-```text
-.
-├── app/                  # Application root & chrome layout (App.js)
-├── assets/               # Static assets (images, locales: zh-TW, en-US)
-├── components/           # Custom Element components
-│   ├── pages/            # Top-level view pages (HomePage, Docs, Dashboard, Login...)
-│   │   └── lab/          # 38+ cutting-edge Web API interactive labs
-│   ├── route/            # Native router elements (<x-switch>, <x-route>)
-│   └── ui/               # Reusable UI elements (Card, NativeChart, VirtualList, Modal...)
-├── docs/                 # Runtime-loaded documentation (Markdown)
-│   └── decisions/        # 90+ Architecture Decision Records (ADRs)
-├── lib/                  # Core services & base classes
-│   ├── core.js           # Core-only entry point (no showcase services)
-│   ├── base-component.js # Reactive Custom Element base class
-│   ├── base-service.js   # EventTarget-backed singleton service base
-│   ├── store.js          # Cross-tab proxied reactive state store
-│   ├── html.js           # SafeHTML tagged template literal & XSS escape
-│   ├── vanilla-sdk.js    # Aggregated industrial SDK entry point
-│   └── ...               # Native services (WebGPU, WebRTC, Bluetooth, Crypto...)
-├── workers/              # Web Worker scripts (off-thread compute, IDB backup)
-├── tests/                # Tests (Node built-in test runner & browser.html)
-├── index.html            # Single page entry point
-├── index.css             # Global CSS design tokens & responsive styles
-├── index.js              # Application bootstrapper & SW registration
-├── sw.js                 # Service Worker (network-first with offline fallback)
-└── manifest.json         # PWA configuration & Web Share Target
-```
-
----
-
-## 🛠 Quick Start
-
-Because this project relies on ES Modules and Service Workers, it **must be served over HTTP** (opening `index.html` via `file://` will not work):
-
-```bash
-# Using Python (built-in)
-python3 -m http.server
-
-# Or using npx
-npx serve .
-```
-
-Open `http://localhost:8000/` in your browser.
-
-### Use only the core
-
-The reusable foundation is about 1,000 lines and has its own entry point, `lib/core.js`, which never loads the showcase services (WebGPU, WebRTC, WebAuthn, …). A test guards that boundary ([ADR 0101](./docs/decisions/0101-core-entry-point.md)).
+Copy `lib/` and `components/route/` (keeping the relative paths), or import straight from GitHub Pages. Serve over HTTP — ES Modules do not load from `file://`.
 
 ```javascript
 import { BaseComponent, html, router, registerRoute } from './lib/core.js';
+// or: import { ... } from 'https://raybird.github.io/plainvanillaweb/lib/core.js';
 
 class HelloCard extends BaseComponent {
     constructor() { super(); this.initReactiveState({ count: 0 }); }
@@ -139,15 +51,101 @@ class HelloCard extends BaseComponent {
 }
 customElements.define('hello-card', HelloCard);
 
-registerRoute();                                   // defines <x-route>; <x-switch> is defined on import
+registerRoute();                                      // defines <x-route>; <x-switch> is defined on import
 router.authGuard = () => Boolean(localStorage.token); // optional: guard for auth-required routes
 ```
 
-| Layer | Entry point | Contents |
-| :--- | :--- | :--- |
-| Core | `lib/core.js` | `html`, `BaseComponent` + DOM morphing, `BaseService`, `Store`, hash router (`<x-route>`, `<x-switch>`), i18n |
-| Everything | `lib/vanilla-sdk.js` | Core plus all 45 showcase services and the form engine |
-| Showcase | `index.html` | Labs, Docs and Dashboard built on top of the core |
+```html
+<x-switch>
+    <x-route path="/" exact><hello-card></hello-card></x-route>
+    <x-route path="/admin" auth-required module="./pages/Admin.js"><page-admin></page-admin></x-route>
+    <x-route path="*"><h1>Not Found</h1></x-route>
+</x-switch>
+```
+
+### Core guides
+
+- [Component Architecture](./docs/component-architecture.md) — reactive Custom Elements, morphing and how to bind events
+- [SafeHTML & XSS Defense](./docs/safe-html-rendering.md) — the escaping rules of `html` / `unsafe`
+- [Service Patterns](./docs/service-patterns.md) — singleton services and event-driven architecture
+- [State Management](./docs/state-management.md) · [Router](./docs/router.md) · [i18n](./docs/i18n.md)
+- [Architecture Overview](./docs/project-architecture-overview.md) — how the pieces fit together
+
+---
+
+## ② The Showcase
+
+### Run it
+
+```bash
+python3 -m http.server   # or: npx serve .
+```
+
+Open `http://localhost:8000/`. The sidebar is organized into:
+
+- **📚 Docs** — the `docs/*.md` files, fetched and rendered at runtime.
+- **🧪 Lab** — 37 self-contained labs of cutting-edge native APIs, most with a matching doc.
+- **🎡 Playground** — a WYSIWYG code playground powered by `Blob` and object URLs.
+- **📊 Dashboard / 📈 Analytics** — live IndexedDB, network and Store inspection; Web Vitals (LCP, CLS) on a native Canvas chart.
+- **⚡ Worker Demo / 🔍 Repo Search** — off-main-thread compute; a GitHub REST search UI with a virtual list.
+- **👤 Profile** — a login demo behind an `auth-required` route.
+
+### Web APIs on display
+
+- **WebGPU & WebAssembly** — compute shaders and streaming WASM execution.
+- **WebRTC (P2P)** — serverless peer-to-peer data and media.
+- **Hardware** — Web Bluetooth, Web Serial, Web MIDI, Web NFC, Barcode Detection, Screen Capture.
+- **WebAuthn** — passkeys with FaceID, TouchID and FIDO2 security keys.
+- **Media** — WebCodecs, Media Streams with live canvas filters, Web Audio, Web Speech (TTS / STT).
+- **Platform** — Payment Request, Compression Streams, File System Access, Web Share & Share Target, Web Locks, Background Fetch, Badging, Screen Wake Lock, EyeDropper, Popover.
+
+### Everything in one import: `lib/vanilla-sdk.js`
+
+The SDK re-exports the core plus 40+ showcase services (crypto, IndexedDB, WebRTC, WebGPU, notifications…), the reactive form engine and `CanvasChart`. See the [SDK guide](./docs/sdk-usage.md).
+
+```javascript
+import { BaseComponent, html, cryptoService, FormGroup } from 'https://raybird.github.io/plainvanillaweb/lib/vanilla-sdk.js';
+```
+
+### App-level features built on the core
+
+- **PWA** — network-first Service Worker with offline fallback and a content-hashed cache version ([ADR 0097](./docs/decisions/0097-network-first-sw-versioning.md)).
+- **Offline Action Queue** — mutations queued while offline and replayed on reconnect.
+- **Undo / Redo** — snapshot history on top of `appStore.applySnapshot()`.
+- **Virtual List** — smooth scrolling through 10,000+ rows.
+- **Theming** — CSS variables, light / dark mode with a circular reveal transition.
+- **Prefetch** — page modules preloaded when hovering a nav link.
+- **Storage Persistence** — proactive quota requests to prevent eviction.
+
+---
+
+## 📂 Project Structure
+
+```text
+.
+├── lib/                  # ① core modules + ② showcase services
+│   ├── core.js           # ① core-only entry point
+│   ├── html.js, base-component.js, morph.js, base-service.js,
+│   │   store.js, broadcast-service.js, router.js,
+│   │   i18n-service.js, meta-service.js        # ① core
+│   ├── vanilla-sdk.js    # ② everything-in-one entry point
+│   └── *-service.js      # ② WebGPU, WebRTC, Bluetooth, Crypto…
+├── components/
+│   ├── route/            # ① <x-switch>, <x-route>
+│   ├── pages/            # ② route pages (Home, Docs, Dashboard, Login…)
+│   │   └── lab/          # ② 37 Web API labs
+│   └── ui/               # ② reusable UI (Card, NativeChart…)
+├── app/App.js            # ② site shell: sidebar and all routes
+├── docs/                 # runtime-loaded docs (Markdown)
+│   └── decisions/        # 90+ Architecture Decision Records
+├── workers/              # ② Web Worker scripts
+├── assets/               # images, locales (zh-TW, en-US)
+├── tests/                # unit tests (Node) & browser tests (headless Chrome)
+├── scripts/              # scaffolding & maintenance scripts
+├── index.html, index.js, index.css   # ② site entry, bootstrap, global styles
+├── sw.js                 # ② Service Worker
+└── manifest.json         # ② PWA manifest & Web Share Target
+```
 
 ---
 
@@ -185,4 +183,4 @@ Run `node scripts/update-adr-index.js` to regenerate the ADR index after adding 
 
 ## License
 
-[MIT License](./LICENSE)
+MIT License

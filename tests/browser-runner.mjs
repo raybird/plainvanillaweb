@@ -239,6 +239,13 @@ async function runSmokeTests(page, base, tracker, network) {
         if (visited.has(route)) continue;
         visited.add(route);
         await visit(`#${route}`, route);
+        // 必須啟用宣告這條路徑的 <x-route>；被導向別處（例如 auth-required 導向 /login）時網址必須已改變
+        const activeOk = await page.evaluate(`[...document.querySelectorAll('x-route[active]')]
+            .some((r) => r.getAttribute('path') === ${JSON.stringify(route)}) || location.hash !== ${JSON.stringify(`#${route}`)}`);
+        if (!activeOk) {
+            const active = await page.evaluate(`[...document.querySelectorAll('x-route[active]')].map((r) => r.getAttribute('path')).join(', ')`);
+            failures.push(`${route}：啟用的路由不是它本身（啟用中：${active || '無'}）`);
+        }
         for (const found of await page.evaluate(collectRoutes)) if (!visited.has(found)) queue.push(found);
         // 文件來源：Lab 等頁面的 #/docs/<id> 連結，以及文件頁清單的 onclick="...loadDoc('<id>')"
         const docLinks = await page.evaluate(`[

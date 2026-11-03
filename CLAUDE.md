@@ -40,7 +40,7 @@ node tests/browser-runner.mjs   # DEBUG=1 prints per-page timing
 
 The runner serves the repo twice — at `/` and at `/plainvanillaweb/` (subpath only, so wrong relative paths 404 instead of silently hitting the root) — and in each:
 1. runs `tests/browser.html` (BaseComponent rendering lifecycle, Light/Shadow DOM, reactive state, `data-persistent` preservation) and reads `window.__TEST_RESULTS__`;
-2. smoke-tests the whole site: visits every `<x-route>` it discovers (including lazily loaded lab sub-routes) and every doc linked from the pages, failing on uncaught exceptions, `console.error` or 4xx/5xx responses. A new page that logs `console.error` in headless Chrome (e.g. missing hardware) needs a matching pattern in `IGNORED_ERRORS`.
+2. smoke-tests the whole site: visits every `<x-route>` it discovers (including lazily loaded lab sub-routes) and every doc linked from the pages, failing on uncaught exceptions, `console.error`, 4xx/5xx responses, or when the visited route is not the active `<x-route>` (unless it redirected). A new page that logs `console.error` in headless Chrome (e.g. missing hardware) needs a matching pattern in `IGNORED_ERRORS`.
 
 To debug `tests/browser.html` by hand: `python3 -m http.server`, then open `http://localhost:8000/tests/browser.html`.
 
@@ -86,6 +86,7 @@ Two base classes underpin everything; learn them first.
 
 ### Routing — hash-based
 - `lib/router.js` (`router` singleton) emits `route-change` on `hashchange`.
+- Path matching lives in one place, `matchRoute()` in `lib/router.js` (`*`, `:name` params, trailing `/*` prefix wildcard, `exact`, otherwise segment-boundary prefix match, case-insensitive); see `docs/router.md`. Matched params are on `route.params`.
 - `<x-switch>` (`components/route/switch.js`) renders only the first matching `<x-route>`, wrapped in a View Transition when supported. `<x-route>` (`components/route/route.js`) supports `path`, `exact`, `module` (lazy `import()` of the page component), `auth-required` (auth guard → redirects to `/login` via `authService`), and `meta-title`/`meta-desc` (drives `metaService` for SEO/a11y).
 - **All routes and nav links are declared in `app/App.js`'s `render()`** — the `navSections` array (sidebar) and the `<x-switch>` block must be kept in sync.
 

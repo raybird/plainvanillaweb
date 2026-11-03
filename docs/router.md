@@ -7,9 +7,21 @@
 ### 1. 路由服務 (Router Service)
 `lib/router.js` 負責監聽 `hashchange` 事件，並維護 `currentPath` 狀態。它是單一真實來源 (Single Source of Truth)。
 
+路徑比對集中在同一檔的 `matchRoute(pattern, path, { exact })`，`<x-route>` 與 `<x-switch>` 都呼叫它（`router.match(pattern, options)` 會帶入目前路徑）：
+
+| 樣式 | 意義 | 例子 |
+|------|------|------|
+| `*` | 符合所有路徑 | 404 頁面 |
+| `:name` | 符合一個路徑段，值放進參數物件 | `/docs/:id` 符合 `/docs/router`，參數為 `{ id: 'router' }` |
+| 結尾 `/*` | 符合該前綴本身與其底下的任何路徑 | `/lab/*` 符合 `/lab`、`/lab/x/y` |
+| 加上 `exact` | 必須完全相符 | `/lab` exact 不符合 `/lab/` |
+| 不加 `exact` | 以路徑段為界做前綴比對 | `/docs` 符合 `/docs/router`，不符合 `/docsx` |
+
+比對不分大小寫，路徑中的 `.`、`+` 等字元照字面比對。`URLPattern` 目前（2026-11）仍屬 Baseline「新近可用」，為了不維護兩套比對邏輯暫不採用；成為廣泛可用後可直接替換 `matchRoute` 的實作。
+
 ### 2. 宣告式組件 (Declarative Components)
 *   **`<x-route>`**: 定義路由規則。
-    *   `path`: 匹配路徑 (支援萬用字元 `*` 與簡單正則)。
+    *   `path`: 匹配路徑，語法見上表。符合後可由 `route.params` 取得路徑參數。
     *   `exact`: 是否完全匹配。
     *   `meta-title` / `meta-desc`: 定義該頁面的 SEO 資訊 (支援 i18n key)。
 *   **`<x-switch>`**: 互斥渲染容器。確保同一時間只顯示**第一個**匹配的子路由 (類似 React Router `<Switch>`)。

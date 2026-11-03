@@ -42,7 +42,6 @@ export class SwitchComponent extends HTMLElement {
 
   _performUpdate() {
     const routes = Array.from(this.querySelectorAll("x-route"));
-    const currentPath = router.currentRoutePath;
     let matched = false;
 
     routes.forEach((route) => {
@@ -53,21 +52,9 @@ export class SwitchComponent extends HTMLElement {
       }
 
       const path = route.getAttribute("path") || "";
-      const exact = route.hasAttribute("exact");
+      const params = router.match(path, { exact: route.hasAttribute("exact") });
 
-      let isMatch = false;
-      if (path === "*") {
-        isMatch = true;
-      } else {
-        const regexPath = path.replace(/:[^\s/]+/g, "([^/]+)");
-        const regex = new RegExp(
-          `^${regexPath.replace(/\//g, "\\/")}${exact ? "$" : ""}`,
-          "i",
-        );
-        isMatch = !!currentPath.match(regex);
-      }
-
-      if (isMatch) {
+      if (params) {
         // Auth Guard 邏輯
         if (
           route.hasAttribute("auth-required") &&
@@ -81,6 +68,7 @@ export class SwitchComponent extends HTMLElement {
         }
 
         matched = true;
+        route.params = params;
         route.setAttribute("active", "");
         route.style.display = "contents";
       } else {

@@ -1,4 +1,6 @@
-# ADR 0057: 原生背景抓取 (Background Fetch) 整合
+# ADR 0099: 原生背景抓取 (Background Fetch) 整合
+
+> 原編號 0057，與 [ADR 0057](./0057-industrial-sdk-design.md) 重複，2026-11-03 改為 0099（較早建立的那篇保留原編號）。
 
 ## 狀態
 Accepted

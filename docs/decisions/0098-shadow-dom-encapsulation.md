@@ -1,4 +1,6 @@
-# ADR 0056: 引入 Shadow DOM 支援與元件隔離策略
+# ADR 0098: 引入 Shadow DOM 支援與元件隔離策略
+
+> 原編號 0056，與 [ADR 0056](./0056-payment-request-integration.md) 重複，2026-11-03 改為 0098（較早建立的那篇保留原編號）。
 
 ## 狀態
 已提議 (Proposed)

@@ -62,10 +62,8 @@
 | 0054 | [響應式設計與行動體驗優化策略](./0054-mobile-responsiveness-strategy.md) | [已實作] |
 | 0055 | [原生螢幕錄製與串流整合](./0055-screen-capture-integration.md) | [已實作] |
 | 0056 | [原生 Payment Request API 整合](./0056-payment-request-integration.md) | [已實作] |
-| 0056 | [引入 Shadow DOM 支援與元件隔離策略](./0056-shadow-dom-encapsulation.md) | [已實作] |
-| 0057 | [原生背景抓取 (Background Fetch) 整合](./0057-background-fetch-integration.md) | [已實作] |
 | 0057 | [SDK 型別與介面標準化 (Industrial SDK Design)](./0057-industrial-sdk-design.md) | [已實作] |
-| 0058 | [解決 Service Worker 更新通知在多分頁環境下的重複顯示問題](./0058-sw-notification-debounce.md) | [已實作] |
+| 0058 | [解決 Service Worker 更新通知在多分頁環境下的重複顯示問題](./0058-sw-notification-debounce.md) | [已取代] |
 | 0059 | [實作原生 SVG 圖表引擎](./0059-native-data-visualization.md) | [已實作] |
 | 0060 | [實作原生即時串流處理機制](./0060-live-stream-processing.md) | [已實作] |
 | 0061 | [引入原生 Web Serial API 支援](./0061-web-serial-integration.md) | [已實作] |
@@ -100,7 +98,10 @@
 | 0095 | [原生 Service 交互模式與注入規範 (Standardized Patterns)](./0095-service-interaction-patterns.md) | [已實作] |
 | 0096 | [原生 Vanilla 宣言與長青代碼準則實作](./0096-vanilla-manifesto.md) | [已實作] |
 | 0097 | [Service Worker 改採網路優先，並依檔案內容自動產生快取版本](./0097-network-first-sw-versioning.md) | [已實作] |
+| 0098 | [引入 Shadow DOM 支援與元件隔離策略](./0098-shadow-dom-encapsulation.md) | [已實作] |
+| 0099 | [原生背景抓取 (Background Fetch) 整合](./0099-background-fetch-integration.md) | [已實作] |
 
 ---
+*未使用的編號：0064、0085、0089、0090、0091（保留空號，不回填）。新增 ADR 請使用 0100。*
 *詳細內容請參閱 `docs/decisions/*.md`。*
 *此檔案由 `scripts/update-adr-index.js` 自動生成。*

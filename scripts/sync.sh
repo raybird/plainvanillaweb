@@ -7,6 +7,7 @@ find . -name "*.js" -not -path "./node_modules/*" | xargs -n 1 node -c
 # 3. 系統清理
 /app/workspace/.gemini/skills/system-cleanup/scripts/cleanup.sh
 # 4. 同步遠端
+node scripts/update-adr-index.js
 git add .
 # 依暫存後的檔案更新 Service Worker 版本號，CI 會檢查兩者一致
 node scripts/update-sw-version.js

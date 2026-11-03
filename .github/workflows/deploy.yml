@@ -29,6 +29,9 @@ jobs:
       - name: Service Worker Version Check
         # 網站檔案內容有變動卻沒更新 sw.js 的 CACHE_NAME 時失敗，避免使用者一直拿到舊快取
         run: node scripts/update-sw-version.js --check
+      - name: ADR Index Check
+        # ADR 編號重複、標題編號與檔名不符，或索引沒有重新產生時失敗
+        run: node scripts/update-adr-index.js --check
 
   browser:
     runs-on: ubuntu-latest

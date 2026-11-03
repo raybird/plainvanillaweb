@@ -54,13 +54,13 @@ Scaffolding & maintenance scripts:
 
 ```bash
 node scripts/new-page.js ProductInfo   # generates components/pages/ProductInfo.js (see its output for follow-up wiring)
-node scripts/update-adr-index.js        # regenerates the ADR index in docs/decisions/
+node scripts/update-adr-index.js        # regenerates the ADR index in docs/decisions/ (--check: fail on duplicate ids or stale index)
 node scripts/update-sw-version.js       # rewrites sw.js CACHE_NAME and index.html index.js?v= from a hash of served files
 ```
 
 **Before committing any change to served files** (anything outside `tests/`, `scripts/`, `.github/`, `.agent/` and root `*.md`), run `node scripts/update-sw-version.js` and commit the updated `sw.js` / `index.html` with it; otherwise returning visitors keep getting the old Service Worker cache. The hash covers git-tracked files only, so `git add` new files first.
 
-CI (`.github/workflows/deploy.yml`) runs the unit tests, the syntax check, `update-sw-version.js --check` and the browser tests on push/PR to `master`. `scripts/sync.sh` runs tests + syntax check then **auto-commits and pushes to master** (and references an external cleanup script that may not exist) — do not run it casually.
+CI (`.github/workflows/deploy.yml`) runs the unit tests, the syntax check, `update-sw-version.js --check`, `update-adr-index.js --check` and the browser tests on push/PR to `master`. `scripts/sync.sh` runs tests + syntax check then **auto-commits and pushes to master** (and references an external cleanup script that may not exist) — do not run it casually.
 
 ## Architecture
 
@@ -112,5 +112,5 @@ Two base classes underpin everything; learn them first.
 ## Conventions
 - **Naming:** custom element tags use prefixes — `x-*` (app/framework), `page-*` (route pages), `ui-*` (reusable UI), `app-*` (app chrome). Service files are `lib/<name>-service.js` exporting a singleton.
 - **Styling:** one global stylesheet `index.css` drives theming via CSS variables (`--primary-color`, `--surface-color`, `--bg-color`, …) and `[data-theme="dark"]` selectors managed by `themeService`. Component-scoped styles live in inline `<style>` within `render()`. When touching colors, verify **both** light and dark mode (a recurring source of bugs in git history).
-- **Docs:** the `docs/*.md` files are real runtime content — `doc-service.js` fetches and parses them with a minimal Markdown parser at runtime for the `/docs` page. Significant architectural decisions are recorded as ADRs in `docs/decisions/` (run `scripts/update-adr-index.js` after adding one).
+- **Docs:** the `docs/*.md` files are real runtime content — `doc-service.js` fetches and parses them with a minimal Markdown parser at runtime for the `/docs` page. Significant architectural decisions are recorded as ADRs in `docs/decisions/` (run `scripts/update-adr-index.js` after adding one). ADR numbers never change and are never reused; take the next number shown at the bottom of `docs/decisions/README.md`, and leave gaps unfilled.
 - Lab demo pages live in `components/pages/lab/`; Web Worker scripts in `workers/`.

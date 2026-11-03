@@ -98,8 +98,12 @@ async function launchChrome() {
         const exited = new Promise((resolve) => proc.once('exit', resolve));
         proc.kill();
         await Promise.race([exited, sleep(5000)]);
-        // Chrome 結束後仍可能短暫寫入設定檔，失敗時重試
-        fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+        // Chrome 的子程序可能比主程序晚結束、仍在寫快取：重試幾次，仍失敗只警告，不影響測試結果
+        try {
+            fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+        } catch (err) {
+            console.warn(`  ⚠️ 無法移除 Chrome 暫存目錄 ${userDataDir}：${err.code || err.message}`);
+        }
     };
     return { page, close };
 }

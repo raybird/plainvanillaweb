@@ -70,3 +70,38 @@ disconnectedCallback() {
 1.  **`404.html`**: 當伺服器找不到路徑 (如 `/about`) 時，回傳此頁。
 2.  **自動轉導**: 腳本將路徑轉換為 Hash 格式 (`/#/about`) 並重導回 `index.html`。
 3.  **路由還原**: SPA 啟動後，Router 接手處理 Hash 路徑，使用者無縫看到正確內容。
+
+## 為什麼是 hash 路由，而不是一般路徑
+
+本專案刻意使用 `#/lab` 形式的網址，而不是 `/lab`（History API 路由）。以下是 2026-11-04 評估時的考量，之後重新評估時可依此檢查前提是否改變。
+
+**hash 路由換來的東西**
+
+- **零設定部署**：`#` 後面的內容不會送到伺服器，任何靜態主機都只會收到 `index.html` 的請求。`python3 -m http.server`、`npx serve`、GitHub Pages 都不必設定改寫規則。
+- **連結就是原生連結**：點擊 `<a href="#/lab">` 時瀏覽器本來就不會重新載入頁面，只會觸發 `hashchange`。router 不必攔截點擊，也不必處理 Ctrl+點擊、`target="_blank"`、下載連結等情況。
+
+**付出的代價**
+
+- 網址帶著 `#`，比較不好看。
+- 伺服器與爬蟲看不到 `#` 後面的路徑，搜尋引擎索引與社群分享預覽只會看到首頁的內容。
+- 直接開啟一般路徑（例如 `/plainvanillaweb/lab`）時，要靠 `404.html` 轉成 hash 網址（見上一節），伺服器回應的狀態碼仍是 404。
+
+**為什麼目前不提供 History API 模式**
+
+History API 本身是 Web 標準，使用它不違反零依賴與零建置。問題在於要讓一般路徑的連結不重新載入頁面，只有兩條路：
+
+1. **router 攔截全站的連結點擊**，再自己呼叫 `history.pushState()`。這等於在 JS 裡重做瀏覽器的導覽行為，違反[開發宣言](./manifesto.md)的「最小抽象」。
+2. **使用 Navigation API**（`navigation.addEventListener('navigate', (e) => e.intercept({ handler }))`），由瀏覽器負責攔截。它已在各主流瀏覽器提供，但還沒達到 Baseline「廣泛可用」，現在採用就得另寫一套攔截點擊的備援，等於維護兩套導覽邏輯。
+
+此外，History API 模式要求伺服器把找不到的路徑都回傳 `index.html`，這是 JS 以外的部署設定，各主機寫法不同；GitHub Pages 無法設定，展示站本身也就用不上這個模式。兩種模式並存時，站內所有寫死 `#/...` 的連結也都要改由 router 產生。
+
+**何時重新評估**
+
+- Navigation API 達到 Baseline「廣泛可用」時：可以用它實作 History API 模式，不攔截點擊、也不寫備援，與 hash 模式並存，預設仍為 hash。
+- 有實際需求時，例如需要讓搜尋引擎索引各頁內容，且部署環境能設定改寫規則。
+
+**自行改用一般路徑時要注意**
+
+- 伺服器要把所有找不到的路徑改寫為 `index.html`，同時保留真實檔案（`.js`、`.css`、`docs/*.md`）的正常回應。
+- 本專案的模組與資源都以 `document.baseURI` 解析（`<base href="/plainvanillaweb/">`），深層網址下仍能正確載入；自行調整時要保留 `<base>`，或改用絕對路徑。
+- `lib/router.js` 的 `currentPath`、`push()` 與 `hashchange` 監聽，以及站內的 `#/...` 連結與 `location.hash = ...` 都要一併改寫。

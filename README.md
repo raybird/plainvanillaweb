@@ -15,7 +15,7 @@ This repository is two things, in two layers:
 | **① Core** | ~1,100 lines of reusable foundation: safe templates, reactive components with DOM morphing, services, a cross-tab store and a hash router | [`lib/core.js`](./lib/core.js) | You want to build your own app the vanilla way |
 | **② Showcase** | A full site built on the core: 37 interactive labs of cutting-edge Web APIs, runtime-rendered docs, a dashboard and a playground | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | You want to learn a Web API or borrow a ready-made service |
 
-The core never imports anything from the showcase; a test enforces that boundary ([ADR 0101](./docs/decisions/0101-core-entry-point.md)). Releases follow semantic versioning — see the [CHANGELOG](./CHANGELOG.md) (current: **v3.0.0**).
+The core never imports anything from the showcase; a test enforces that boundary ([ADR 0101](./docs/decisions/0101-core-entry-point.md)). Releases follow semantic versioning — see the [CHANGELOG](./CHANGELOG.md) (current: **v3.1.0**).
 
 > 💡 **Why "Standards over Frameworks, Zero Build, Security by Default, and Transparency"?** Read the **[Vanilla Manifesto](./docs/manifesto.md)**.
 
@@ -41,7 +41,7 @@ Copy `lib/` and `components/route/` (keeping the relative paths), or import a pi
 
 ```javascript
 import { BaseComponent, html, router, registerRoute } from './lib/core.js';
-// or a pinned release: import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/core.js';
+// or a pinned release: import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.1.0/lib/core.js';
 
 class HelloCard extends BaseComponent {
     constructor() { super(); this.initReactiveState({ count: 0 }); }
@@ -57,11 +57,13 @@ router.authGuard = () => Boolean(localStorage.token); // optional: guard for aut
 
 ```html
 <x-switch>
-    <x-route path="/" exact><hello-card></hello-card></x-route>
-    <x-route path="/admin" auth-required module="./pages/Admin.js"><page-admin></page-admin></x-route>
-    <x-route path="*"><h1>Not Found</h1></x-route>
+    <x-route path="/" exact><template><hello-card></hello-card></template></x-route>
+    <x-route path="/admin" auth-required module="./pages/Admin.js"><template><page-admin></page-admin></template></x-route>
+    <x-route path="*"><template><h1>Not Found</h1></template></x-route>
 </x-switch>
 ```
+
+Content inside `<template>` is created when its route becomes active and removed when it deactivates, so a page gets `connectedCallback` on entry and `disconnectedCallback` on exit; inside a component's `render()`, mark the switch `data-persistent="<id>"` so re-renders keep it ([ADR 0102](./docs/decisions/0102-route-owned-page-lifecycle.md)).
 
 ### Core guides
 
@@ -104,7 +106,7 @@ Open `http://localhost:8000/`. The sidebar is organized into:
 The SDK re-exports the core plus 40+ showcase services (crypto, IndexedDB, WebRTC, WebGPU, notifications…), the reactive form engine and `CanvasChart`. See the [SDK guide](./docs/sdk-usage.md).
 
 ```javascript
-import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/vanilla-sdk.js';
+import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.1.0/lib/vanilla-sdk.js';
 ```
 
 ### App-level features built on the core

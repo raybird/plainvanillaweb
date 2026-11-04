@@ -15,7 +15,7 @@
 | **① 核心** | 約 1,100 行可重用的基礎建設：安全模板、具 DOM morphing 的反應式元件、服務基底、跨分頁 Store 與 hash 路由 | [`lib/core.js`](./lib/core.js) | 想用原生方式打造自己的應用 |
 | **② 展示站** | 以核心打造的完整網站：37 個前沿 Web API 互動實驗室、執行期渲染的文件、儀表板與遊樂場 | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | 想學某個 Web API，或直接借用寫好的 service |
 
-核心不會 import 任何展示站的程式，並由測試守住這條邊界（[ADR 0101](./docs/decisions/0101-core-entry-point.md)）。版本依語意化版本編號，見 [CHANGELOG](./CHANGELOG.md)（目前為 **v3.0.0**）。
+核心不會 import 任何展示站的程式，並由測試守住這條邊界（[ADR 0101](./docs/decisions/0101-core-entry-point.md)）。版本依語意化版本編號，見 [CHANGELOG](./CHANGELOG.md)（目前為 **v3.1.0**）。
 
 > 💡 **為何堅持「標準優於框架、零建置成本、安全且透明」？** 閱讀 **[Vanilla Manifesto (原生網頁開發宣言)](./docs/manifesto.md)**。
 
@@ -41,7 +41,7 @@
 
 ```javascript
 import { BaseComponent, html, router, registerRoute } from './lib/core.js';
-// 或引用固定版本：import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/core.js';
+// 或引用固定版本：import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.1.0/lib/core.js';
 
 class HelloCard extends BaseComponent {
     constructor() { super(); this.initReactiveState({ count: 0 }); }
@@ -57,11 +57,13 @@ router.authGuard = () => Boolean(localStorage.token); // 選用：auth-required 
 
 ```html
 <x-switch>
-    <x-route path="/" exact><hello-card></hello-card></x-route>
-    <x-route path="/admin" auth-required module="./pages/Admin.js"><page-admin></page-admin></x-route>
-    <x-route path="*"><h1>Not Found</h1></x-route>
+    <x-route path="/" exact><template><hello-card></hello-card></template></x-route>
+    <x-route path="/admin" auth-required module="./pages/Admin.js"><template><page-admin></page-admin></template></x-route>
+    <x-route path="*"><template><h1>Not Found</h1></template></x-route>
 </x-switch>
 ```
+
+`<template>` 裡的內容在路由啟用時才建立、停用時移除，頁面進入時收到 `connectedCallback`、離開時收到 `disconnectedCallback`；放在元件的 `render()` 裡時，替 `<x-switch>` 加上 `data-persistent="<id>"`，重繪時才會保留（[ADR 0102](./docs/decisions/0102-route-owned-page-lifecycle.md)）。
 
 ### 核心文件
 
@@ -104,7 +106,7 @@ python3 -m http.server   # 或：npx serve .
 SDK 匯出核心，以及 40 多個展示用 service（加密、IndexedDB、WebRTC、WebGPU、通知…）、響應式表單引擎與 `CanvasChart`。詳見 [SDK 使用指南](./docs/sdk-usage.md)。
 
 ```javascript
-import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/vanilla-sdk.js';
+import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.1.0/lib/vanilla-sdk.js';
 ```
 
 ### 建立在核心之上的應用層功能

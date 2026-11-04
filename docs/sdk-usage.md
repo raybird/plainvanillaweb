@@ -1,6 +1,6 @@
 # 🍦 Vanilla SDK: 工業級原生 Web API 快速上手
 
-> **版本**：v3.0.0（程式中可由 `VERSION` 或 `VanillaSDK.version` 取得；各版差異見 repo 根目錄的 CHANGELOG.md）  
+> **版本**：v3.1.0（程式中可由 `VERSION` 或 `VanillaSDK.version` 取得；各版差異見 repo 根目錄的 CHANGELOG.md）  
 > **更新日期**：2026-11-04  
 > **定位**：零依賴、零建置、涵蓋「UI 元件基類 + 事件服務 + 表單引擎 + 前沿 Web API」的完整原生前端開發套件。
 
@@ -11,7 +11,7 @@
 **只需要核心？** 只用到元件、模板、Store 與路由時，改用只含核心的入口 `lib/core.js`，不會載入任何前沿 Web API service（[ADR 0101](./decisions/0101-core-entry-point.md)）：
 
 ```javascript
-import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/core.js';
+import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.1.0/lib/core.js';
 ```
 
 ## 🚀 快速開始 (Quick Start)
@@ -20,7 +20,7 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 
 ```javascript
 // 一站式全量引入
-import { VanillaSDK } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/vanilla-sdk.js';
+import { VanillaSDK } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.1.0/lib/vanilla-sdk.js';
 
 // 或按需解構具名匯出
 import { 
@@ -31,7 +31,7 @@ import {
     FormGroup, 
     FormControl, 
     Validators 
-} from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/vanilla-sdk.js';
+} from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.1.0/lib/vanilla-sdk.js';
 
 // 1. 初始化 SDK (自動配置 WebRTC 與 國際化)
 const sdk = await VanillaSDK.init();
@@ -179,4 +179,4 @@ SDK 聚合了 38+ 項現代瀏覽器原生硬體與通訊標準：
 
 ---
 
-*文件最後修訂：2026-11-04 (v3.0.0)*
+*文件最後修訂：2026-11-04 (v3.1.0)*

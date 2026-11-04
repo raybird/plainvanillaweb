@@ -45,10 +45,21 @@ export class Documentation extends BaseComponent {
     }
   }
 
+  /**
+   * 網址中的文件 id，可含子目錄（`#/docs/decisions/0102-x`）；以 / 結尾時視為該目錄的 README，
+   * 例如從 404.html 轉來的 `#/docs/decisions/`
+   */
   getDocIdFromHash() {
-    const hashPath = window.location.hash.slice(1);
-    const match = hashPath.match(/^\/docs\/([^/?#]+)/);
-    return match ? decodeURIComponent(match[1]) : null;
+    const match = window.location.hash.slice(1).match(/^\/docs\/([^?#]+)/);
+    if (!match) return null;
+    let id;
+    try {
+      id = decodeURIComponent(match[1]);
+    } catch {
+      id = match[1]; // 格式錯誤的 % 編碼照原樣交給 getDoc，由它回報無法載入
+    }
+    if (id.endsWith("/")) id += "README";
+    return id;
   }
 
   getLabRouteByDoc(docId) {

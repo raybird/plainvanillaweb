@@ -280,6 +280,21 @@ async function runSmokeTests(page, base, tracker, network) {
         if (problems.length) failures.push(...problems.map((p) => `${label}：${p}`));
     };
 
+    // 站內不走 hash 路由的連結（例如 href="docs/x/"）會由伺服器處理，目標必須存在
+    const checkedFiles = new Set();
+    const checkFileLinks = async (label) => {
+        const urls = await page.evaluate(`[...document.querySelectorAll('a[href]')]
+            .map((a) => a.getAttribute('href'))
+            .filter((href) => !href.startsWith('#') && !/^[a-z][a-z0-9+.-]*:/i.test(href))
+            .map((href) => new URL(href, document.baseURI).href)`);
+        for (const url of urls) {
+            if (checkedFiles.has(url)) continue;
+            checkedFiles.add(url);
+            const status = await page.evaluate(`fetch(${JSON.stringify(url)}, { method: 'HEAD' }).then((r) => r.status, () => 0)`);
+            if (status !== 200) failures.push(`${label}：站內連結 ${url} 回應 ${status}`);
+        }
+    };
+
     while (queue.length) {
         const route = queue.shift();
         if (visited.has(route)) continue;
@@ -293,10 +308,11 @@ async function runSmokeTests(page, base, tracker, network) {
             failures.push(`${route}：啟用的路由不是它本身（啟用中：${active || '無'}）`);
         }
         for (const found of await page.evaluate(collectRoutes)) if (!visited.has(found)) queue.push(found);
+        await checkFileLinks(route);
         // 文件來源：Lab 等頁面的 #/docs/<id> 連結，以及文件頁清單的 onclick="...loadDoc('<id>')"
         const docLinks = await page.evaluate(`[
             ...[...document.querySelectorAll('[href^="#/docs/"]')]
-                .map((a) => a.getAttribute('href').match(/^#\\/docs\\/([^/?#]+)/)?.[1]),
+                .map((a) => a.getAttribute('href').match(/^#\\/docs\\/([^?#]+)/)?.[1]?.replace(/\\/$/, '/README')),
             ...[...document.querySelectorAll('[onclick*="loadDoc("]')]
                 .map((el) => el.getAttribute('onclick').match(/loadDoc\\('([^']+)'\\)/)?.[1]),
         ].filter(Boolean)`);

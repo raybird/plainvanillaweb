@@ -125,11 +125,37 @@ test('段落內的連續行合併為同一段，空行分段，分隔線輸出 h
     assert.equal(parseMarkdown('第一行\n第二行\n\n下一段\n\n---'), '<p>第一行\n第二行</p>\n<p>下一段</p>\n<hr>');
 });
 
-test('文件內的相對連結：同層 .md 轉為站內文件頁，其他路徑轉為 GitHub 上的檔案', () => {
+test('文件內的相對連結：docs/ 底下的 .md 轉為站內文件頁，其他路徑轉為 GitHub 上的檔案', () => {
     assert.match(parseMarkdown('[r](./router.md)'), /<a href="#\/docs\/router">r<\/a>/);
     assert.match(parseMarkdown('[r](router.md#x)'), /<a href="#\/docs\/router">r<\/a>/);
-    assert.match(parseMarkdown('[a](./decisions/0100-x.md)'),
-        /<a href="https:\/\/github.com\/raybird\/plainvanillaweb\/blob\/master\/docs\/decisions\/0100-x.md">a<\/a>/);
+    assert.match(parseMarkdown('[a](./decisions/0100-x.md)'), /<a href="#\/docs\/decisions\/0100-x">a<\/a>/);
     assert.match(parseMarkdown('[c](../lib/core.js)'),
         /<a href="https:\/\/github.com\/raybird\/plainvanillaweb\/blob\/master\/lib\/core.js">c<\/a>/);
+});
+
+test('子目錄文件的相對連結以該文件所在目錄解析（ADR 索引連到各份 ADR）', () => {
+    const opts = { docId: 'decisions/README' };
+    assert.match(parseMarkdown('[x](./0102-x.md)', opts), /<a href="#\/docs\/decisions\/0102-x">x<\/a>/);
+    assert.match(parseMarkdown('[r](../router.md)', opts), /<a href="#\/docs\/router">r<\/a>/);
+    assert.match(parseMarkdown('[c](../../lib/core.js)', opts),
+        /<a href="https:\/\/github.com\/raybird\/plainvanillaweb\/blob\/master\/lib\/core.js">c<\/a>/);
+    // 下一次解析不帶 docId 時回到 docs/ 根目錄
+    assert.match(parseMarkdown('[x](./0102-x.md)'), /<a href="#\/docs\/0102-x">x<\/a>/);
+});
+
+test('getDoc 拒絕不是文件 id 的名稱（例如含 ..），不發出請求', async () => {
+    const { docService } = await import('../lib/doc-service.js');
+    const originalFetch = global.fetch;
+    const originalError = console.error;
+    let fetched = false;
+    global.fetch = async () => { fetched = true; return { ok: false }; };
+    console.error = () => {};
+    try {
+        const out = await docService.getDoc('../index');
+        assert.match(out, /無法載入文件/);
+        assert.equal(fetched, false);
+    } finally {
+        global.fetch = originalFetch;
+        console.error = originalError;
+    }
 });

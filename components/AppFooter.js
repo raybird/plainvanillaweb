@@ -39,7 +39,7 @@ export class AppFooter extends BaseComponent {
                     •
                     <a href="#/dashboard">開發者儀表板</a>
                     •
-                    <a href="docs/decisions/" target="_blank">架構決策 (ADR)</a>
+                    <a href="#/docs/decisions/README">架構決策 (ADR)</a>
                 </div>
                 <div>
                     &copy; ${year} Plain Vanilla Web. Built with No Frameworks.

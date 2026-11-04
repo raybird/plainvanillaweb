@@ -14,6 +14,19 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 
 ---
 
+## [Unreleased]
+
+### 新增
+
+- 文件頁支援子目錄的文件，ADR 可在站內閱讀（`#/docs/decisions/README`、`#/docs/decisions/<編號>-…`）；以 `/` 結尾的網址視為該目錄的 README。文件內指向 `docs/` 底下 `.md` 的相對連結，依目前文件所在的目錄轉成站內連結。
+
+### 修正
+
+- 頁尾「架構決策 (ADR)」連結指向不存在的 `docs/decisions/` 目錄頁，開啟後顯示「無法載入文件: decisions」。
+- `docService.getDoc()` 拒絕不是文件 id 的名稱（例如含 `..`），不發出請求。
+
+---
+
 ## [3.1.0] - 2026-11-04
 
 ### 新增

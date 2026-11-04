@@ -14,20 +14,31 @@ export class BluetoothPage extends BaseComponent {
         });
     }
 
+    connectedCallback() {
+        super.connectedCallback();
+        this._offDisconnected = bluetoothService.on('disconnected', () => {
+            this.state.isConnected = false;
+            this.state.deviceName = '已斷線';
+            notificationService.warn('藍牙設備已中斷連線');
+        });
+    }
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this._offDisconnected?.();
+    }
+
+    /** 先開啟瀏覽器的裝置選擇視窗，使用者選定後再連線 GATT 伺服器 */
     async connect() {
         try {
-            const device = await bluetoothService.connect();
+            const device = await bluetoothService.requestDevice();
+            await bluetoothService.connect();
             this.state.isConnected = true;
             this.state.deviceName = device.name || '未知設備';
             notificationService.success(`已連線至 ${this.state.deviceName}`);
-
-            // 監聽斷線
-            device.addEventListener('gattserverdisconnected', () => {
-                this.state.isConnected = false;
-                this.state.deviceName = '已斷線';
-                notificationService.warn('藍牙設備已中斷連線');
-            });
         } catch (err) {
+            // 使用者關閉選擇視窗時為 NotFoundError，不算錯誤
+            if (err.name === 'NotFoundError') return;
             notificationService.error(err.message);
         }
     }

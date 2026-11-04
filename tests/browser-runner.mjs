@@ -322,7 +322,7 @@ async function runInteractionTests(page, base, tracker, network) {
         failures.push(`互動：測試中斷：${err.message.split('\n')[0]}`);
     }
     failures.push(...tracker.take().map((p) => `互動：${p}`));
-    console.log('  互動測試：主題、語系、登入登出');
+    console.log('  互動測試：主題、語系、登入登出、音量滑桿');
     return failures;
 }
 
@@ -385,6 +385,22 @@ async function interact(page, base, network, failures) {
     await page.evaluate("location.hash = '#/profile'");
     await waitFor(page, "document.querySelector('x-route[path=\"/profile\"][active]') !== null", 5000);
     check(await page.evaluate("document.querySelector('x-route[path=\"/profile\"][active]') !== null"), '登入後應能進入 /profile');
+
+    // 實驗室的行內事件處理器：只能呼叫元件方法，參照模組內 import 的名稱會拋 ReferenceError（由 tracker 回報）
+    await page.evaluate("location.hash = '#/lab/audio'");
+    await waitFor(page, "document.querySelector('page-lab-audio button.btn-primary') !== null", 10000);
+    // 進入實驗室子頁後的前幾十毫秒內，外層重繪會重建頁面元件；等穩定後再操作
+    await settle(300);
+    // 滑桿在啟動音訊引擎後才出現；headless Chrome 可建立 AudioContext（不會真的發聲）
+    await page.evaluate("document.querySelector('page-lab-audio button.btn-primary').click()");
+    await waitFor(page, "document.querySelector('page-lab-audio input[type=range]') !== null", 5000);
+    await page.evaluate(`(() => {
+        const slider = document.querySelector('page-lab-audio input[type=range]');
+        slider.value = '55';
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await settle();
+    check(await page.evaluate("document.querySelector('page-lab-audio').state.volume === 55"), '拖動音量滑桿後音量狀態應為 55');
 
     // 登出（confirm 由對話框處理器自動確認）；監聽器重複綁定時會跳出多次 confirm
     if (!(await page.evaluate("document.querySelector('#logout-btn') !== null"))) {

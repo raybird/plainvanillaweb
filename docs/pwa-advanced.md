@@ -44,7 +44,21 @@ self.addEventListener('sync', (event) => {
 
 ## 3. 定期背景同步 (Periodic Background Sync)
 
-對於需要定期更新數據（如新聞、股票）的應用，可以使用 `Periodic Sync`。這需要使用者將應用安裝至桌面且有足夠的參與度。
+對於需要定期更新數據（如新聞、股票）的應用，可以使用 `Periodic Sync`。瀏覽器通常只對已安裝至桌面、且有足夠參與度的 PWA 授予 `periodic-background-sync` 權限，實際觸發時機也由瀏覽器決定（`minInterval` 只是下限）。
+
+```javascript
+// lib/pwa-service.js：先確認支援度與權限，再註冊
+await pwaService.registerPeriodicSync('update-cache', 24 * 60 * 60 * 1000);
+
+// sw.js：觸發時重新抓取首頁並寫入快取
+self.addEventListener('periodicsync', (event) => {
+    if (event.tag === 'update-cache') {
+        event.waitUntil(fetch('./').then(res => res.ok && caches.open(CACHE_NAME).then(c => c.put('./', res))));
+    }
+});
+```
+
+不支援或尚未取得權限時，`registerPeriodicSync()` 會拋出錯誤，實驗室頁面以通知顯示原因。
 
 ---
 *本文件為 Plain Vanilla Web 教學系列的一部分。*

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vanilla-cache-7cf7b20318d6';
+const CACHE_NAME = 'vanilla-cache-51ad3dec2b45';
 const CORE_ASSETS = [
     './',
     './index.html',
@@ -142,11 +142,12 @@ self.addEventListener('backgroundfetchclick', (event) => {
     console.log('[Service Worker] Background Fetch Clicked:', bgFetch.id);
 
     event.waitUntil(async function() {
-        const url = './#/lab/pwa-advanced'; // 跳轉至相關實驗室頁面
+        // 跳轉至相關實驗室頁面；client.url 是絕對網址，比對前先以 SW 的 scope 解析
+        const url = new URL('./#/lab/pwa-advanced', self.registration.scope).href;
         const clients = await self.clients.matchAll({ type: 'window' });
-        
+
         for (const client of clients) {
-            if (client.url.includes(url) && 'focus' in client) {
+            if (client.url === url && 'focus' in client) {
                 return client.focus();
             }
         }

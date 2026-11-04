@@ -35,7 +35,9 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 - 路由參數：`:name` 樣式的值放在 `route.params`，`<x-route>` 的 `match` 事件一併帶出。
 - `router.authGuard`、`router.loginPath`。
 - 本機一次執行 CI 全部檢查的 `scripts/check.sh`（只檢查，不提交）。
-- 零依賴的瀏覽器測試（headless Chrome，根目錄與子路徑各一次）：元件行為、全站路由與文件冒煙測試、主題／語系／登入登出互動。
+- 零依賴的瀏覽器測試（headless Chrome，根目錄與子路徑各一次）：元件行為、全站路由與文件冒煙測試、主題／語系／登入登出與實驗室音量滑桿互動。
+- 文件的 Markdown 解析器支援表格、引用、有序與巢狀清單、h4–h6、分隔線與清單項目內的代碼塊；文件內的相對連結在站內轉為文件頁或 GitHub 上的檔案。
+- `pwaService.registerPeriodicSync(tag, minInterval)`：註冊定期背景同步，先檢查支援度與權限。
 
 ### 修正
 
@@ -43,11 +45,17 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 - 文件頁 XSS：網址帶入的文件名稱與 Markdown 內的原始 HTML 一律轉義，連結擋下 `javascript:` 等危險 scheme。
 - Shadow DOM 元件內的 Lucide 圖示不會渲染；圖示改為只掃描元件自身內容。
 - 依實際部署路徑設定 `<base>`，在 repo 根目錄啟動伺服器時資源不再 404。
+- `BaseComponent.css` 改為回傳 `SafeHTML`，放進 `html` 模板時不再被轉義成文字（`x-chart`、`x-isolated-card` 的樣式因此失效）。
+- `i18n.t()` 的參數為 `0` 或 `false` 時照實輸出，不再變成空字串。
+- 實驗室：音量滑桿拋出 `ReferenceError`、藍牙連線沒有開啟裝置選擇視窗、影像工作室下載的是未套用濾鏡的原圖、定期背景同步呼叫不存在的方法、GitHub 搜尋的語音搜尋呼叫不存在的 `once()`、WebCodecs 未處理 `{ supported: false }`、MIDI 聯動未先取得 MIDI 存取權。
+- `paymentService.checkout()` 的總額沿用商品的幣別，不再固定為 USD。
+- `manifest.json` 的 `share_target.action` 改為 `./index.html#/lab/web-share`，系統分享時不再開到 manifest 本身；背景下載的通知點擊會聚焦已開啟的實驗室分頁。
 
 ### 變更
 
 - Service Worker 改為網路優先，離線時才回退快取；快取版本依檔案內容自動產生（[ADR 0097](./docs/decisions/0097-network-first-sw-versioning.md)），移除「發現新版本」提示。
 - 移除會自動 commit 並推送 master 的 `scripts/sync.sh`。
+- 逐份核對文件與程式，修正 36 份文件中過時或錯誤的描述與範例；`media-streams.md`、`web-payment.md` 併入 `media-capture.md`、`payment-request.md` 後移除。
 
 ---
 

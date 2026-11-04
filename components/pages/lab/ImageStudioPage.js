@@ -57,8 +57,9 @@ export class ImageStudioPage extends BaseComponent {
     async downloadResult() {
         if (!this.state.originalUrl) return;
         try {
+            // 以套用濾鏡後的結果縮放壓縮；濾鏡尚未處理完成時才退回原圖
             const blob = await imageService.resizeAndCompress(
-                this.state.originalUrl,
+                this.state.processedUrl || this.state.originalUrl,
                 this.state.targetWidth,
                 this.state.compressionQuality / 100
             );

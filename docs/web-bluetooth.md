@@ -26,4 +26,4 @@ const server = await device.gatt.connect();
 在 Vanilla 架構中，建議將 GATT 狀態維護在 `BluetoothService` 中，並透過事件通知 UI 更新。務必監聽 `gattserverdisconnected` 事件以實作自動恢復或狀態重置。
 
 ## 🎓 學習成果
-進入 **「實驗室 (Lab)」** 中的 **「藍牙通訊」** 單元，您可以親自體驗從網頁搜尋並連接身邊 BLE 設備的完整流程。
+進入 **「實驗室 (Lab)」** 中的 **「藍牙通訊」** 單元，點擊連線按鈕後會先以 `bluetoothService.requestDevice()` 開啟瀏覽器的裝置選擇視窗（預設 `acceptAllDevices: true`），選定後再以 `bluetoothService.connect()` 連線 GATT 伺服器；裝置斷線時 service 發出 `disconnected` 事件，頁面據此重置狀態。關閉選擇視窗不會顯示錯誤。

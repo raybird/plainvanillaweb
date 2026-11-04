@@ -15,24 +15,43 @@ export class AudioPage extends BaseComponent {
         });
     }
 
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        // 離開頁面後不再由 MIDI 鍵盤發聲
+        this._offMidi?.();
+    }
+
     async startAudio() {
         await audioService.init();
+        audioService.setVolume(this.state.volume / 100);
         this.state.isStarted = true;
         notificationService.success('音訊引擎已啟動');
     }
 
-    toggleMIDI() {
-        if (!this.state.midiEnabled) {
-            midiService.on('message', (msg) => {
-                if (msg.command === 'Note On') {
-                    audioService.playNote(audioService.midiNoteToFreq(msg.note), this.state.waveType, `midi-${msg.note}`);
-                } else if (msg.command === 'Note Off') {
-                    audioService.stopNote(`midi-${msg.note}`);
-                }
-            });
-            this.state.midiEnabled = true;
-            notificationService.info('已與 MIDI 設備聯動');
+    /** 滑桿的 oninput 呼叫：行內處理器取不到模組內 import 的 audioService，所以經由元件方法轉呼叫 */
+    setVolume(percent) {
+        this.state.volume = Number(percent);
+        audioService.setVolume(this.state.volume / 100);
+    }
+
+    async toggleMIDI() {
+        if (this.state.midiEnabled) return;
+        try {
+            // 尚未在「MIDI 互動」頁連線時，在這裡取得 MIDI 存取權
+            if (!midiService.midiAccess) await midiService.init();
+        } catch (err) {
+            notificationService.error(err.message);
+            return;
         }
+        this._offMidi = midiService.on('message', (msg) => {
+            if (msg.command === 'Note On') {
+                audioService.playNote(audioService.midiNoteToFreq(msg.note), this.state.waveType, `midi-${msg.note}`);
+            } else if (msg.command === 'Note Off') {
+                audioService.stopNote(`midi-${msg.note}`);
+            }
+        });
+        this.state.midiEnabled = true;
+        notificationService.info('已與 MIDI 設備聯動');
     }
 
     playTest() {
@@ -69,7 +88,7 @@ export class AudioPage extends BaseComponent {
                         </div>
                         <label>主音量: ${this.state.volume}%</label>
                         <input type="range" min="0" max="100" value="${this.state.volume}" 
-                               oninput="const v = this.value; this.closest('page-lab-audio').state.volume = v; audioService.setVolume(v/100)">
+                               oninput="this.closest('page-lab-audio').setVolume(this.value)">
                         <button class="btn btn-secondary" style="width:100%; margin-top: 1rem;" onclick="this.closest('page-lab-audio').playTest()">🎵 播放測試音 (A4)</button>
                     </div>
 

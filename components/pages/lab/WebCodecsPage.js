@@ -140,7 +140,9 @@ export class WebCodecsPage extends BaseComponent {
     };
 
     try {
-      await VideoEncoder.isConfigSupported(config);
+      // 不支援的設定會 resolve { supported: false }，不會 reject，兩種情況都要處理
+      const { supported } = await VideoEncoder.isConfigSupported(config);
+      if (!supported) throw new Error("unsupported");
     } catch (_err) {
       this.state.status = "不支援此編碼設定";
       this.state.lastError = `Codec ${config.codec} 在此瀏覽器不可用`;

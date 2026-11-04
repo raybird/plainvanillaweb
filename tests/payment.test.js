@@ -100,3 +100,21 @@ test('_calculateTotal 加總並保留兩位小數', () => {
     ]);
     assert.strictEqual(total, '3500.50');
 });
+
+test('checkout: 總額沿用商品的幣別', async () => {
+    let captured;
+    global.PaymentRequest = class {
+        constructor(methods, details) { captured = details; }
+        async show() { return { complete: async () => {}, payerName: 'A', methodName: 'x' }; }
+        async canMakePayment() { return true; }
+    };
+    const { PaymentService } = await import('../lib/payment-service.js');
+    const svc = new PaymentService();
+    svc.hasApi = true;
+    try {
+        await svc.checkout([{ label: 'A', amount: { currency: 'TWD', value: '3000.00' } }]);
+    } catch {
+        // 流程後段的模擬驗證與此測試無關
+    }
+    assert.strictEqual(captured.total.amount.currency, 'TWD');
+});

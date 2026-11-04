@@ -63,7 +63,11 @@ export class RepoSearch extends BaseComponent {
                 this.state.isListening = true;
                 notificationService.info('請說出專案關鍵字 (English)...');
 
-                speechService.once('result', (data) => {
+                // 只處理這一次辨識的結果；BaseService 沒有 once，以 on() 回傳的取消函式自行解除
+                this._offSpeech?.();
+                this._offSpeech = speechService.on('result', (data) => {
+                    this._offSpeech();
+                    this._offSpeech = null;
                     this.state.isListening = false;
                     this.querySelector('#q').value = data.text;
                     this.search(data.text);

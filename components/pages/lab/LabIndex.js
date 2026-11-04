@@ -51,7 +51,7 @@ export class LabIndex extends BaseComponent {
         id: "media",
         docId: "media-capture",
         title: "🎥 媒體擷取",
-        desc: "螢幕錄製與即時影像處理",
+        desc: "相機串流的即時影格處理",
       },
       {
         id: "nfc",

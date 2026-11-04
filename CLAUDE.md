@@ -66,6 +66,8 @@ node scripts/update-sw-version.js       # rewrites sw.js CACHE_NAME and index.ht
 
 **Before committing any change to served files** (anything outside `tests/`, `scripts/`, `.github/`, `.agent/` and root `*.md`), run `node scripts/update-sw-version.js` and commit the updated `sw.js` / `index.html` with it; otherwise returning visitors keep getting the old Service Worker cache. The hash covers git-tracked files only, so `git add` new files first.
 
+**Releasing:** the version lives in `lib/version.js` (`VERSION`, re-exported by `core.js` and `vanilla-sdk.js`). Bump it with a new top section in `CHANGELOG.md` and update the pinned `cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v<VERSION>` URLs in README/docs — `tests/core.test.js` fails until all three agree. Changing `lib/core.js`'s exports also fails that test (it locks the export list): removing/renaming is a major bump, adding is minor. Tag the release commit `v<VERSION>`; only push tags with the user's approval.
+
 CI (`.github/workflows/deploy.yml`) runs the unit tests, the syntax check, `update-sw-version.js --check`, `update-adr-index.js --check` and the browser tests on push/PR to `master`. Run the same checks locally with `scripts/check.sh` (`--quick` skips the browser tests); it only checks — it never modifies, commits or pushes.
 
 ## Architecture

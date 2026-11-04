@@ -360,6 +360,22 @@
             }
         });
 
+        test('vanilla-sdk：載入時把 auth-required 的守衛接上 authService，並帶出版本號', async () => {
+            const { router } = await import('./lib/router.js');
+            const saved = router.authGuard;
+            try {
+                const sdk = await import('./lib/vanilla-sdk.js');
+                const { VERSION } = await import('./lib/version.js');
+                assertEq(sdk.VERSION, VERSION, 'SDK 應匯出 VERSION');
+                assertEq(sdk.VanillaSDK.version, VERSION, 'VanillaSDK.version');
+                const { authService } = sdk;
+                assertEq(router.authGuard(), authService.isAuthenticated, '守衛應依 authService 判斷');
+                assertEq(router.authGuard(), false, '測試頁未登入，守衛應不放行');
+            } finally {
+                router.authGuard = saved;
+            }
+        });
+
         test('morphUpdates = false 時改回整塊重繪', async () => {
             class C extends BaseComponent {
                 static morphUpdates = false;

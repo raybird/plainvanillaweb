@@ -149,7 +149,7 @@ plainvanillaweb/
 
 ---
 
-## 6. 工業級聚合入口：Vanilla SDK (v1.1.0)
+## 6. 工業級聚合入口：Vanilla SDK
 
 在 `lib/vanilla-sdk.js` 中，專案將全站的核心架構能力與 40+ 項服務進行了全方位聚合與模組化匯出：
 * **全量一站式導出**：不僅聚合了前沿 Web API 服務單例，更匯出了**核心基底類別 (`BaseComponent`, `BaseService`, `Store`)**、**安全標籤模板 (`html`, `unsafe`, `escapeHTML`)**、**響應式表單引擎 (`FormControl`, `FormGroup`, `Validators`)**，以及**結構化離線資料庫 (`dbService`, `DBService`)** 與 **高頻繪圖工具 (`CanvasChart`)**。

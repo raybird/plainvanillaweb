@@ -15,7 +15,7 @@ This repository is two things, in two layers:
 | **① Core** | ~1,100 lines of reusable foundation: safe templates, reactive components with DOM morphing, services, a cross-tab store and a hash router | [`lib/core.js`](./lib/core.js) | You want to build your own app the vanilla way |
 | **② Showcase** | A full site built on the core: 37 interactive labs of cutting-edge Web APIs, runtime-rendered docs, a dashboard and a playground | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | You want to learn a Web API or borrow a ready-made service |
 
-The core never imports anything from the showcase; a test enforces that boundary ([ADR 0101](./docs/decisions/0101-core-entry-point.md)).
+The core never imports anything from the showcase; a test enforces that boundary ([ADR 0101](./docs/decisions/0101-core-entry-point.md)). Releases follow semantic versioning — see the [CHANGELOG](./CHANGELOG.md) (current: **v3.0.0**).
 
 > 💡 **Why "Standards over Frameworks, Zero Build, Security by Default, and Transparency"?** Read the **[Vanilla Manifesto](./docs/manifesto.md)**.
 
@@ -37,11 +37,11 @@ The core never imports anything from the showcase; a test enforces that boundary
 
 ### Use it in your own page
 
-Copy `lib/` and `components/route/` (keeping the relative paths), or import straight from GitHub Pages. Serve over HTTP — ES Modules do not load from `file://`.
+Copy `lib/` and `components/route/` (keeping the relative paths), or import a pinned release from jsDelivr — the files behind a version tag never change ([CHANGELOG](./CHANGELOG.md)). Serve over HTTP — ES Modules do not load from `file://`.
 
 ```javascript
 import { BaseComponent, html, router, registerRoute } from './lib/core.js';
-// or: import { ... } from 'https://raybird.github.io/plainvanillaweb/lib/core.js';
+// or a pinned release: import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/core.js';
 
 class HelloCard extends BaseComponent {
     constructor() { super(); this.initReactiveState({ count: 0 }); }
@@ -104,7 +104,7 @@ Open `http://localhost:8000/`. The sidebar is organized into:
 The SDK re-exports the core plus 40+ showcase services (crypto, IndexedDB, WebRTC, WebGPU, notifications…), the reactive form engine and `CanvasChart`. See the [SDK guide](./docs/sdk-usage.md).
 
 ```javascript
-import { BaseComponent, html, cryptoService, FormGroup } from 'https://raybird.github.io/plainvanillaweb/lib/vanilla-sdk.js';
+import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/vanilla-sdk.js';
 ```
 
 ### App-level features built on the core

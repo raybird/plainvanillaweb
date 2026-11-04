@@ -48,6 +48,7 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 - `BaseComponent.css` 改為回傳 `SafeHTML`，放進 `html` 模板時不再被轉義成文字（`x-chart`、`x-isolated-card` 的樣式因此失效）。
 - `i18n.t()` 的參數為 `0` 或 `false` 時照實輸出，不再變成空字串。
 - 實驗室：音量滑桿拋出 `ReferenceError`、藍牙連線沒有開啟裝置選擇視窗、影像工作室下載的是未套用濾鏡的原圖、定期背景同步呼叫不存在的方法、GitHub 搜尋的語音搜尋呼叫不存在的 `once()`、WebCodecs 未處理 `{ supported: false }`、MIDI 聯動未先取得 MIDI 存取權。
+- 進入實驗室子頁時子頁面元件被建立多次（從其他頁切入時為 3 次）：`<page-lab>` 預載子頁面模組後不再重繪，預載只在第一次進入時執行。
 - `paymentService.checkout()` 的總額沿用商品的幣別，不再固定為 USD。
 - `manifest.json` 的 `share_target.action` 改為 `./index.html#/lab/web-share`，系統分享時不再開到 manifest 本身；背景下載的通知點擊會聚焦已開啟的實驗室分頁。
 

@@ -2,6 +2,59 @@ import { html } from "../../lib/html.js";
 import { BaseComponent } from "../../lib/base-component.js";
 
 /**
+ * 預先載入所有子頁面以註冊其自訂元素。App 每次換頁都會重建 <page-lab>，
+ * 所以只在第一次呼叫時載入，之後重用同一個 Promise。
+ */
+let subPagesLoaded = null;
+function preloadSubPages() {
+  subPagesLoaded ??= Promise.all([
+    import("./lab/LabIndex.js"),
+    import("./lab/SpeechPage.js"),
+    import("./lab/WebRTCPage.js"),
+    import("./lab/CryptoPage.js"),
+    import("./lab/WasmPage.js"),
+    import("./lab/SerialPage.js"),
+    import("./lab/FormsPage.js"),
+    import("./lab/CollabPage.js"),
+    import("./lab/MediaPage.js"),
+    import("./lab/NFCPage.js"),
+    import("./lab/BarcodePage.js"),
+    import("./lab/WebAuthnPage.js"),
+    import("./lab/PopoverPage.js"),
+    import("./lab/EyeDropperPage.js"),
+    import("./lab/WebLocksPage.js"),
+    import("./lab/WakeLockPage.js"),
+    import("./lab/BadgingPage.js"),
+    import("./lab/WebCodecsPage.js"),
+    import("./lab/ViewTransitionsPage.js"),
+    import("./lab/PermissionsPreflightPage.js"),
+    import("./lab/WebSharePage.js"),
+    import("./lab/WebGPUPage.js"),
+    import("./lab/FileSystemPage.js"),
+    import("./lab/CompressionPage.js"),
+    import("./lab/PWAAdvancedPage.js"),
+    import("./lab/ImageStudioPage.js"),
+    import("./lab/NetworkPage.js"),
+    import("./lab/PerformancePage.js"),
+    import("./lab/MIDIPage.js"),
+    import("./lab/AudioPage.js"),
+    import("./lab/BluetoothPage.js"),
+    import("./lab/LayoutPage.js"),
+    import("./lab/ServicePatternPage.js"),
+    import("./lab/PaymentPage.js"),
+    import("./lab/BroadcastPage.js"),
+    import("./lab/ModalPage.js"),
+    import("./lab/ChartPage.js"),
+    import("./lab/IndexedDBBackupPage.js"),
+    import("./lab/HistoryPage.js"),
+  ]).catch((err) => {
+    subPagesLoaded = null; // 載入失敗時允許下次重試
+    console.error("[Lab] Failed to preload sub-pages:", err);
+  });
+  return subPagesLoaded;
+}
+
+/**
  * LabPage - 實驗室佈局容器 (v3.0 - Path Robust)
  * 負責處理 /lab/* 巢狀路由，具備強大的環境適應性。
  */
@@ -26,66 +79,12 @@ export class LabPage extends BaseComponent {
     });
   }
 
-  async connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
-    // 預先載入所有子頁面，確保 Custom Elements 註冊成功
-    // 使用相對路徑，瀏覽器會自動相對於目前檔案位置解析
-    try {
-      await Promise.all([
-        import("./lab/LabIndex.js"),
-        import("./lab/SpeechPage.js"),
-        import("./lab/WebRTCPage.js"),
-        import("./lab/CryptoPage.js"),
-        import("./lab/WasmPage.js"),
-        import("./lab/SerialPage.js"),
-        import("./lab/FormsPage.js"),
-        import("./lab/CollabPage.js"),
-        import("./lab/MediaPage.js"),
-        import("./lab/NFCPage.js"),
-        import("./lab/BarcodePage.js"),
-        import("./lab/WebAuthnPage.js"),
-        import("./lab/PopoverPage.js"),
-        import("./lab/EyeDropperPage.js"),
-        import("./lab/WebLocksPage.js"),
-        import("./lab/WakeLockPage.js"),
-        import("./lab/BadgingPage.js"),
-        import("./lab/WebCodecsPage.js"),
-        import("./lab/ViewTransitionsPage.js"),
-        import("./lab/PermissionsPreflightPage.js"),
-        import("./lab/WebSharePage.js"),
-        import("./lab/WebGPUPage.js"),
-        import("./lab/FileSystemPage.js"),
-        import("./lab/CompressionPage.js"),
-        import("./lab/PWAAdvancedPage.js"),
-        import("./lab/ImageStudioPage.js"),
-        import("./lab/NetworkPage.js"),
-        import("./lab/PerformancePage.js"),
-        import("./lab/MIDIPage.js"),
-        import("./lab/AudioPage.js"),
-        import("./lab/BluetoothPage.js"),
-        import("./lab/LayoutPage.js"),
-        import("./lab/ServicePatternPage.js"),
-        import("./lab/PaymentPage.js"),
-        import("./lab/BroadcastPage.js"),
-        import("./lab/ModalPage.js"),
-        import("./lab/ChartPage.js"),
-        import("./lab/IndexedDBBackupPage.js"),
-        import("./lab/HistoryPage.js"),
-      ]);
-
-      // 載入完成後手動觸發一次渲染與更新
-      this.update();
-      this.afterFirstRender();
-    } catch (err) {
-      console.error("[Lab] Failed to preload sub-pages:", err);
-    }
-  }
-
-  afterFirstRender() {
-    const sw = this.querySelector("x-switch");
-    if (sw && typeof sw.update === "function") {
-      sw.update();
-    }
+    // 子頁面的自訂元素已在 DOM 中，模組載入、customElements.define 後瀏覽器會自動升級它們，
+    // 不需要重繪。重繪會讓 morph 重建 <x-switch> 與底下所有子頁面（ADR 0100：自訂元素一律重建），
+    // 子頁面因此被建立兩次。
+    preloadSubPages();
   }
 
   render() {

@@ -20,12 +20,13 @@
 
 ```javascript
 merge(other) {
-    if (other.timestamp > this.timestamp) {
-        this.value = other.value;
-        this.timestamp = other.timestamp;
-    } else if (other.timestamp === this.timestamp && other.nodeId > this.nodeId) {
-        this.value = other.value;
+    if (other.timestamp > this.timestamp ||
+        (other.timestamp === this.timestamp && other.nodeId > this.nodeId)) {
+        // value、timestamp 與 nodeId 一併採用勝出者的值，後續合併才會收斂
+        this.set(other.value, other.timestamp, other.nodeId);
+        return true; // 狀態已更新
     }
+    return false;
 }
 ```
 

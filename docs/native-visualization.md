@@ -14,18 +14,26 @@
 ### 1. 座標縮放 (Linear Scaling)
 我們需要將原始數據（如 0 到 100）轉換為 SVG 畫布座標（如 40px 到 260px）。
 ```javascript
-const y = chartHeight - ((val - min) / (max - min) * chartHeight);
+// height = 300、padding = 40，可繪區高度為 height - padding * 2
+const chartHeight = height - padding * 2;
+const y = height - padding - ((val - min) / (max - min) * chartHeight);
 ```
 
 ### 2. 路徑生成 (Bezier Curves)
 利用 SVG 的 `C` (Curveto) 指令，可以將直線連接轉化為平滑的貝茲曲線。
 ```javascript
-// 生成 M (MoveTo) 與 C (CurveTo) 路徑數據
-const path = points.map(p => `C ${cp1x},${cp1y} ...`).join(' ');
+// 生成 M (MoveTo) 與 C (CurveTo) 路徑數據，控制點 x 取兩點中點
+const path = points.reduce((d, p, i, a) => {
+    if (i === 0) return `M ${p.x},${p.y}`;
+    const prev = a[i - 1];
+    const cpx = prev.x + (p.x - prev.x) / 2;
+    return d + ` C ${cpx},${prev.y} ${cpx},${p.y} ${p.x},${p.y}`;
+}, '');
 ```
+完整實作見 `lib/chart-service.js` 的 `getPoints()` 與 `generateSmoothPath()`。
 
 ### 3. 反應式更新
-當組件偵測到 `data` 屬性改變時，會重新計算 `points` 並更新 `<path>` 的 `d` 屬性。由於我們在 CSS 中設定了 `transition: d 0.5s`，瀏覽器會自動補插路徑點，呈現流暢的變形效果。
+Dashboard 的資料改變時會重新輸出 `<x-chart data="...">`，元件重新計算 `points` 並產生新的 `<path>`。CSS 中雖設定了 `transition: d 0.5s`，但自訂元素在 DOM morph 時一律重建，每次更新拿到的都是全新的 `<path>`，沒有舊的 `d` 值可供補插，因此目前圖表是直接切換到新形狀，不會產生變形動畫。若要平滑變形，需讓元件監聽 `data` 屬性並就地更新既有 `<path>` 的 `d`。
 
 ## 🎓 學習成果
 您可以在 **「儀表板 (Dashboard)」** 頁面看到即時監控趨勢圖的實作效果。它展示了原生 Web 技術在處理複雜 UI 互動時的優雅與高效。

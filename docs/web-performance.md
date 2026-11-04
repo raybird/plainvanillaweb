@@ -10,6 +10,8 @@
 - **CLS (Cumulative Layout Shift)**: 頁面佈局的穩定性。
 - **FID (First Input Delay)**: 使用者首次互動的延遲。
 
+註：Core Web Vitals 的互動指標已於 2024 年 3 月由 **INP (Interaction to Next Paint)** 取代 FID。本專案的 `performanceService` 目前仍以 `first-input` 量測 FID，實驗室頁面只顯示 LCP、CLS 與總體加載時間。
+
 ### 2. Navigation Timing
 分析頁面加載的各個階段，精確定位瓶頸（是 DNS 慢、伺服器慢還是 DOM 太重）。
 

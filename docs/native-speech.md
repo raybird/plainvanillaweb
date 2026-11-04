@@ -43,7 +43,7 @@ speechService.stopListening();
 
 本專案在多個地方整合了語音功能，您可以前往體驗：
 
-1.  **[Vanilla 實驗室](#/lab)**：
+1.  **[Vanilla 實驗室](#/lab/speech)**：
     - **TTS 測試**：輸入任意文字並點擊「🔊 朗讀文字」。
     - **STT 測試**：點擊「🎤 開始辨識」並說話，觀察即時辨識結果。
 2.  **[教學文件頁面](#/docs)**：
@@ -59,4 +59,4 @@ speechService.stopListening();
   - **Safari**：支援部分功能。
   - **Firefox**：預設禁用，需在 `about:config` 手動開啟。
 
-本服務已內建相容性偵測，若瀏覽器不支援將會透過 `notificationService` 提示使用者。
+本服務提供 `isRecognitionSupported` 供偵測；不支援語音辨識時 `startListening()` 會拋出錯誤，由呼叫端（如實驗室頁面）以 `notificationService` 提示使用者；不支援 TTS 時 `speak()` 會直接略過。

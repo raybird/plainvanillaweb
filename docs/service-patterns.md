@@ -53,7 +53,8 @@ export class MyPage extends BaseComponent {
     }
 
     disconnectedCallback() {
-        // 務必解除訂閱以防記憶體洩漏
+        // 務必呼叫 super 並解除訂閱以防記憶體洩漏（super 會移除 BaseComponent 的語系監聽）
+        super.disconnectedCallback();
         this._unsubscribe();
     }
 }
@@ -74,11 +75,11 @@ VanillaSDK.notification.success("操作成功");
 ## 🔄 組件與服務的通訊流向
 
 1.  **Command (命令)**: 組件調用服務方法（如 `authService.login()`）。
-2.  **Event (事件)**: 服務處理完成後發布事件（如 `this.emit('login-success')`）。
+2.  **Event (事件)**: 服務處理完成後發布事件（如 `this.emit('auth-change', { isAuthenticated: true, user })`）。
 3.  **Sync (同步)**: 組件監聽到事件後，更新自身的反應式 `state` 並觸發重繪。
 
 ## 💡 最佳實踐
 
 1.  **封裝性**: 服務內部的變數應以 `_` 開頭或使用私有欄位，僅透過 `get` 或方法暴露必要資訊。
-2.  **防禦性**: Service 應處理自身的錯誤，並透過 `BaseService` 的錯誤頻道廣播給 `ErrorService`。
+2.  **防禦性**: Service 應處理自身的錯誤；需要全域回報時呼叫 `errorService.report(error)`，未捕捉的例外與 Promise 拒絕則由 `ErrorService` 監聽 `window` 的 `error`／`unhandledrejection` 事件自動接手。
 3.  **無狀態化 (Statelessness)**: 盡可能保持服務本身不存儲 UI 專用的臨時狀態，僅維護與業務資料相關的核心狀態。

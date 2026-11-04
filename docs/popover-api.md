@@ -5,7 +5,7 @@
 ## 🌟 為什麼用 Popover API
 
 - **更輕量**：直接使用 HTML 屬性，減少 JavaScript 控制碼。
-- **更一致**：由瀏覽器處理關閉行為（點外部、按 ESC），降低互動瑕疵。
+- **更一致**：`popover`（auto）由瀏覽器處理關閉行為（點外部、按 ESC），降低互動瑕疵；`popover="manual"` 則需自行呼叫 `hidePopover()` 關閉。
 - **更易維護**：宣告式與程式式都可用，能依場景切換。
 
 ## 🧩 基本用法
@@ -21,7 +21,7 @@
 ### 2) 程式式控制
 
 ```javascript
-const panel = document.querySelector("#theme-panel");
+const panel = document.querySelector("#manual-popover");
 panel.showPopover();
 panel.hidePopover();
 ```

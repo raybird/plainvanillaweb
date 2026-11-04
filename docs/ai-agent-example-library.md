@@ -58,15 +58,15 @@
 
 ### 2.4 高度架構一致性帶來的 Few-Shot 學習力
 專案擁有極度嚴格的一致性模式：
-* **UI 元件**：全部繼承 `BaseComponent`，生命週期明確（`constructor` -> `connectedCallback` -> `initReactiveState` -> `render` -> `afterFirstRender` -> `update`）。
-* **狀態與服務**：全部繼承 `BaseService`，使用統一的單例匯出與 `on/off/emit` 事件機制。
+* **UI 元件**：頁面與一般元件繼承 `BaseComponent`（路由 `<x-route>`/`<x-switch>` 與通知、對話框容器直接繼承 `HTMLElement`），生命週期明確（`constructor`〔呼叫 `initReactiveState`〕 -> `connectedCallback` -> 首次 `update()`/`render()` -> `afterFirstRender` -> 狀態變更時 `scheduleUpdate` -> `update()` 以 morph 就地更新）。
+* **狀態與服務**：除 `metaService` 外皆繼承 `BaseService`，使用統一的單例匯出與 `on/off/emit` 事件機制。
 * **標籤安全**：全面使用 `html\`...\`` 模板標籤與自動轉義。
 這種統一規範讓 AI Agent 具備極強的 **Few-Shot Learning** 能力——Agent 只要看過一個組件或服務，就能以 100% 符合規範的方式產出下一個全新的組件。
 
 ### 2.5 即時反饋的 Agentic 驗證迴圈 (Instant Verification Loop)
 AI Agent 自主編碼最關鍵的能力在於**「產出 -> 測試 -> 修正」**的循環：
 * **語法檢查**：`node -c <file>` 在毫秒內完成。
-* **單元測試**：使用 Node 原生 `node --test`，68 個測試在 3 秒內全部跑完。
+* **單元測試**：使用 Node 原生 `node --test`，全部單元測試約 3 秒跑完；需要真實 DOM 的行為另由 `node tests/browser-runner.mjs`（headless Chrome，約 1.5 分鐘）驗證。
 * **零打包等待**：無需執行 npm run build，存檔即具備完整可用性。
 這種極速反饋讓 Agent 能在極短時間內自我驗證產出，達成超高的交付可靠度。
 

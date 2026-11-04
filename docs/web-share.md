@@ -41,11 +41,14 @@ async function shareContent() {
 }
 ```
 
-接收頁可從 hash query 解析資料，例如：
+`method` 為 `GET` 時，瀏覽器會把參數寫進 action 網址的 query string（位於 `#` 之前），不會放進 hash，因此接收頁應讀取 `location.search`。本專案的接收頁同時相容 hash 內的 query，兩種形式都能解析：
 
 ```text
+?share_title=...&share_text=...&share_url=...#/lab/web-share
 #/lab/web-share?share_title=...&share_text=...&share_url=...
 ```
+
+第一種是系統分享時實際帶入的形式，第二種方便手動測試。
 
 ## 3) 路由注意事項（Hash + Query）
 

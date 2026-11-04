@@ -5,8 +5,8 @@ Payment Request API 旨在標準化網頁上的結帳流程，消除繁瑣的表
 ## 1. 核心概念
 
 - **PaymentRequest**: 這是 API 的核心物件，負責管理支付方式、交易詳情與選項。
-- **PaymentMethod**: 定義支援的支付手段（如信用卡、Google Pay、Apple Pay）。
-- **PaymentDetails**: 包含商品列表、總金額與運費選項。
+- **PaymentMethodData**: 定義支援的付款方式識別碼（如 Google Pay `https://google.com/pay`、Apple Pay `https://apple.com/apple-pay`）與其設定。
+- **PaymentDetailsInit**: 包含商品列表（`displayItems`）、總金額（`total`）與運費選項。
 
 ## 2. 實作流程
 
@@ -50,8 +50,8 @@ await response.complete('success');
 
 在「實驗室 (Lab)」中，我們展示了：
 1.  **模擬購物車**：建立一個包含多個項目的訂單。
-2.  **原生結帳**：點擊按鈕後直接呼叫瀏覽器的支付 UI。
-3.  **流程模擬**：完整演示從「發起請求」到「完成支付」的生命週期。
+2.  **原生結帳**：先以 `canMakePayment()` 偵測，有可用付款方式時才啟用按鈕並呼叫 `request.show()`；本範本無商家憑證，多數環境下按鈕會停用。
+3.  **流程模擬**：演示從「發起請求」到「完成支付」的生命週期，後端驗證以 1 秒延遲模擬，未串接真實金流。
 
 ## 4. 注意事項
 

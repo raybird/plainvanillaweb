@@ -19,7 +19,7 @@ const compressedStream = stream.pipeThrough(compressionStream);
 
 const response = new Response(compressedStream);
 const buffer = await response.arrayBuffer();
-// 得到 Uint8Array 格式的 Gzip 數據
+const bytes = new Uint8Array(buffer); // 得到 Uint8Array 格式的 Gzip 數據
 ```
 
 ### 2. 解壓縮數據 (Decompression)

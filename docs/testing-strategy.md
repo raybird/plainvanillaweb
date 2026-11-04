@@ -23,9 +23,11 @@ test('服務應能正確處理數據', () => {
 
 ```javascript
 // 在測試前進行 Mock
+const store = {};
 global.localStorage = {
-    getItem: (key) => store[key],
-    setItem: (key, val) => store[key] = val
+    getItem: (key) => (key in store ? store[key] : null),
+    setItem: (key, val) => { store[key] = String(val); },
+    removeItem: (key) => { delete store[key]; }
 };
 ```
 
@@ -37,7 +39,7 @@ global.localStorage = {
 
 ## 4. 真實瀏覽器測試 (Headless Chrome)
 
-需要真實 DOM 的行為（morph 更新、Shadow DOM、焦點還原、圖示渲染）放在 `tests/browser.html`，由 `tests/browser-runner.mjs` 自動執行。執行器同樣零依賴：只用 Node 內建的 `http` 與 `WebSocket`，透過 **Chrome DevTools Protocol** 操作系統上的 Chrome。
+需要真實 DOM 的行為（morph 更新、Shadow DOM、焦點還原、圖示渲染）放在 `tests/browser.html`，由 `tests/browser-runner.mjs` 自動執行。執行器同樣零依賴：只用 Node 內建的 `http` 與 `WebSocket`（Node 22 起為全域物件，因此需要 Node 22+），透過 **Chrome DevTools Protocol** 操作系統上的 Chrome（可用 `CHROME_PATH` 指定路徑）。
 
 ```bash
 node tests/browser-runner.mjs
@@ -45,16 +47,20 @@ node tests/browser-runner.mjs
 
 它會在根目錄 `/` 與 GitHub Pages 的子路徑 `/plainvanillaweb/` 各跑一次（子路徑伺服器只提供該路徑底下的檔案，相對路徑寫錯會直接 404），每次：
 1. 執行 `tests/browser.html` 的元件測試，讀取 `window.__TEST_RESULTS__`。
-2. **全站冒煙測試**：逐一開啟頁面上找得到的每個 `<x-route>`（含延遲載入的 Lab 子路由）與每份被連結的文件，只要出現未捕捉的例外、`console.error` 或 4xx/5xx 回應就失敗。
+2. **全站冒煙測試**：逐一開啟頁面上找得到的每個 `<x-route>`（含延遲載入的 Lab 子路由）與每份被連結的文件，只要出現未捕捉的例外、`console.error`、4xx/5xx 回應、啟用中的 `<x-route>` 不是該路由（重導除外），或留有未渲染的 `<i data-lucide>` 圖示就失敗。
 
 ## 5. 持續整合 (CI)
 
-GitHub Actions 在每次 push 與 PR 執行單元測試、語法檢查、Service Worker 版本檢查與瀏覽器測試：
+GitHub Actions 在每次 push 到 master 與對 master 的 PR 執行單元測試、語法檢查、Service Worker 版本檢查、ADR 索引檢查與瀏覽器測試：
 ```bash
 node --test tests/*.test.js
+find . \( -name "*.js" -o -name "*.mjs" \) -not -path "./node_modules/*" | xargs -n 1 node -c
 node scripts/update-sw-version.js --check
+node scripts/update-adr-index.js --check
 node tests/browser-runner.mjs
 ```
+
+本機可用 `scripts/check.sh` 依序執行同一組檢查（只檢查、不修改也不提交；加 `--quick` 略過瀏覽器測試）。
 
 ---
 *本文件為 Plain Vanilla Web 教學系列的一部分。*

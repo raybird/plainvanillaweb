@@ -29,7 +29,7 @@ container.innerHTML = `<div>${userInput}</div>`;
 
 ## 🛡️ 2. `html` 標籤模板的自動安全轉義 (Auto Escaping)
 
-為了解決此痛點，本專案所有繼承自 `BaseComponent` 的組件皆強制要求在 `render()` 中返回使用 `html\`...\`` 標籤模板包裝的內容。
+為了解決此痛點，本專案慣例要求所有繼承自 `BaseComponent` 的組件在 `render()` 中返回使用 `html\`...\`` 標籤模板包裝的內容。`BaseComponent` 也接受一般字串，但字串不會經過轉義，因此請一律使用 `html`。
 
 ### 2.1 自動轉義機制
 `html` 模板會掃描所有 `${}` 插值，並自動使用 `escapeHTML` 把 HTML 敏感字元替換成安全實體：

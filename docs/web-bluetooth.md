@@ -13,7 +13,7 @@ Web Bluetooth 讓瀏覽器具備了與物理世界互動的能力。透過低功
 1. **掃描 (Scan)**: `navigator.bluetooth.requestDevice(options)`
 2. **連接 (Connect)**: `device.gatt.connect()`
 3. **獲取服務 (Service)**: `server.getPrimaryService(uuid)`
-4. **讀寫特徵 (Characteristic)**: `service.getCharacteristic(uuid)`
+4. **讀寫特徵 (Characteristic)**: `service.getCharacteristic(uuid)` 取得特徵後，以 `readValue()` / `writeValue()` 讀寫
 
 ```javascript
 const device = await navigator.bluetooth.requestDevice({

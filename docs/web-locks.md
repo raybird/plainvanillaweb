@@ -6,7 +6,7 @@
 
 - **避免重入**：防止 start/stop/recover 或多個非同步流程同時操作同一資源。
 - **跨執行內容協調**：同網域下可在不同 Tab、Worker 間協調資源使用順序。
-- **原生排程語意**：用 `exclusive`（排隊）與 `ifAvailable`（不阻塞）建立清楚策略。
+- **原生排程語意**：預設請求會排隊等待鎖（`mode` 預設為 `exclusive`，另有 `shared`）；加上 `{ ifAvailable: true }` 則在鎖被占用時立即以 `lock === null` 回呼，不阻塞。
 
 ## 🧩 基本用法
 
@@ -34,7 +34,7 @@ const acquired = await navigator.locks.request(
 
 - 先檢查：`navigator.locks && navigator.locks.request`
 - 不支援時維持功能可用，改用本地提示與最小排隊機制
-- 針對高優先任務使用 `exclusive`，低優先背景任務可用 `ifAvailable`
+- 針對高優先任務使用預設的排隊請求，低優先背景任務可加上 `ifAvailable: true`
 
 ## 🎓 教學對應
 

@@ -5,7 +5,7 @@
 ## 核心組件
 
 ### 1. 路由服務 (Router Service)
-`lib/router.js` 負責監聽 `hashchange` 事件，並維護 `currentPath` 狀態。它是單一真實來源 (Single Source of Truth)。
+`lib/router.js` 負責監聽 `hashchange` 事件並發出 `route-change`。`currentPath` 由 `location.hash` 即時取得，比對時使用去除 query string 的 `currentRoutePath`。它是單一真實來源 (Single Source of Truth)。
 
 路徑比對集中在同一檔的 `matchRoute(pattern, path, { exact })`，`<x-route>` 與 `<x-switch>` 都呼叫它（`router.match(pattern, options)` 會帶入目前路徑）：
 
@@ -24,7 +24,7 @@
     *   `path`: 匹配路徑，語法見上表。符合後可由 `route.params` 取得路徑參數。
     *   `exact`: 是否完全匹配。
     *   `meta-title` / `meta-desc`: 定義該頁面的 SEO 資訊 (支援 i18n key)。
-    *   `auth-required`: 進入前呼叫 `router.authGuard(route)`，回傳 `false` 時導向 `router.loginPath`（預設 `/login`）。守衛預設一律放行，由應用程式在啟動時設定，例如 `router.authGuard = () => authService.isAuthenticated`（見 `index.js`）。
+    *   `auth-required`: 由 `<x-switch>` 在啟用前呼叫 `router.authGuard(route)`，回傳 `false` 時導向 `router.loginPath`（預設 `/login`）；單獨使用、不在 `<x-switch>` 內的 `<x-route>` 不會檢查。守衛預設一律放行；透過 `lib/vanilla-sdk.js` 載入時會自動設為 `() => authService.isAuthenticated`，直接使用 `lib/core.js` 時請在啟動時自行設定，例如 `router.authGuard = () => authService.isAuthenticated`（見 `index.js`）。
 *   **`<x-switch>`**: 互斥渲染容器。確保同一時間只顯示**第一個**匹配的子路由 (類似 React Router `<Switch>`)。
 
 ```html
@@ -37,7 +37,7 @@
 ```
 
 ## SEO 與 Meta 管理
-`lib/meta-service.js` 負責在路由切換時，動態更新 `document.title` 與 `<meta name="description">`。它會自動從 `x-route` 讀取屬性，並透過 `I18nService` 進行多語言翻譯。
+`<x-route>` 啟用時讀取 `meta-title` / `meta-desc`，呼叫 `metaService.update()`；`lib/meta-service.js` 以 `i18n.t()` 翻譯後更新 `document.title` 與 `<meta name="description">`，語系切換時也會自動重新套用。
 
 ## 靜態主機相容性 (GitHub Pages 404 Hack)
 由於 GitHub Pages 不支援 SPA 的 History API Rewrite，我們採用了 **404 Redirect Hack**：

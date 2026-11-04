@@ -1,6 +1,6 @@
 # 📥 原生背景抓取 (Background Fetch API)
 
-本專案利用瀏覽器內建的 **Background Fetch API** 實作了穩定、可靠的大型文件下載與上傳功能。即使使用者關閉分頁或瀏覽器，下載任務仍能在系統背景持續進行。
+本專案利用瀏覽器內建的 **Background Fetch API** 實作了穩定、可靠的大型文件背景下載功能。即使使用者關閉分頁或瀏覽器，下載任務仍能在系統背景持續進行。
 
 ## 🚀 核心概念
 
@@ -55,11 +55,11 @@ pwaService.on('fetch-success', ({ id }) => {
 
 - **HTTPS 要求**：僅支援安全加密連線（Secure Context）。
 - **瀏覽器支援**：目前主要由 Chrome, Edge 與 Android 瀏覽器支援。
-- **資產管理**：下載完成後，資源會自動存入 **Cache Storage**，開發者需在 Service Worker 的 `backgroundfetchsuccess` 事件中進行後續處理。
+- **資產管理**：下載完成後，資源不會自動存入 **Cache Storage**，而是暫存在 `BackgroundFetchRegistration` 中；開發者需在 Service Worker 的 `backgroundfetchsuccess` 事件中以 `matchAll()` 取出並自行寫入快取。本專案的 `sw.js` 會寫入目前版本的 `CACHE_NAME`，再通知開啟中的頁面；改版時這份快取會隨舊快取一併清除。
 
 ## 🧪 實驗室 Demo
 
 前往 **[PWA 進階實驗室](#/lab/pwa-advanced)** 體驗背景抓取：
-- 模擬下載大型虛擬資源。
+- 以專案內的小型資產（`index.js`、`index.css`、`favicon.svg`）示範背景下載流程。
 - 嘗試關閉分頁，觀察系統通知列的下載進度。
-- 重新開啟頁面，查看資源是否已成功存入快取。
+- 若分頁保持開啟，下載完成時會收到「已存入快取」通知；關閉後重開，可在 DevTools 的 Application › Cache Storage 確認資源。

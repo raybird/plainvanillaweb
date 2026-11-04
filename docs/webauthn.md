@@ -16,8 +16,9 @@ WebAuthn 解決了傳統密碼的許多安全痛點：
 ```javascript
 const credential = await navigator.credentials.create({
   publicKey: {
-    challenge: Uint8Array.from(...), // 伺服器發出的挑戰值
-    user: { id: ..., name: "raybird", displayName: "Raybird" },
+    challenge: challengeFromServer, // 伺服器發出的挑戰值 (Uint8Array)
+    rp: { name: "Plain Vanilla Web", id: location.hostname }, // 必填：Relying Party
+    user: { id: userIdBytes, name: "raybird", displayName: "Raybird" },
     pubKeyCredParams: [{ alg: -7, type: "public-key" }]
   }
 });
@@ -28,8 +29,8 @@ const credential = await navigator.credentials.create({
 ```javascript
 const assertion = await navigator.credentials.get({
   publicKey: {
-    challenge: Uint8Array.from(...),
-    allowCredentials: [{ id: ..., type: "public-key" }]
+    challenge: challengeFromServer,
+    allowCredentials: [{ id: credentialId, type: "public-key" }] // 註冊時取得的 rawId
   }
 });
 ```

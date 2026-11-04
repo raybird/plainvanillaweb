@@ -36,7 +36,7 @@ channel.send('Hello P2P!');
 
 ## 4. 注意事項
 
-- **NAT 穿透**：本專案使用 Google 的免費 STUN 伺服器來獲取公網位址。
+- **NAT 穿透**：本專案使用 Google 與 Twilio 的公用 STUN 伺服器來獲取公網位址（未設定 TURN，對稱型 NAT 下可能無法連線）。
 - **安全性**：WebRTC 本身強制對所有傳輸進行加密。
 
 ---

@@ -8,11 +8,11 @@
 
 ---
 
-> 只需要元件、模板、Store 與路由時，改用只含核心的入口 `lib/core.js`，不會載入任何前沿 Web API service（[ADR 0101](./decisions/0101-core-entry-point.md)）：
->
-> ```javascript
-> import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/core.js';
-> ```
+**只需要核心？** 只用到元件、模板、Store 與路由時，改用只含核心的入口 `lib/core.js`，不會載入任何前沿 Web API service（[ADR 0101](./decisions/0101-core-entry-point.md)）：
+
+```javascript
+import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.0.0/lib/core.js';
+```
 
 ## 🚀 快速開始 (Quick Start)
 
@@ -126,13 +126,13 @@ console.log(loginForm.controls.email.state.errors); // { email: true }
 ## 📊 離線資料庫與圖表 (DB & Canvas Chart)
 
 ### 1. `dbService` / `DBService`：結構化 IndexedDB 服務
-具備筆記資料 CRUD、`change` 事件廣播與 Web Worker 離線加密備份整合能力。
+具備筆記資料 CRUD（`getAll`、`put`、`delete`）與 `change` 事件廣播；背景加密備份由 `lib/backup-worker.js` 另行處理（見 [IndexedDB 備份手冊](./indexeddb-backup.md)）。
 
 ```javascript
 import { dbService } from './lib/vanilla-sdk.js';
 
 const notes = await dbService.getAll();
-await dbService.save({ id: 'note-1', title: '原生開發日記', content: '零依賴萬歲！' });
+await dbService.put({ id: 'note-1', title: '原生開發日記', content: '零依賴萬歲！' });
 ```
 
 ### 2. `CanvasChart`：純原生 Canvas 高效能時間序列圖表

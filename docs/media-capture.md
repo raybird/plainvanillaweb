@@ -36,10 +36,15 @@ recorder.start();
 
 ## 3. 本專案的實踐
 
-在「實驗室 (Lab)」中，我們展示了：
-1.  **即時預覽**：將擷取到的串流直接顯示在 `<video>` 標籤中。
-2.  **錄影控制**：提供開始與停止錄影的介面。
-3.  **下載與回放**：錄製完成後，自動生成下載連結並提供預覽。
+本專案在 `lib/media-service.js`（`mediaService`）封裝了上述螢幕擷取與錄影流程：
+1.  **螢幕擷取**：`startScreenShare()` 呼叫 `getDisplayMedia`，成功時發出 `stream-started` 事件；使用者停止分享時發出 `stream-ended`。
+2.  **錄影控制**：`startRecording()` 開始錄製，`stopRecording()` 停止錄影並關閉串流，完成時發出 `recording-stopped` 事件並附上 `blob`。
+3.  **下載**：`downloadVideo(blob)` 會直接觸發下載 `screen-recording.webm`。
+
+目前「實驗室 (Lab)」的 `#/lab/media` 頁面並未使用螢幕錄製，展示的是相機串流的即時處理：
+1.  **相機預覽**：點擊「📹 啟動處理器」後才以 `getUserMedia` 開啟鏡頭（優先使用後鏡頭）。
+2.  **影格處理**：支援 `MediaStreamTrackProcessor` 時，透過 `streamProcessorService` 以 Canvas 逐格處理後輸出到 `<video>`；不支援時改為原始預覽。
+3.  **生命週期**：切回前景時自動恢復串流，離開頁面時釋放鏡頭。
 
 ## 4. 隱私與權限
 

@@ -22,15 +22,19 @@ await port.open({ baudRate: 9600 });
 利用 Web Streams API 進行高效、非阻塞的讀取。
 ```javascript
 const textDecoder = new TextDecoderStream();
+port.readable.pipeTo(textDecoder.writable); // 將序列埠的位元組串流接到解碼器
 const reader = textDecoder.readable.getReader();
-const { value, done } = await reader.read();
+while (true) {
+  const { value, done } = await reader.read();
+  if (done) break;
+  console.log('收到:', value);
+}
 ```
 
 ### 3. 數據寫入
 ```javascript
 const writer = port.writable.getWriter();
-await writer.write(new TextEncoder().encode("HELLO
-"));
+await writer.write(new TextEncoder().encode("HELLO\n"));
 writer.releaseLock();
 ```
 

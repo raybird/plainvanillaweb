@@ -20,12 +20,15 @@ const reader = processor.readable.getReader();
 ```
 
 ### 2. 影格運算 (Transform)
-對每一幀進行運算。我們可以使用 `OffscreenCanvas` 在後台進行濾鏡處理，或利用 `VideoFrame` 直接操作 GPU 資料。
+對每一幀進行運算。我們可以使用 `OffscreenCanvas` 進行濾鏡處理，或利用 `VideoFrame` 直接操作 GPU 資料。本專案的處理迴圈在主執行緒執行；若運算量大、要避免阻塞 UI，可將處理移至 Web Worker。
 ```javascript
-const canvas = new OffscreenCanvas(w, h);
+const { value: frame } = await reader.read();
+const canvas = new OffscreenCanvas(frame.displayWidth, frame.displayHeight);
+const ctx = canvas.getContext('2d');
 ctx.filter = 'grayscale(100%)';
 ctx.drawImage(frame, 0, 0);
 const newFrame = new VideoFrame(canvas, { timestamp: frame.timestamp });
+frame.close(); // 必須手動關閉原影格以釋放記憶體
 ```
 
 ### 3. 串流產出 (Generator)

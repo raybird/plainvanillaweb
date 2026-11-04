@@ -80,7 +80,7 @@ my-vanilla-app/
 
 ## ⚙️ 2. `base-component.js` (反應式基底)
 
-這是簡化版的反應式 Custom Element 引擎，內建深度狀態觀察與排程更新：
+這是簡化版的反應式 Custom Element 引擎，內建頂層狀態觀察與排程更新（僅監控第一層屬性；完整版的深層 Proxy 與 DOM morphing 就地更新見本專案的 `lib/base-component.js`）：
 
 ```javascript
 export class BaseComponent extends HTMLElement {

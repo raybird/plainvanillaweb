@@ -14,8 +14,11 @@ window.addEventListener('offline', () => console.log('網路斷開'));
 ### 2. 網路資訊 (Network Information API)
 獲取更細緻的連線參數，如頻寬與有效連線類型。
 ```javascript
-const { effectiveType, downlink, rtt } = navigator.connection;
-console.log(`目前網速: ${downlink}Mbps (${effectiveType})`);
+const conn = navigator.connection; // 不支援的瀏覽器為 undefined
+if (conn) {
+  const { effectiveType, downlink, rtt } = conn;
+  console.log(`目前網速: ${downlink}Mbps (${effectiveType}), RTT ${rtt}ms`);
+}
 ```
 
 ### 3. 可靠數據發送 (Beacon API)

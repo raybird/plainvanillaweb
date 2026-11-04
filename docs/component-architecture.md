@@ -39,7 +39,7 @@ export class MyCounter extends BaseComponent {
         console.log('DOM 首次渲染完成');
     }
 
-    // 4. 定義 UI 模板 (必須返回 SafeHTML 物件)
+    // 4. 定義 UI 模板 (建議回傳 html`` 產生的 SafeHTML；也可回傳字串，但字串不會自動轉義)
     render() {
         return html`
             <div class="card">
@@ -114,7 +114,7 @@ afterFirstRender() {
 ## 📥 5. 插槽與內容分發 (Slots)
 
 本專案在不啟用 Shadow DOM 的情況下（以便於全域 CSS 樣式穿透），實作了**插槽模擬機制**。
-在 `connectedCallback` 之前，基底會先複製子節點，您可以透過 `this.$slot(slotName)` 動態輸出內容：
+第一次 `connectedCallback` 執行、首次渲染之前，基底會先複製子節點（僅 Light DOM），您可以透過 `this.$slot(slotName)` 動態輸出內容。`$slot()` 回傳的是一般字串，放進 `html` 模板時需以 `unsafe()` 包裝，否則會被轉義成純文字：
 
 ```html
 <!-- 使用方式 -->
@@ -126,14 +126,16 @@ afterFirstRender() {
 
 ```javascript
 // x-page-layout 元件內部定義
+import { html, unsafe } from '../../lib/html.js';
+
 render() {
     return html`
         <div class="layout">
             <!-- 渲染具名插槽 header -->
-            <header class="page-header">${this.$slot('header')}</header>
+            <header class="page-header">${unsafe(this.$slot('header'))}</header>
             
             <!-- 渲染預設插槽 (無 name) -->
-            <main class="page-content">${this.$slot()}</main>
+            <main class="page-content">${unsafe(this.$slot())}</main>
         </div>
     `;
 }

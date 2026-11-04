@@ -14,7 +14,7 @@ midiAccess.inputs.forEach(input => {
 ```
 
 ### 2. 即時訊息處理
-MIDI 數據以 3 位元組的陣列形式傳輸，包含指令類型、音高與力度。
+MIDI 訊息以 `Uint8Array` 傳輸，常見的 Note On/Off 為 3 位元組，包含指令類型、音高與力度；其他訊息長度不一（如 Program Change 為 2 位元組、SysEx 長度不定）。
 ```javascript
 input.onmidimessage = (event) => {
   const [status, note, velocity] = event.data;

@@ -1,8 +1,8 @@
 # 🍦 Plain Vanilla Web App 架構與核心技術全貌深度解析
 
-> **日期**：2026-10-26  
+> **日期**：2026-11-04  
 > **整理者**：Antigravity (for Raybird)  
-> **專案版本**：v2.6.1+  
+> **專案版本**：v3.0.0（見 `lib/version.js`）  
 > **核心定位**：基於 W3C/WHATWG 現代瀏覽器原生標準所構建的零依賴、零建置現代 Web 應用架構範本與前沿 Web API 實驗平台。
 
 ---
@@ -21,7 +21,7 @@
    - 3.4 [路由守衛 (Auth Guard) 與 SEO Meta 動態更新](#34-路由守衛-auth-guard-與-seo-meta-動態更新)
 4. [專案目錄結構與模組職責](#4-專案目錄結構與模組職責)
 5. [前沿 Web API 實驗室生態 (38+ Native Labs)](#5-前沿-web-api-實驗室生態-38-native-labs)
-6. [工業級聚合入口：Vanilla SDK (v1.0.0)](#6-工業級聚合入口vanilla-sdk-v100)
+6. [工業級聚合入口：Vanilla SDK](#6-工業級聚合入口vanilla-sdk)
 7. [軟體工程化與品質保證](#7-軟體工程化與品質保證)
 8. [架構結論與價值評估](#8-架構結論與價值評估)
 
@@ -105,7 +105,7 @@
 * 完備的異常處理機制：主動捕捉並過濾 `AbortError`，防止使用者快速切換頁面時瀏覽器拋出未捕獲的 Promise 異常。
 
 ### 3.4 路由守衛 (Auth Guard) 與 SEO Meta 動態更新
-* **身份驗證守衛**：`<x-route>` 帶有 `auth-required` 屬性時，會透過 `authService.isAuthenticated` 檢查；未登入者會被自動導向 `#/login`。
+* **身份驗證守衛**：`<x-switch>` 遇到帶有 `auth-required` 屬性的 `<x-route>` 時，會呼叫 `router.authGuard(route)`，回傳 `false` 就導向 `router.loginPath`（預設 `/login`）。守衛預設一律放行；本站在 `index.js` 設定為 `() => authService.isAuthenticated`，透過 `lib/vanilla-sdk.js` 載入時也會自動接上。
 * **動態 Meta**：支援 `meta-title` 與 `meta-desc` 屬性，透過 `metaService` 自動更新瀏覽器分頁標題與 Meta Description 標籤。
 
 ---
@@ -115,21 +115,21 @@
 ```text
 plainvanillaweb/
 ├── app/                  # 應用程式進入點 (App.js 負責佈局、側邊欄導覽與全域按鈕監聽)
-├── components/           # UI 與視圖組件庫
+├── components/           # UI 與視圖組件庫 (根目錄另有 VirtualList、Modal、Notification、AppFooter)
 │   ├── pages/            # 一級功能頁面 (HomePage, Docs, Dashboard, Analytics, Login 等)
 │   │   └── lab/          # 38+ 個獨立前沿 Web API 實驗室
 │   ├── route/            # 原生路由模組 (<x-switch>, <x-route>)
-│   └── ui/               # 共用輕量 UI 元件 (Card, NativeChart, VirtualList, Modal 等)
+│   └── ui/               # 共用輕量 UI 元件 (Card, IsolatedCard, NativeChart)
 ├── lib/                  # 核心服務層 (BaseComponent, BaseService, Store, 各類 Web API 服務)
 ├── docs/                 # 即時解析與展示的技術文件 (Markdown)
 │   └── decisions/        # 90+ 篇架構決策紀錄 (ADRs, 追蹤重大技術選型與演進)
-├── workers/              # 獨立 Web Worker 腳本 (計算任務解耦、IndexedDB 備份)
-├── tests/                # 測試集 (Node 內建測試 tests/*.test.js 與 browser.html DOM 測試)
-├── scripts/              # 維護與腳手架工具 (new-page.js、update-adr-index.js)
+├── workers/              # 獨立 Web Worker 腳本 (compute.worker.js 計算任務；IndexedDB 備份 worker 位於 lib/backup-worker.js)
+├── tests/                # 測試集 (Node 內建測試 tests/*.test.js、browser.html DOM 測試與 browser-runner.mjs)
+├── scripts/              # 維護與腳手架工具 (new-page.js、update-adr-index.js、update-sw-version.js、check.sh)
 ├── index.html            # SPA 單一入口 (<x-app> 掛載點、CSS 與字體引入)
 ├── index.css             # 全域 CSS 變數主題系統與自適應排版樣式
 ├── index.js              # 應用程式啟動引導 (Bootstrap、i18n、網路監控、SW 註冊)
-├── sw.js                 # PWA Service Worker (快取管理、離線策略與更新防抖)
+├── sw.js                 # PWA Service Worker (網路優先、離線回退快取；CACHE_NAME 依檔案內容雜湊產生，ADR 0097)
 └── manifest.json         # PWA 配置與 Share Target 定義
 ```
 
@@ -164,9 +164,10 @@ plainvanillaweb/
 
 1. **極速單元測試**：
    * 採用 Node 20+ 內建的測試運行器（`node --test tests/*.test.js`），不依賴 Jest 或 Vitest。
-   * 測試涵蓋 API 生命週期、SafeHTML 防禦、表單驗證引擎、歷史快照、Crypto 加解密、Store 狀態流等，68 個測試均在 3 秒內通過。
+   * 測試涵蓋 API 生命週期、SafeHTML 防禦、表單驗證引擎、歷史快照、Crypto 加解密、Store 狀態流等，全部單元測試約 3 秒跑完。
 2. **真實瀏覽器 DOM 測試**：
    * 提供 `tests/browser.html`，直接在瀏覽器環境驗證 `BaseComponent` 的自訂標籤渲染、Light/Shadow DOM 切換、反應式更新與節點持久化。
+   * CI 以 `node tests/browser-runner.mjs` 在 headless Chrome 執行，並巡訪所有路由與文件做冒煙測試。
 3. **靜態語法檢查**：
    * 透過 `node -c` 逐一檢查所有 JavaScript 檔案的語法正確性，杜絕基本語法錯誤。
 4. **架構決策紀錄 (ADR, Architecture Decision Records)**：

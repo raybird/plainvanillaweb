@@ -20,7 +20,7 @@ sequenceDiagram
     Note over Worker: 4. 背景 Gzip 壓縮 (CompressionStream)
     Note over Worker: 5. 背景 XOR 混淆加密 (0x42)
     Worker->>UI: 6. 傳回備份 Blob (postMessage)
-    UI->>UI: 7. 下載 vanilla-db-backup.bak 檔案
+    UI->>UI: 7. 下載 vanilla-db-backup-YYYY-MM-DD.bak 檔案
 ```
 
 ---
@@ -100,8 +100,17 @@ self.onmessage = async (e) => {
         start(c) { c.enqueue(bytes); c.close(); }
     }).pipeThrough(new CompressionStream('gzip'));
     
-    // 將 Stream 轉為 Blob (利用同步的 FileReaderSync)
+    // 讀出壓縮後的 chunks 組成 Blob
+    const chunks = [];
+    const streamReader = stream.getReader();
+    while (true) {
+        const { done, value } = await streamReader.read();
+        if (done) break;
+        chunks.push(value);
+    }
     const compressedBlob = new Blob(chunks, { type: 'application/gzip' });
+
+    // 以 Worker 專用的同步 FileReaderSync 取得 ArrayBuffer
     const reader = new FileReaderSync();
     const arrayBuffer = reader.readAsArrayBuffer(compressedBlob);
     

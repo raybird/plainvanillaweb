@@ -376,6 +376,25 @@
             }
         });
 
+        test('BaseComponent.css 放進 html 模板時輸出 <style> 元素，Shadow DOM 的 $slot 包 unsafe 後輸出原生 <slot>', async () => {
+            const { html, unsafe } = await import('./lib/html.js');
+            class C extends BaseComponent {
+                static useShadow = true;
+                render() {
+                    return html`${BaseComponent.css`:host { display: block; }`}<div class="body">${unsafe(this.$slot())}</div>`;
+                }
+            }
+            customElements.define('t-css-slot', C);
+            const el = document.createElement('t-css-slot');
+            el.innerHTML = '<b>投影內容</b>';
+            mount(el);
+            const root = el.shadowRoot;
+            assert(root.querySelector('style'), '應產生 <style> 元素');
+            assert(![...root.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent.includes(':host')), 'CSS 不應以文字顯示');
+            assert(root.querySelector('.body > slot'), '應輸出原生 <slot>');
+            assertEq(root.querySelector('slot').assignedNodes()[0]?.textContent, '投影內容');
+        });
+
         test('morphUpdates = false 時改回整塊重繪', async () => {
             class C extends BaseComponent {
                 static morphUpdates = false;

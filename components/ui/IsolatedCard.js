@@ -1,5 +1,5 @@
 import { BaseComponent } from '../../lib/base-component.js';
-import { html } from '../../lib/html.js';
+import { html, unsafe } from '../../lib/html.js';
 
 export class IsolatedCard extends BaseComponent {
     static useShadow = true;
@@ -44,10 +44,10 @@ export class IsolatedCard extends BaseComponent {
                 ${this.getAttribute('title') || '隔離組件 (Shadow DOM)'}
             </div>
             <div class="content">
-                ${this.$slot()}
+                ${unsafe(this.$slot())}
             </div>
             <div class="footer">
-                ${this.$slot('footer')}
+                ${unsafe(this.$slot('footer'))}
             </div>
         `;
     }

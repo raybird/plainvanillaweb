@@ -176,6 +176,67 @@ pre {
   border-color: rgba(255, 255, 255, 0.06);
 }
 
+/* ── Markdown 文件：表格、引用、分隔線（顏色皆用主題變數，亮暗模式自動切換） ── */
+.md-table {
+  overflow-x: auto;
+  max-inline-size: 100%;
+  margin: 1rem 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+
+.md-table:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.md-table table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.md-table th,
+.md-table td {
+  padding: 0.6rem 0.9rem;
+  border-block-end: 1px solid var(--border-color);
+  text-align: start;
+  vertical-align: top;
+}
+
+.md-table th {
+  background: var(--surface-color);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.md-table tbody tr:last-child td {
+  border-block-end: none;
+}
+
+.docs-content blockquote {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-inline-start: 4px solid var(--primary-color);
+  background: var(--primary-subtle);
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+  color: var(--text-color);
+}
+
+.docs-content blockquote > :first-child {
+  margin-block-start: 0;
+}
+
+.docs-content blockquote > :last-child {
+  margin-block-end: 0;
+}
+
+.docs-content hr {
+  border: none;
+  border-block-start: 1px solid var(--border-color);
+  margin: 2rem 0;
+}
+
 .md-code-block code {
   background: none;
   border: none;

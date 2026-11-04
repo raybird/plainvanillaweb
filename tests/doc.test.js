@@ -83,3 +83,53 @@ test('getDoc 載入失敗時，文件名稱（來自網址）被轉義', async (
         console.error = originalError;
     }
 });
+
+test('標題支援到 h6，結尾的 # 只有前面有空白時才視為收尾符號', () => {
+    assert.match(parseMarkdown('#### 四'), /<h4>四<\/h4>/);
+    assert.match(parseMarkdown('## 使用 C#'), /<h2>使用 C#<\/h2>/);
+    assert.match(parseMarkdown('## 標題 ##'), /<h2>標題<\/h2>/);
+});
+
+test('同一行的多段粗體各自獨立', () => {
+    assert.match(parseMarkdown('**a** 與 **b**'), /<strong>a<\/strong> 與 <strong>b<\/strong>/);
+});
+
+test('連續清單項目包在同一個 ul，有序清單輸出 ol 並保留起始編號', () => {
+    assert.match(parseMarkdown('- one\n- two'), /^<ul><li>one<\/li><li>two<\/li><\/ul>$/);
+    assert.match(parseMarkdown('1. a\n2. b'), /^<ol><li>a<\/li><li>b<\/li><\/ol>$/);
+    assert.match(parseMarkdown('3. c\n4. d'), /^<ol start="3">/);
+});
+
+test('縮排的子清單與項目內的代碼塊屬於該項目', () => {
+    const out = parseMarkdown('1. 父\n    * 子一\n    * 子二\n2. 下一項');
+    assert.match(out, /^<ol><li>父<ul><li>子一<\/li><li>子二<\/li><\/ul><\/li><li>下一項<\/li><\/ol>$/);
+    const code = parseMarkdown('* 步驟：\n  ```js\n  run();\n  ```\n* 完成');
+    assert.match(code, /<li>步驟：<pre class="md-code-block">/);
+    assert.match(code, /<li>完成<\/li><\/ul>$/);
+});
+
+test('引用區塊內可再解析區塊語法', () => {
+    const out = parseMarkdown('> **注意**：第一行\n> - 項目');
+    assert.match(out, /^<blockquote><p><strong>注意<\/strong>：第一行<\/p>\n<ul><li>項目<\/li><\/ul><\/blockquote>$/);
+});
+
+test('表格輸出 table，支援對齊與儲存格內的行內語法，代碼裡的 | 不會切開儲存格', () => {
+    const out = parseMarkdown('| 語法 | 說明 |\n| :--- | :---: |\n| `a|b` | **粗** |');
+    assert.match(out, /^<div class="md-table" tabindex="0" role="region" aria-label="表格：語法、說明"><table>/);
+    assert.match(out, /<th style="text-align:left">語法<\/th><th style="text-align:center">說明<\/th>/);
+    assert.match(out, /<td style="text-align:left"><code class="md-inline-code">a\|b<\/code><\/td>/);
+    assert.match(out, /<td style="text-align:center"><strong>粗<\/strong><\/td>/);
+});
+
+test('段落內的連續行合併為同一段，空行分段，分隔線輸出 hr', () => {
+    assert.equal(parseMarkdown('第一行\n第二行\n\n下一段\n\n---'), '<p>第一行\n第二行</p>\n<p>下一段</p>\n<hr>');
+});
+
+test('文件內的相對連結：同層 .md 轉為站內文件頁，其他路徑轉為 GitHub 上的檔案', () => {
+    assert.match(parseMarkdown('[r](./router.md)'), /<a href="#\/docs\/router">r<\/a>/);
+    assert.match(parseMarkdown('[r](router.md#x)'), /<a href="#\/docs\/router">r<\/a>/);
+    assert.match(parseMarkdown('[a](./decisions/0100-x.md)'),
+        /<a href="https:\/\/github.com\/raybird\/plainvanillaweb\/blob\/master\/docs\/decisions\/0100-x.md">a<\/a>/);
+    assert.match(parseMarkdown('[c](../lib/core.js)'),
+        /<a href="https:\/\/github.com\/raybird\/plainvanillaweb\/blob\/master\/lib\/core.js">c<\/a>/);
+});

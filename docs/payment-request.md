@@ -8,6 +8,12 @@ Payment Request API 旨在標準化網頁上的結帳流程，消除繁瑣的表
 - **PaymentMethodData**: 定義支援的付款方式識別碼（如 Google Pay `https://google.com/pay`、Apple Pay `https://apple.com/apple-pay`）與其設定。
 - **PaymentDetailsInit**: 包含商品列表（`displayItems`）、總金額（`total`）與運費選項。
 
+### 核心優勢
+
+- **快速結帳**：自動填入瀏覽器儲存的地址與付款資訊，使用者不必重複填寫表單。
+- **一致體驗**：使用原生的系統介面，提升信任感。
+- **開發簡化**：不再需要自行維護複雜的付款表單與驗證邏輯。
+
 ## 2. 實作流程
 
 ### 初始化請求
@@ -21,7 +27,7 @@ const methods = [{
     data: { /* Google Pay merchant 設定 */ }
 }];
 const details = {
-    total: { label: '總計', amount: { currency: 'USD', value: '10.00' } }
+    total: { label: '總計', amount: { currency: 'TWD', value: '100.00' } }
 };
 const request = new PaymentRequest(methods, details);
 
@@ -56,6 +62,8 @@ await response.complete('success');
 ## 4. 注意事項
 
 - **HTTPS**: 此 API 僅在安全上下文下可用。
+- **第三方整合**: 實際串接 Google Pay 或 Apple Pay 時，需在 `methods` 的 `data` 中填入對應的商家 ID 與設定。
+- **幣別**: `total` 與 `displayItems` 的幣別必須一致，API 不做匯率換算；本專案的 `paymentService.checkout()` 會沿用商品的幣別。
 - **後端整合**: 前端僅負責收集支付資訊，實際扣款仍需透過 Stripe、PayPal 等支付閘道的 SDK 或 API 在後端完成。
 
 ---

@@ -14,6 +14,9 @@ async function startCapture() {
     });
     return stream;
 }
+
+// 將串流導向 <video> 元素即可即時預覽
+videoElement.srcObject = await startCapture();
 ```
 
 ## 2. 錄製串流 (MediaRecorder)
@@ -48,8 +51,10 @@ recorder.start();
 
 ## 4. 隱私與權限
 
+- **使用者手勢**：`getDisplayMedia` 必須在點擊等使用者操作中呼叫，否則會被拒絕。
 - **使用者授權**：每次調用 `getDisplayMedia` 都會強制彈出系統選擇視窗，網頁無法在背景靜默啟動。
 - **指示器**：瀏覽器通常會顯示「正在分享螢幕」的系統級通知。
+- **行動裝置**：手機瀏覽器大多不支援螢幕分享，通常只能用 `getUserMedia` 擷取相機。
 
 ---
 *本文件為 Plain Vanilla Web 教學系列的一部分。*

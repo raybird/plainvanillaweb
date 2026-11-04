@@ -77,7 +77,16 @@ async function launchChrome() {
     ];
     // GitHub Actions 的 Ubuntu 限制了非特權 user namespace，Chrome 沙箱無法啟動
     if (process.env.CI) args.unshift('--no-sandbox');
-    const proc = spawn(findChrome(), args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    // detached：Chrome 自成一個程序群組，結束時連同 GPU、renderer 等子程序一起處理
+    const proc = spawn(findChrome(), args, { stdio: ['ignore', 'ignore', 'pipe'], detached: true });
+    // 脫離群組後不會隨終端機的 Ctrl+C 一起結束：執行器意外退出時也要收掉 Chrome
+    process.once('exit', () => {
+        try {
+            process.kill(-proc.pid, 'SIGKILL');
+        } catch {
+            // 已結束
+        }
+    });
 
     const wsUrl = await new Promise((resolve, reject) => {
         let buffer = '';
@@ -95,10 +104,8 @@ async function launchChrome() {
     const page = await connect(targets.find((t) => t.type === 'page').webSocketDebuggerUrl);
     const close = async () => {
         page.ws.close();
-        const exited = new Promise((resolve) => proc.once('exit', resolve));
-        proc.kill();
-        await Promise.race([exited, sleep(5000)]);
-        // Chrome 的子程序可能比主程序晚結束、仍在寫快取：重試幾次，仍失敗只警告，不影響測試結果
+        await killGroup(proc.pid);
+        // 群組已清空，理論上不會再有人寫入；保險起見仍重試幾次，失敗只警告，不影響測試結果
         try {
             fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
         } catch (err) {
@@ -106,6 +113,31 @@ async function launchChrome() {
         }
     };
     return { page, close };
+}
+
+/** 結束整個程序群組並等它清空；子程序還在寫設定檔時刪不掉暫存目錄 */
+async function killGroup(pid) {
+    const alive = () => {
+        try {
+            process.kill(-pid, 0);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+    const signal = (sig) => {
+        try {
+            process.kill(-pid, sig);
+        } catch {
+            // 群組已不存在
+        }
+    };
+    signal('SIGTERM');
+    for (let waited = 0; alive() && waited < 5000; waited += 100) await sleep(100);
+    if (alive()) {
+        signal('SIGKILL');
+        for (let waited = 0; alive() && waited < 2000; waited += 100) await sleep(100);
+    }
 }
 
 async function connect(wsUrl) {

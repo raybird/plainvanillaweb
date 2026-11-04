@@ -322,7 +322,7 @@ async function runInteractionTests(page, base, tracker, network) {
         failures.push(`互動：測試中斷：${err.message.split('\n')[0]}`);
     }
     failures.push(...tracker.take().map((p) => `互動：${p}`));
-    console.log('  互動測試：主題、語系、登入登出、實驗室子頁只建立一次、音量滑桿');
+    console.log('  互動測試：主題、語系、登入登出、實驗室子頁只建立一次、音量滑桿、頁面生命週期');
     return failures;
 }
 
@@ -385,6 +385,11 @@ async function interact(page, base, network, failures) {
     await page.evaluate("location.hash = '#/profile'");
     await waitFor(page, "document.querySelector('x-route[path=\"/profile\"][active]') !== null", 5000);
     check(await page.evaluate("document.querySelector('x-route[path=\"/profile\"][active]') !== null"), '登入後應能進入 /profile');
+    // 從側欄切換主題：Profile 不會因 App 重繪而重建，主題選單要自己跟著更新
+    await page.evaluate("document.querySelector('#theme-toggle').click()");
+    await settle(300);
+    check(await page.evaluate("document.querySelector('#theme-select')?.value") === await theme(),
+        'Profile 的主題選單應反映側欄切換後的主題');
 
     // 實驗室的行內事件處理器：只能呼叫元件方法，參照模組內 import 的名稱會拋 ReferenceError（由 tracker 回報）
     // 同時計算子頁面被建立幾次：換頁一次應只建立一個，重複建立會讓相機等初始化多跑
@@ -414,14 +419,38 @@ async function interact(page, base, network, failures) {
     await settle();
     check(await page.evaluate("document.querySelector('page-lab-audio').state.volume === 55"), '拖動音量滑桿後音量狀態應為 55');
 
+    // 頁面生命週期（ADR 0102）：App 重繪不重建目前的頁面；在 /lab/* 之間換頁保留 <page-lab>，只換子頁面
+    await page.evaluate(`(() => {
+        window.__lab = document.querySelector('page-lab');
+        window.__audio = document.querySelector('page-lab-audio');
+        document.querySelector('x-app').update();
+    })()`);
+    await settle();
+    check(await page.evaluate("document.querySelector('page-lab-audio') === window.__audio && window.__audio.state.volume === 55"),
+        'App 重繪後目前的頁面應保留原本的實例與狀態');
+    await page.evaluate("location.hash = '#/lab/speech'");
+    await waitFor(page, "document.querySelector('page-lab-speech') !== null", 10000);
+    await settle();
+    check(await page.evaluate("document.querySelector('page-lab') === window.__lab"), '在 /lab/* 之間換頁應保留同一個 <page-lab>');
+    check(await page.evaluate("!window.__audio.isConnected && document.querySelectorAll('page-lab-audio').length === 0"),
+        '離開 /lab/audio 後該頁應從 DOM 移除（才會收到 disconnectedCallback）');
+    check(await page.evaluate("document.querySelector('page-lab .lab-header code')?.textContent === '#/lab/speech'"),
+        '實驗室標頭顯示的路徑應隨換頁更新');
+
     // 登出（confirm 由對話框處理器自動確認）；監聽器重複綁定時會跳出多次 confirm
     if (!(await page.evaluate("document.querySelector('#logout-btn') !== null"))) {
         failures.push('互動：找不到登出按鈕（登入沒有成功）');
         return;
     }
+    // 停在受保護頁面時登出：網址沒變，靠 router.refresh() 讓 <x-switch> 重新執行守衛
+    await page.evaluate("location.hash = '#/profile'");
+    await waitFor(page, "document.querySelector('x-route[path=\"/profile\"][active]') !== null", 5000);
     const dialogsBefore = page.dialogCount;
     await page.evaluate("document.querySelector('#logout-btn').click()");
     await settle();
+    await waitFor(page, "location.hash === '#/login'", 5000);
+    check(await page.evaluate("location.hash === '#/login' && document.querySelector('x-route[path=\"/profile\"][active]') === null"),
+        '停在 /profile 時登出應導向 /login');
     check(page.dialogCount - dialogsBefore === 1, `按一次登出應只跳出 1 次確認對話框，實際 ${page.dialogCount - dialogsBefore} 次（監聽器重複綁定）`);
     check(await page.evaluate("localStorage.getItem('vanilla_auth_token') === null"), '登出後應清除登入狀態');
 }

@@ -1,58 +1,6 @@
 import { html } from "../../lib/html.js";
 import { BaseComponent } from "../../lib/base-component.js";
-
-/**
- * 預先載入所有子頁面以註冊其自訂元素。App 每次換頁都會重建 <page-lab>，
- * 所以只在第一次呼叫時載入，之後重用同一個 Promise。
- */
-let subPagesLoaded = null;
-function preloadSubPages() {
-  subPagesLoaded ??= Promise.all([
-    import("./lab/LabIndex.js"),
-    import("./lab/SpeechPage.js"),
-    import("./lab/WebRTCPage.js"),
-    import("./lab/CryptoPage.js"),
-    import("./lab/WasmPage.js"),
-    import("./lab/SerialPage.js"),
-    import("./lab/FormsPage.js"),
-    import("./lab/CollabPage.js"),
-    import("./lab/MediaPage.js"),
-    import("./lab/NFCPage.js"),
-    import("./lab/BarcodePage.js"),
-    import("./lab/WebAuthnPage.js"),
-    import("./lab/PopoverPage.js"),
-    import("./lab/EyeDropperPage.js"),
-    import("./lab/WebLocksPage.js"),
-    import("./lab/WakeLockPage.js"),
-    import("./lab/BadgingPage.js"),
-    import("./lab/WebCodecsPage.js"),
-    import("./lab/ViewTransitionsPage.js"),
-    import("./lab/PermissionsPreflightPage.js"),
-    import("./lab/WebSharePage.js"),
-    import("./lab/WebGPUPage.js"),
-    import("./lab/FileSystemPage.js"),
-    import("./lab/CompressionPage.js"),
-    import("./lab/PWAAdvancedPage.js"),
-    import("./lab/ImageStudioPage.js"),
-    import("./lab/NetworkPage.js"),
-    import("./lab/PerformancePage.js"),
-    import("./lab/MIDIPage.js"),
-    import("./lab/AudioPage.js"),
-    import("./lab/BluetoothPage.js"),
-    import("./lab/LayoutPage.js"),
-    import("./lab/ServicePatternPage.js"),
-    import("./lab/PaymentPage.js"),
-    import("./lab/BroadcastPage.js"),
-    import("./lab/ModalPage.js"),
-    import("./lab/ChartPage.js"),
-    import("./lab/IndexedDBBackupPage.js"),
-    import("./lab/HistoryPage.js"),
-  ]).catch((err) => {
-    subPagesLoaded = null; // 載入失敗時允許下次重試
-    console.error("[Lab] Failed to preload sub-pages:", err);
-  });
-  return subPagesLoaded;
-}
+import { router } from "../../lib/router.js";
 
 /**
  * LabPage - 實驗室佈局容器 (v3.0 - Path Robust)
@@ -81,10 +29,15 @@ export class LabPage extends BaseComponent {
 
   connectedCallback() {
     super.connectedCallback();
-    // 子頁面的自訂元素已在 DOM 中，模組載入、customElements.define 後瀏覽器會自動升級它們，
-    // 不需要重繪。重繪會讓 morph 重建 <x-switch> 與底下所有子頁面（ADR 0100：自訂元素一律重建），
-    // 子頁面因此被建立兩次。
-    preloadSubPages();
+    // 子頁面由各自 <x-route> 的 module 屬性在進入時延遲載入（ADR 0102）。
+    // <page-lab> 在 /lab/* 之間換頁時不會重建，標頭顯示的路徑要自己更新；
+    // 重繪時 <x-switch data-persistent> 原樣保留，不會重建子頁面。
+    this._offRoute = router.on("route-change", () => this.scheduleUpdate());
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._offRoute?.();
   }
 
   render() {
@@ -108,117 +61,117 @@ export class LabPage extends BaseComponent {
       </div>
 
       <div class="lab-content">
-        <x-switch>
+        <x-switch data-persistent="lab-routes">
           <!-- 支援多種進入路徑，防止空白 -->
-          <x-route path="/lab" exact><page-lab-index></page-lab-index></x-route>
-          <x-route path="/lab/" exact
-            ><page-lab-index></page-lab-index
-          ></x-route>
+          <x-route path="/lab" exact module="./components/pages/lab/LabIndex.js"><template><page-lab-index></page-lab-index></template></x-route>
+          <x-route path="/lab/" exact module="./components/pages/lab/LabIndex.js"
+            ><template><page-lab-index></page-lab-index
+          ></template></x-route>
 
-          <x-route path="/lab/speech" exact
-            ><page-lab-speech></page-lab-speech
-          ></x-route>
-          <x-route path="/lab/webrtc" exact
-            ><page-lab-webrtc></page-lab-webrtc
-          ></x-route>
-          <x-route path="/lab/crypto" exact
-            ><page-lab-crypto></page-lab-crypto
-          ></x-route>
-          <x-route path="/lab/wasm" exact
-            ><page-lab-wasm></page-lab-wasm
-          ></x-route>
-          <x-route path="/lab/serial" exact
-            ><page-lab-serial></page-lab-serial
-          ></x-route>
-          <x-route path="/lab/forms" exact
-            ><page-lab-forms></page-lab-forms
-          ></x-route>
-          <x-route path="/lab/collab" exact
-            ><page-lab-collab></page-lab-collab
-          ></x-route>
-          <x-route path="/lab/media" exact
-            ><page-lab-media></page-lab-media
-          ></x-route>
-          <x-route path="/lab/nfc" exact><page-lab-nfc></page-lab-nfc></x-route>
-          <x-route path="/lab/barcode" exact
-            ><page-lab-barcode></page-lab-barcode
-          ></x-route>
-          <x-route path="/lab/webauthn" exact
-            ><page-lab-webauthn></page-lab-webauthn
-          ></x-route>
-          <x-route path="/lab/popover" exact
-            ><page-lab-popover></page-lab-popover
-          ></x-route>
-          <x-route path="/lab/eyedropper" exact
-            ><page-lab-eyedropper></page-lab-eyedropper
-          ></x-route>
-          <x-route path="/lab/weblocks" exact
-            ><page-lab-weblocks></page-lab-weblocks
-          ></x-route>
-          <x-route path="/lab/wakelock" exact
-            ><page-lab-wakelock></page-lab-wakelock
-          ></x-route>
-          <x-route path="/lab/badging" exact
-            ><page-lab-badging></page-lab-badging
-          ></x-route>
-          <x-route path="/lab/webcodecs" exact
-            ><page-lab-webcodecs></page-lab-webcodecs
-          ></x-route>
-          <x-route path="/lab/view-transitions" exact
-            ><page-lab-view-transitions></page-lab-view-transitions
-          ></x-route>
-          <x-route path="/lab/permissions" exact
-            ><page-lab-permissions-preflight></page-lab-permissions-preflight
-          ></x-route>
-                              <x-route path="/lab/web-share" exact><page-lab-web-share></page-lab-web-share></x-route>
-                                                  <x-route path="/lab/webgpu" exact
-                                                    ><page-lab-webgpu></page-lab-webgpu
-                                                  ></x-route>
-                                                            <x-route path="/lab/image-studio" exact
-                                                              ><page-lab-image-studio></page-lab-image-studio
-                                                            ></x-route>
-                                                                      <x-route path="/lab/network" exact
-                                                                        ><page-lab-network></page-lab-network
-                                                                      ></x-route>
-                                                                                <x-route path="/lab/performance" exact
-                                                                                  ><page-lab-performance></page-lab-performance
-                                                                                ></x-route>
-                                                                                          <x-route path="/lab/midi" exact
-                                                                                            ><page-lab-midi></page-lab-midi
-                                                                                          ></x-route>
-                                                                                                    <x-route path="/lab/audio" exact
-                                                                                                      ><page-lab-audio></page-lab-audio
-                                                                                                    ></x-route>
-                                                                                                              <x-route path="/lab/bluetooth" exact
-                                                                                                                ><page-lab-bluetooth></page-lab-bluetooth
-                                                                                                              ></x-route>
-                                                                                                                        <x-route path="/lab/layout" exact
-                                                                                                                          ><page-lab-layout></page-lab-layout
-                                                                                                                        ></x-route>
-                                                                                                                        <x-route path="/lab/service-pattern" exact
-                                                                                                                          ><page-lab-service-pattern></page-lab-service-pattern
-                                                                                                                        ></x-route>
-                                                                                                                        <x-route path="/lab/payment" exact><page-lab-payment></page-lab-payment></x-route>
-                                                                                                                        <x-route path="/lab/broadcast" exact><page-lab-broadcast></page-lab-broadcast></x-route>
-                                                                                                                        <x-route path="/lab/modal" exact><page-lab-modal></page-lab-modal></x-route>
-                                                                                                                        <x-route path="/lab/chart" exact><page-lab-chart></page-lab-chart></x-route>
-                                                                                                                        <x-route path="/lab/history" exact><page-lab-history></page-lab-history></x-route>
-                                                                                                                                                                                                                                                                                                                                                                                  <x-route path="/lab/file-system" exact
-                                                    ><page-lab-file-system></page-lab-file-system
-                                                  ></x-route>
-                                                  <x-route path="/lab/compression" exact
-                                                    ><page-lab-compression></page-lab-compression
-                                                  ></x-route>
-                                                  <x-route path="/lab/pwa-advanced" exact
-                                                    ><page-pwa-advanced></page-pwa-advanced
-                                                  ></x-route>
-                                                  <x-route path="/lab/indexeddb-backup" exact
-                                                    ><indexeddb-backup-page></indexeddb-backup-page
-                                                  ></x-route>
+          <x-route path="/lab/speech" exact module="./components/pages/lab/SpeechPage.js"
+            ><template><page-lab-speech></page-lab-speech
+          ></template></x-route>
+          <x-route path="/lab/webrtc" exact module="./components/pages/lab/WebRTCPage.js"
+            ><template><page-lab-webrtc></page-lab-webrtc
+          ></template></x-route>
+          <x-route path="/lab/crypto" exact module="./components/pages/lab/CryptoPage.js"
+            ><template><page-lab-crypto></page-lab-crypto
+          ></template></x-route>
+          <x-route path="/lab/wasm" exact module="./components/pages/lab/WasmPage.js"
+            ><template><page-lab-wasm></page-lab-wasm
+          ></template></x-route>
+          <x-route path="/lab/serial" exact module="./components/pages/lab/SerialPage.js"
+            ><template><page-lab-serial></page-lab-serial
+          ></template></x-route>
+          <x-route path="/lab/forms" exact module="./components/pages/lab/FormsPage.js"
+            ><template><page-lab-forms></page-lab-forms
+          ></template></x-route>
+          <x-route path="/lab/collab" exact module="./components/pages/lab/CollabPage.js"
+            ><template><page-lab-collab></page-lab-collab
+          ></template></x-route>
+          <x-route path="/lab/media" exact module="./components/pages/lab/MediaPage.js"
+            ><template><page-lab-media></page-lab-media
+          ></template></x-route>
+          <x-route path="/lab/nfc" exact module="./components/pages/lab/NFCPage.js"><template><page-lab-nfc></page-lab-nfc></template></x-route>
+          <x-route path="/lab/barcode" exact module="./components/pages/lab/BarcodePage.js"
+            ><template><page-lab-barcode></page-lab-barcode
+          ></template></x-route>
+          <x-route path="/lab/webauthn" exact module="./components/pages/lab/WebAuthnPage.js"
+            ><template><page-lab-webauthn></page-lab-webauthn
+          ></template></x-route>
+          <x-route path="/lab/popover" exact module="./components/pages/lab/PopoverPage.js"
+            ><template><page-lab-popover></page-lab-popover
+          ></template></x-route>
+          <x-route path="/lab/eyedropper" exact module="./components/pages/lab/EyeDropperPage.js"
+            ><template><page-lab-eyedropper></page-lab-eyedropper
+          ></template></x-route>
+          <x-route path="/lab/weblocks" exact module="./components/pages/lab/WebLocksPage.js"
+            ><template><page-lab-weblocks></page-lab-weblocks
+          ></template></x-route>
+          <x-route path="/lab/wakelock" exact module="./components/pages/lab/WakeLockPage.js"
+            ><template><page-lab-wakelock></page-lab-wakelock
+          ></template></x-route>
+          <x-route path="/lab/badging" exact module="./components/pages/lab/BadgingPage.js"
+            ><template><page-lab-badging></page-lab-badging
+          ></template></x-route>
+          <x-route path="/lab/webcodecs" exact module="./components/pages/lab/WebCodecsPage.js"
+            ><template><page-lab-webcodecs></page-lab-webcodecs
+          ></template></x-route>
+          <x-route path="/lab/view-transitions" exact module="./components/pages/lab/ViewTransitionsPage.js"
+            ><template><page-lab-view-transitions></page-lab-view-transitions
+          ></template></x-route>
+          <x-route path="/lab/permissions" exact module="./components/pages/lab/PermissionsPreflightPage.js"
+            ><template><page-lab-permissions-preflight></page-lab-permissions-preflight
+          ></template></x-route>
+                              <x-route path="/lab/web-share" exact module="./components/pages/lab/WebSharePage.js"><template><page-lab-web-share></page-lab-web-share></template></x-route>
+                                                  <x-route path="/lab/webgpu" exact module="./components/pages/lab/WebGPUPage.js"
+                                                    ><template><page-lab-webgpu></page-lab-webgpu
+                                                  ></template></x-route>
+                                                            <x-route path="/lab/image-studio" exact module="./components/pages/lab/ImageStudioPage.js"
+                                                              ><template><page-lab-image-studio></page-lab-image-studio
+                                                            ></template></x-route>
+                                                                      <x-route path="/lab/network" exact module="./components/pages/lab/NetworkPage.js"
+                                                                        ><template><page-lab-network></page-lab-network
+                                                                      ></template></x-route>
+                                                                                <x-route path="/lab/performance" exact module="./components/pages/lab/PerformancePage.js"
+                                                                                  ><template><page-lab-performance></page-lab-performance
+                                                                                ></template></x-route>
+                                                                                          <x-route path="/lab/midi" exact module="./components/pages/lab/MIDIPage.js"
+                                                                                            ><template><page-lab-midi></page-lab-midi
+                                                                                          ></template></x-route>
+                                                                                                    <x-route path="/lab/audio" exact module="./components/pages/lab/AudioPage.js"
+                                                                                                      ><template><page-lab-audio></page-lab-audio
+                                                                                                    ></template></x-route>
+                                                                                                              <x-route path="/lab/bluetooth" exact module="./components/pages/lab/BluetoothPage.js"
+                                                                                                                ><template><page-lab-bluetooth></page-lab-bluetooth
+                                                                                                              ></template></x-route>
+                                                                                                                        <x-route path="/lab/layout" exact module="./components/pages/lab/LayoutPage.js"
+                                                                                                                          ><template><page-lab-layout></page-lab-layout
+                                                                                                                        ></template></x-route>
+                                                                                                                        <x-route path="/lab/service-pattern" exact module="./components/pages/lab/ServicePatternPage.js"
+                                                                                                                          ><template><page-lab-service-pattern></page-lab-service-pattern
+                                                                                                                        ></template></x-route>
+                                                                                                                        <x-route path="/lab/payment" exact module="./components/pages/lab/PaymentPage.js"><template><page-lab-payment></page-lab-payment></template></x-route>
+                                                                                                                        <x-route path="/lab/broadcast" exact module="./components/pages/lab/BroadcastPage.js"><template><page-lab-broadcast></page-lab-broadcast></template></x-route>
+                                                                                                                        <x-route path="/lab/modal" exact module="./components/pages/lab/ModalPage.js"><template><page-lab-modal></page-lab-modal></template></x-route>
+                                                                                                                        <x-route path="/lab/chart" exact module="./components/pages/lab/ChartPage.js"><template><page-lab-chart></page-lab-chart></template></x-route>
+                                                                                                                        <x-route path="/lab/history" exact module="./components/pages/lab/HistoryPage.js"><template><page-lab-history></page-lab-history></template></x-route>
+                                                                                                                                                                                                                                                                                                                                                                                  <x-route path="/lab/file-system" exact module="./components/pages/lab/FileSystemPage.js"
+                                                    ><template><page-lab-file-system></page-lab-file-system
+                                                  ></template></x-route>
+                                                  <x-route path="/lab/compression" exact module="./components/pages/lab/CompressionPage.js"
+                                                    ><template><page-lab-compression></page-lab-compression
+                                                  ></template></x-route>
+                                                  <x-route path="/lab/pwa-advanced" exact module="./components/pages/lab/PWAAdvancedPage.js"
+                                                    ><template><page-pwa-advanced></page-pwa-advanced
+                                                  ></template></x-route>
+                                                  <x-route path="/lab/indexeddb-backup" exact module="./components/pages/lab/IndexedDBBackupPage.js"
+                                                    ><template><indexeddb-backup-page></indexeddb-backup-page
+                                                  ></template></x-route>
                                                   
                               <!-- 通配符 fallback -->
           
-          <x-route path="/lab/*"><page-lab-index></page-lab-index></x-route>
+          <x-route path="/lab/*" module="./components/pages/lab/LabIndex.js"><template><page-lab-index></page-lab-index></template></x-route>
         </x-switch>
       </div>
     `;

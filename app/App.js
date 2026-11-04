@@ -169,19 +169,19 @@ export class App extends BaseComponent {
 
                 <!-- 主內容區 -->
                 <main id="main-content" tabindex="-1">
-                    <x-switch>
-                        <x-route path="/" exact module="./components/pages/HomePage.js" meta-title="app.home" meta-desc="home.desc"><page-home></page-home></x-route>
-                        <x-route path="/manifesto" exact module="./components/pages/ManifestoPage.js" meta-title="Vanilla Manifesto"><page-manifesto></page-manifesto></x-route>
-                        <x-route path="/search" exact module="./components/pages/RepoSearch.js" meta-title="app.search"><page-repo-search></page-repo-search></x-route>
-                        <x-route path="/worker" exact module="./components/pages/WorkerDemo.js" meta-title="app.worker"><page-worker-demo></page-worker-demo></x-route>
-                        <x-route path="/profile" exact auth-required module="./components/pages/Profile.js" meta-title="app.profile" meta-desc="profile.desc"><page-profile></page-profile></x-route>
-                        <x-route path="/analytics" auth-required module="./components/pages/Analytics.js" meta-title="app.analytics"><page-analytics></page-analytics></x-route>
-                        <x-route path="/docs" module="./components/pages/Docs.js" meta-title="app.docs"><page-docs></page-docs></x-route>
-                        <x-route path="/lab" module="./components/pages/Lab.js" meta-title="app.lab"><page-lab></page-lab></x-route>
-                        <x-route path="/playground" module="./components/pages/Playground.js" meta-title="app.playground"><page-playground></page-playground></x-route>
-                        <x-route path="/dashboard" exact module="./components/pages/Dashboard.js" meta-title="app.dashboard"><page-dashboard></page-dashboard></x-route>
-                        <x-route path="/login" module="./components/pages/Login.js" meta-title="登入系統"><page-login></page-login></x-route>
-                        <x-route path="*"><h1>404</h1><p>Page Not Found</p></x-route>
+                    <x-switch data-persistent="app-routes">
+                        <x-route path="/" exact module="./components/pages/HomePage.js" meta-title="app.home" meta-desc="home.desc"><template><page-home></page-home></template></x-route>
+                        <x-route path="/manifesto" exact module="./components/pages/ManifestoPage.js" meta-title="Vanilla Manifesto"><template><page-manifesto></page-manifesto></template></x-route>
+                        <x-route path="/search" exact module="./components/pages/RepoSearch.js" meta-title="app.search"><template><page-repo-search></page-repo-search></template></x-route>
+                        <x-route path="/worker" exact module="./components/pages/WorkerDemo.js" meta-title="app.worker"><template><page-worker-demo></page-worker-demo></template></x-route>
+                        <x-route path="/profile" exact auth-required module="./components/pages/Profile.js" meta-title="app.profile" meta-desc="profile.desc"><template><page-profile></page-profile></template></x-route>
+                        <x-route path="/analytics" auth-required module="./components/pages/Analytics.js" meta-title="app.analytics"><template><page-analytics></page-analytics></template></x-route>
+                        <x-route path="/docs" module="./components/pages/Docs.js" meta-title="app.docs"><template><page-docs></page-docs></template></x-route>
+                        <x-route path="/lab" module="./components/pages/Lab.js" meta-title="app.lab"><template><page-lab></page-lab></template></x-route>
+                        <x-route path="/playground" module="./components/pages/Playground.js" meta-title="app.playground"><template><page-playground></page-playground></template></x-route>
+                        <x-route path="/dashboard" exact module="./components/pages/Dashboard.js" meta-title="app.dashboard"><template><page-dashboard></page-dashboard></template></x-route>
+                        <x-route path="/login" module="./components/pages/Login.js" meta-title="登入系統"><template><page-login></page-login></template></x-route>
+                        <x-route path="*"><template><h1>404</h1><p>Page Not Found</p></template></x-route>
                     </x-switch>
                     
                     <app-footer></app-footer>

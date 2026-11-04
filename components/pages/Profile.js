@@ -28,6 +28,10 @@ export class UserProfile extends BaseComponent {
       "validation-change",
       this.handleValidation,
     );
+    // 主題與主色也可能從側欄或其他分頁改變；頁面不會因 App 重繪而重建（ADR 0102），自行重繪
+    this._offStore = appStore.on("change", ({ key, isSnapshot }) => {
+      if (isSnapshot || key === "theme" || key === "primaryColor") this.scheduleUpdate();
+    });
   }
 
   disconnectedCallback() {
@@ -36,6 +40,7 @@ export class UserProfile extends BaseComponent {
       "validation-change",
       this.handleValidation,
     );
+    this._offStore?.();
   }
 
   handleValidation(e) {

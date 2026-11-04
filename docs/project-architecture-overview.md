@@ -56,7 +56,7 @@
   * 攔截到屬性賦值時，透過 `scheduleUpdate()` 使用 `requestAnimationFrame` 進行非同步緩衝合批，避免同一幀內多次渲染引發介面卡頓。
 * **DOM 就地更新 (morphing) 與狀態保持**：首次渲染寫入 `innerHTML`，之後由 `lib/morph.js` 把新 HTML 與現有 DOM 逐節點比對，一般元素保留節點只改屬性與文字，子元件（自訂元素）一律重建以維持生命週期（[ADR 0100](./decisions/0100-dom-morphing-updates.md)）。另外還有以下保護：
   * **焦點與選取範圍保護**：更新前自動記錄使用者的 `activeElement.id` 與文字游標選取範圍（`selectionStart`/`selectionEnd`），重繪後自動恢復，確保輸入體驗流暢不跳動。
-  * **持久化節點保持 (`data-persistent`)**：針對 `<canvas>`、`<video>` 或內部複雜 DOM，標有 `data-persistent` 的節點遇到同 id 的佔位符時原樣保留，位置改變時則先提取暫存、渲染後替換回佔位符，避免真實 DOM 重建導致內部狀態丟失。
+  * **持久化節點保持 (`data-persistent`)**：針對 `<canvas>`、`<video>`、`<x-switch>` 或內部複雜 DOM，標有 `data-persistent` 的節點遇到同 id 的佔位符，或 `render()` 輸出同 id 的 `data-persistent` 元素時原樣保留，位置改變時則先提取暫存、渲染後替換回佔位符，避免真實 DOM 重建導致內部狀態丟失。
   * **Light DOM 插槽模擬 (`$slot`)**：在首次掛載前呼叫 `_captureSlots()` 暫存原始標籤內的子節點，透過 `$slot(name)` 模擬原生 Web Component 的插槽功能。
   * **圖示自動渲染**：每次 `update()` 完畢後，若元件內有 `data-lucide` 標記，就以 `lucide.createIcons({ root })` 只掃描本元件的內容（Light DOM 為元件本身、Shadow DOM 為 `shadowRoot`）渲染向量圖示，不掃描整份文件。
 
@@ -95,10 +95,12 @@
 
 ### 3.2 路由組件與動態載入 (`<x-switch>` 與 `<x-route>`)
 * **`<x-switch>` (`components/route/switch.js`)**：
-  * 類似 React Router 的 `<Switch>`，同一時間只啟用第一個與當前路徑匹配的子 `<x-route>`，其餘節點設為 `display: none`。
+  * 類似 React Router 的 `<Switch>`，同一時間只啟用第一個與當前路徑匹配的 `<x-route>`，其餘停用；只管理屬於自己的路由，巢狀 `<x-switch>`（如實驗室的 `/lab/*`）由內層自己決定。
+  * `App` 與 `Lab` 以 `<x-switch data-persistent="…">` 宣告，父元件重繪時保留同一個節點，不會連帶重建所有頁面。
 * **`<x-route>` (`components/route/route.js`)**：
   * 支援精確比對（`exact`）、正則動態參數（`:param`）與萬用路徑（`*`）。
   * **動態代碼分割 (Dynamic Code Splitting)**：支援 `module="..."` 屬性，在路由匹配時才透過原生動態 `import()` 載入目標組件檔案，顯著降低首頁加載負擔。
+  * **頁面生命週期**（[ADR 0102](./decisions/0102-route-owned-page-lifecycle.md)）：內容包在 `<template>` 裡時，路由啟用才建立頁面、停用即移除，頁面在進入與離開時各收到一次 `connectedCallback`／`disconnectedCallback`；停在同一個路由內換網址時不重建，依網址顯示內容的頁面（如 `Docs`）自行監聽 `route-change`。
 
 ### 3.3 原生 View Transitions 動態換頁動效
 * 在 `<x-switch>` 執行路由切換時，自動檢測並調用 `document.startViewTransition()`，享受現代瀏覽器原生的單頁過渡轉場動畫。

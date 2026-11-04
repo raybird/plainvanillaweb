@@ -3,6 +3,7 @@ import { BaseComponent } from "../../lib/base-component.js";
 import { docService } from "../../lib/doc-service.js";
 import { speechService } from "../../lib/speech-service.js";
 import { notificationService } from "../../lib/notification-service.js";
+import { router } from "../../lib/router.js";
 
 export class Documentation extends BaseComponent {
   constructor() {
@@ -16,9 +17,31 @@ export class Documentation extends BaseComponent {
 
   async connectedCallback() {
     super.connectedCallback();
+    // 在 /docs/* 之間換頁時頁面不會重建（ADR 0102），由網址變化載入對應文件
+    this._offRoute = router.on("route-change", () => this.syncWithUrl());
+    await this.syncWithUrl();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._offRoute?.();
+  }
+
+  /**
+   * 依網址載入文件；換到沒有指定文件的 #/docs 時回到初始畫面。
+   * 路徑沒變（例如登入狀態改變觸發的 router.refresh()）時不動，側欄點開的文件不會被清掉。
+   */
+  async syncWithUrl() {
+    const path = router.currentRoutePath;
+    if (path === this._lastPath) return;
+    this._lastPath = path;
+
     const docFromPath = this.getDocIdFromHash();
     if (docFromPath) {
-      await this.loadDoc(docFromPath);
+      if (docFromPath !== this.state.currentDoc) await this.loadDoc(docFromPath);
+    } else if (this.state.currentDoc && router.match("/docs", { exact: true })) {
+      this.state.content = "請選擇一個教學單元";
+      this.state.currentDoc = null;
     }
   }
 

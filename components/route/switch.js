@@ -40,7 +40,10 @@ export class SwitchComponent extends HTMLElement {
   }
 
   _performUpdate() {
-    const routes = Array.from(this.querySelectorAll("x-route"));
+    // 只管理屬於自己的路由；巢狀 <x-switch>（例如 Lab 的 /lab/*）裡的路由由它自己決定
+    const routes = Array.from(this.querySelectorAll("x-route")).filter(
+      (route) => route.closest("x-switch") === this,
+    );
     let matched = false;
 
     routes.forEach((route) => {

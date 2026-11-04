@@ -360,6 +360,142 @@
             }
         });
 
+        test('x-route 的 <template> 內容只在啟用時建立，停用時移除，重複啟用不重建；router.refresh() 重新執行守衛', async () => {
+            const core = await import('./lib/core.js');
+            if (!customElements.get('x-route')) core.registerRoute();
+            const { router } = core;
+            const waitUntil = async (cond, ms = 3000) => {
+                const start = performance.now();
+                while (!cond()) {
+                    if (performance.now() - start > ms) return false;
+                    await nextFrame();
+                }
+                return true;
+            };
+            const log = [];
+            if (!customElements.get('t-life')) {
+                customElements.define('t-life', class extends HTMLElement {
+                    connectedCallback() { log.push(`+${this.dataset.name}`); }
+                    disconnectedCallback() { log.push(`-${this.dataset.name}`); }
+                });
+            }
+            const saved = { guard: router.authGuard, loginPath: router.loginPath, hash: location.hash };
+            const box = mount(document.createElement('div'));
+            box.innerHTML = `<x-switch>
+                <x-route path="/life-a"><template><t-life data-name="a"></t-life></template></x-route>
+                <x-route path="/life-b" auth-required><template><t-life data-name="b"></t-life></template></x-route>
+                <x-route path="/life-login"><template><t-life data-name="login"></t-life></template></x-route>
+            </x-switch>`;
+            const life = (name) => box.querySelector(`t-life[data-name="${name}"]`);
+            try {
+                router.loginPath = '/life-login';
+                router.authGuard = () => true;
+                assertEq(box.querySelectorAll('t-life').length, 0, '尚未啟用的路由不應建立內容');
+
+                location.hash = '#/life-a';
+                assert(await waitUntil(() => life('a')), '進入 /life-a 應建立內容');
+                const first = life('a');
+                router.refresh();
+                await nextFrame(); await nextFrame();
+                assert(life('a') === first, '路由維持啟用時不應重建內容');
+
+                location.hash = '#/life-b';
+                assert(await waitUntil(() => life('b')), '進入 /life-b 應建立內容');
+                assert(!first.isConnected && !life('a'), '離開 /life-a 應移除內容');
+                assertEq(log.join(' '), '+a -a +b', '頁面應只在進入、離開時各收到一次生命週期回呼');
+
+                router.authGuard = () => false;
+                router.refresh();
+                assert(await waitUntil(() => location.hash === '#/life-login' && life('login')), '守衛改為不通過後 refresh() 應導向 loginPath');
+                assert(!life('b'), '被導離的受保護路由應移除內容');
+            } finally {
+                router.authGuard = saved.guard;
+                router.loginPath = saved.loginPath;
+                history.replaceState(null, '', saved.hash || location.pathname);
+                box.remove();
+            }
+        });
+
+        test('render() 每次都輸出的 data-persistent 元素在重繪後保留原本的節點（morph 與整塊重繪皆然）', async () => {
+            const { html } = await import('./lib/html.js');
+            if (!customElements.get('t-keep-child')) {
+                customElements.define('t-keep-child', class extends HTMLElement {});
+            }
+            for (const morphUpdates of [true, false]) {
+                const tag = `t-keep-${morphUpdates ? 'morph' : 'full'}`;
+                customElements.define(tag, class extends BaseComponent {
+                    static morphUpdates = morphUpdates;
+                    constructor() { super(); this.initReactiveState({ n: 0 }); }
+                    render() {
+                        return html`<span class="n">${this.state.n}</span>
+                            <t-keep-child data-persistent="kept"><i class="inner">${this.state.n}</i></t-keep-child>`;
+                    }
+                });
+                const el = mount(document.createElement(tag));
+                const kept = el.querySelector('t-keep-child');
+                el.state.n = 1;
+                await nextFrame();
+                assertEq(el.querySelector('.n').textContent, '1', `${tag}：一般內容應更新`);
+                assert(el.querySelector('t-keep-child') === kept, `${tag}：data-persistent 的自訂元素應保留同一個節點`);
+                assertEq(el.querySelectorAll('t-keep-child').length, 1, `${tag}：不應多出新的副本`);
+                assertEq(kept.querySelector('.inner').textContent, '0', `${tag}：保留的節點內容不隨重繪改變`);
+            }
+        });
+
+        test('巢狀 x-switch：外層重新比對時不停用內層的路由，內層頁面不重建', async () => {
+            const core = await import('./lib/core.js');
+            if (!customElements.get('x-route')) core.registerRoute();
+            const { router } = core;
+            const waitUntil = async (cond, ms = 3000) => {
+                const start = performance.now();
+                while (!cond()) {
+                    if (performance.now() - start > ms) return false;
+                    await nextFrame();
+                }
+                return true;
+            };
+            const saved = location.hash;
+            const box = mount(document.createElement('div'));
+            box.innerHTML = `<x-switch>
+                <x-route path="/nest"><template><x-switch>
+                    <x-route path="/nest/a"><template><b class="nest-a">a</b></template></x-route>
+                </x-switch></template></x-route>
+            </x-switch>`;
+            try {
+                location.hash = '#/nest/a';
+                assert(await waitUntil(() => box.querySelector('.nest-a')), '應顯示內層路由的內容');
+                const inner = box.querySelector('.nest-a');
+                router.refresh();
+                await nextFrame(); await nextFrame();
+                assert(box.querySelector('.nest-a') === inner && inner.isConnected, '外層重新比對後內層內容應為同一個節點');
+            } finally {
+                history.replaceState(null, '', saved || location.pathname);
+                box.remove();
+            }
+        });
+
+        test('morph：前面的兄弟是重建的自訂元素時，後面保留的節點不被搬動（子樹不重跑生命週期）', async () => {
+            const { html } = await import('./lib/html.js');
+            const counts = { connected: 0, disconnected: 0 };
+            customElements.define('t-move-watch', class extends HTMLElement {
+                connectedCallback() { counts.connected++; }
+                disconnectedCallback() { counts.disconnected++; }
+            });
+            customElements.define('t-move-sibling', class extends HTMLElement {});
+            customElements.define('t-move-parent', class extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ n: 0 }); }
+                render() {
+                    return html`<t-move-sibling>${this.state.n}</t-move-sibling>
+                        <div data-persistent="watch"><t-move-watch></t-move-watch></div>`;
+                }
+            });
+            const el = mount(document.createElement('t-move-parent'));
+            el.state.n = 1;
+            await nextFrame();
+            assertEq(el.querySelector('t-move-sibling').textContent, '1', '前面的自訂元素應重建為新內容');
+            assertEq(`${counts.connected}/${counts.disconnected}`, '1/0', '保留的子樹不應斷開再接上');
+        });
+
         test('vanilla-sdk：載入時把 auth-required 的守衛接上 authService，並帶出版本號', async () => {
             const { router } = await import('./lib/router.js');
             const saved = router.authGuard;

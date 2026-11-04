@@ -3,6 +3,8 @@
 ## 狀態
 已接受 (Accepted)，2026-11-03。
 
+2026-11-04 補充：頁面的進入與離開改由 `<x-route>` 的 `<template>` 管理，不再依賴 `App` 重繪重建頁面（[ADR 0102](./0102-route-owned-page-lifecycle.md)）。下方第 2 點「自訂元素一律重建」的規則不變。
+
 ## 背景
 `BaseComponent.update()` 每次都以 `innerHTML` 整塊重繪，再靠三個補救措施降低副作用：重繪前記下焦點元素的 `id` 與游標位置、以 `data-persistent` 搬移需要保留的節點、首次渲染前備份子節點模擬插槽。仍有下列問題：
 

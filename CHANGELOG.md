@@ -14,6 +14,25 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 
 ---
 
+## [Unreleased]
+
+### 新增
+
+- `<x-route>` 的 `<template>` 寫法：內容只在路由啟用時建立、停用時移除，頁面在進入與離開時各收到一次 `connectedCallback`／`disconnectedCallback`（[ADR 0102](./docs/decisions/0102-route-owned-page-lifecycle.md)）。不寫 `<template>` 的舊寫法行為不變。
+- `router.refresh()`：網址沒變、但守衛條件改變時讓 `<x-switch>` 重新比對；`vanilla-sdk.js` 在 `authService` 的 `auth-change` 時自動呼叫。
+- `data-persistent` 可直接標在 `render()` 每次輸出的元素上（例如 `<x-switch data-persistent="routes">`），重繪時保留原本的節點。
+
+### 修正
+
+- `<x-switch>` 會停用巢狀 `<x-switch>` 裡的路由；現在只管理屬於自己的路由。
+- morph 在前面的兄弟是重建的自訂元素時，會搬動後面被保留的節點，整棵子樹因此重跑 `disconnectedCallback`／`connectedCallback`。
+
+### 變更
+
+- 展示站：所有路由改用 `<template>` 寫法，`App` 重繪（主題、語系、選單、登入狀態）不再重建目前的頁面；實驗室子頁改為各自延遲載入，不再一次預載 39 個模組；停在受保護頁面時登出會導向登入頁。
+
+---
+
 ## [3.0.0] - 2026-11-04
 
 ### ⚠️ 破壞性變更

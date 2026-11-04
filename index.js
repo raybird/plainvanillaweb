@@ -23,6 +23,8 @@ async function bootstrap() {
     try {
         // 1. 基礎服務註冊與元件定義；auth-required 路由以展示用的 authService 判斷是否已登入
         router.authGuard = () => authService.isAuthenticated;
+        // 登入狀態改變時重新比對路由：停在受保護頁面時登出，會被導向登入頁（ADR 0102）
+        authService.on('auth-change', () => router.refresh());
         registerRoute();
 
         // 2. 初始化核心資源 (國際化)

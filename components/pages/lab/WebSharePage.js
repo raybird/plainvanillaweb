@@ -1,6 +1,7 @@
 import { html } from "../../../lib/html.js";
 import { BaseComponent } from "../../../lib/base-component.js";
 import { notificationService } from "../../../lib/notification-service.js";
+import { router } from "../../../lib/router.js";
 
 export class WebSharePage extends BaseComponent {
   constructor() {
@@ -21,6 +22,13 @@ export class WebSharePage extends BaseComponent {
   connectedCallback() {
     super.connectedCallback();
     this.readInboundPayload();
+    // 停在本頁時網址的 query 改變，頁面不會重建（ADR 0102），重新讀取分享資料
+    this._offRoute = router.on("route-change", () => this.readInboundPayload());
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._offRoute?.();
   }
 
   checkSupport() {

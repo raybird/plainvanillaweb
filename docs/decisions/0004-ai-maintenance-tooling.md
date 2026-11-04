@@ -1,5 +1,8 @@
 # ADR 0004: AI 專用維護工具 (AI Maintenance Tooling)
 
+## 狀態
+已被取代，2026-11-04：`scripts/sync.sh` 依賴不存在的外部清理腳本，且會以固定訊息自動 commit 並推送到 master，已移除。改由 `scripts/check.sh` 在本機執行與 CI 相同的檢查，只檢查不提交；commit 與 push 由開發者自行決定。
+
 ## 上下文
 隨著自主演進頻率提高（每 30 分鐘一次），需要一個標準化的工具來確保每一次的變更都經過基礎測試與清理。
 

@@ -161,7 +161,10 @@ node --test tests/*.test.js
 node tests/browser-runner.mjs
 
 # Run syntax check across all JavaScript files
-find . -name "*.js" -not -path "./node_modules/*" -not -path "./.git/*" | xargs -n 1 node -c
+find . \( -name "*.js" -o -name "*.mjs" \) -not -path "./node_modules/*" -not -path "./.git/*" | xargs -n 1 node -c
+
+# Or run every CI check locally in one go (check-only; --quick skips the browser tests)
+scripts/check.sh
 ```
 
 ### Bump the cache version before release

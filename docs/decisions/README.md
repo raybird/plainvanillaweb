@@ -9,7 +9,7 @@
 | 0001 | [採用 Service 導向的原生架構](./0001-service-based-architecture.md) | [已實作] |
 | 0002 | [極簡組件模式 (BaseComponent Pattern)](./0002-base-component-pattern.md) | [已實作] |
 | 0003 | [CSS 封裝策略 (Scoped CSS Strategy)](./0003-scoped-css-strategy.md) | [已實作] |
-| 0004 | [AI 專用維護工具 (AI Maintenance Tooling)](./0004-ai-maintenance-tooling.md) | [已實作] |
+| 0004 | [AI 專用維護工具 (AI Maintenance Tooling)](./0004-ai-maintenance-tooling.md) | [已取代] |
 | 0005 | [CSS 變數封裝規範 (CSS Variables Encapsulation)](./0005-css-variables-encapsulation.md) | [已實作] |
 | 0006 | [動態腳手架工具 (Scaffolding CLI)](./0006-scaffolding-cli.md) | [已實作] |
 | 0007 | [Web Workers 服務化整合 (Web Workers Service)](./0007-web-workers-integration.md) | [已實作] |

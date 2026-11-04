@@ -161,7 +161,10 @@ node --test tests/*.test.js
 node tests/browser-runner.mjs
 
 # 語法檢查
-find . -name "*.js" -not -path "./node_modules/*" -not -path "./.git/*" | xargs -n 1 node -c
+find . \( -name "*.js" -o -name "*.mjs" \) -not -path "./node_modules/*" -not -path "./.git/*" | xargs -n 1 node -c
+
+# 或一次在本機執行 CI 的所有檢查（只檢查不提交；--quick 略過瀏覽器測試）
+scripts/check.sh
 ```
 
 ### 發版前更新快取版本

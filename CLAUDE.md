@@ -47,7 +47,13 @@ To debug `tests/browser.html` by hand: `python3 -m http.server`, then open `http
 Lint / syntax check (also what CI runs):
 
 ```bash
-find . -name "*.js" -not -path "./node_modules/*" | xargs -n 1 node -c
+find . \( -name "*.js" -o -name "*.mjs" \) -not -path "./node_modules/*" | xargs -n 1 node -c
+```
+
+All of the above in one go (same as CI; check-only):
+
+```bash
+scripts/check.sh           # add --quick to skip the browser tests
 ```
 
 Scaffolding & maintenance scripts:
@@ -60,7 +66,7 @@ node scripts/update-sw-version.js       # rewrites sw.js CACHE_NAME and index.ht
 
 **Before committing any change to served files** (anything outside `tests/`, `scripts/`, `.github/`, `.agent/` and root `*.md`), run `node scripts/update-sw-version.js` and commit the updated `sw.js` / `index.html` with it; otherwise returning visitors keep getting the old Service Worker cache. The hash covers git-tracked files only, so `git add` new files first.
 
-CI (`.github/workflows/deploy.yml`) runs the unit tests, the syntax check, `update-sw-version.js --check`, `update-adr-index.js --check` and the browser tests on push/PR to `master`. `scripts/sync.sh` runs tests + syntax check then **auto-commits and pushes to master** (and references an external cleanup script that may not exist) — do not run it casually.
+CI (`.github/workflows/deploy.yml`) runs the unit tests, the syntax check, `update-sw-version.js --check`, `update-adr-index.js --check` and the browser tests on push/PR to `master`. Run the same checks locally with `scripts/check.sh` (`--quick` skips the browser tests); it only checks — it never modifies, commits or pushes.
 
 ## Architecture
 

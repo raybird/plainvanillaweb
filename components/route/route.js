@@ -30,11 +30,13 @@ export class RouteComponent extends HTMLElement {
 
   connectedCallback() {
     router.addEventListener("route-change", this.update);
-    this.update();
+    if (this.hasAttribute("active")) this._activate();
+    else this.update();
   }
 
   disconnectedCallback() {
     router.removeEventListener("route-change", this.update);
+    this._generation++;
   }
 
   /** 第一個直接子元素 <template>；沒有時為舊寫法 */
@@ -64,7 +66,7 @@ export class RouteComponent extends HTMLElement {
   }
 
   async attributeChangedCallback(name) {
-    if (name !== "active") return;
+    if (name !== "active" || !this.isConnected) return;
     if (this.hasAttribute("active")) {
       await this._activate();
     } else {
@@ -95,6 +97,7 @@ export class RouteComponent extends HTMLElement {
       }
     }
 
+    if (!this.isConnected) return;
     this._stamp();
     this.style.display = "contents";
 
@@ -104,6 +107,7 @@ export class RouteComponent extends HTMLElement {
     if (metaTitle || metaDesc) {
       metaService.update(metaTitle, metaDesc);
     }
+    this.dispatchEvent(new CustomEvent("route-ready", { bubbles: true }));
   }
 
   _deactivate() {

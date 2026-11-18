@@ -1,52 +1,30 @@
-import { html } from '../lib/html.js';
 import { notificationService } from '../lib/notification-service.js';
 
-/**
- * NotificationArea 組件
- * 負責渲染由 notificationService 管理的全域通知。
- */
+/** 全域通知。保留 live region 與既有訊息，讓 AT 只朗讀新增項目。 */
 export class NotificationArea extends HTMLElement {
-    constructor() {
-        super();
-        this.update = this.update.bind(this);
-    }
-
     connectedCallback() {
-        this._unsubscribeAdd = notificationService.on('add', this.update);
-        this._unsubscribeRemove = notificationService.on('remove', this.update);
-        this.update();
+        this.innerHTML = '<div class="app-toasts" role="status" aria-live="polite" aria-relevant="additions" aria-atomic="false"></div>';
+        this._region = this.querySelector('.app-toasts');
+        this._unsubscribeAdd = notificationService.on('add', ({ notification }) => this.addToast(notification));
+        this._unsubscribeRemove = notificationService.on('remove', ({ id }) => {
+            this._region.querySelector(`[data-id="${CSS.escape(id)}"]`)?.remove();
+        });
+        for (const notification of notificationService.list) this.addToast(notification);
     }
 
     disconnectedCallback() {
-        if (this._unsubscribeAdd) this._unsubscribeAdd();
-        if (this._unsubscribeRemove) this._unsubscribeRemove();
+        this._unsubscribeAdd?.();
+        this._unsubscribeRemove?.();
     }
 
-    update() {
-        const list = notificationService.list;
-        
-        const typeColors = {
-            info: '#333',
-            success: '#28a745',
-            error: '#dc3545',
-            warning: '#ffc107'
-        };
-
-        this.innerHTML = html`
-            <div style="position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; align-items: flex-end;">
-                ${list.map(n => html`
-                    <div style="background: ${typeColors[n.type] || '#333'}; color: white; padding: 0.8rem 1.2rem; margin-bottom: 0.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 200px; animation: slideIn 0.3s ease-out; transition: all 0.3s;">
-                        ${n.message}
-                    </div>
-                `)}
-            </div>
-            <style>
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-            </style>
-        `;
+    addToast({ id, type, message }) {
+        const toast = document.createElement('div');
+        toast.className = 'app-toast';
+        toast.dataset.id = id;
+        toast.dataset.type = type;
+        toast.textContent = message;
+        this._region.append(toast);
     }
 }
+
 customElements.define('app-notification', NotificationArea);

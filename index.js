@@ -1,6 +1,5 @@
 import { errorService } from "./lib/error-service.js";
 import { networkMonitor } from "./lib/network-monitor.js";
-import { prefetchService } from "./lib/prefetch-service.js";
 import "./components/Notification.js"; // 通知組件保持全域載入
 import { registerApp } from "./app/App.js";
 import { registerRoute } from "./components/route/route.js";
@@ -59,7 +58,7 @@ if ('serviceWorker' in navigator) {
             .then(reg => {
                 console.log('[SW] Registered:', reg.scope);
 
-                // SW 採網路優先：上線時這次載入的已是最新檔案，新版 SW 只是更新離線快取，不需要請使用者重新整理
+                // SW 連線時逐檔驗證資源，安裝新版時更新離線快取
                 reg.addEventListener('updatefound', () => {
                     const newWorker = reg.installing;
                     newWorker.addEventListener('statechange', () => {

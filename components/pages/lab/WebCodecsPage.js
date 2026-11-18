@@ -5,17 +5,14 @@ import { notificationService } from "../../../lib/notification-service.js";
 export class WebCodecsPage extends BaseComponent {
   constructor() {
     super();
-    this._encoder = null;
-    this._running = false;
-    this._chunks = [];
-    this._startTime = 0;
+    this._run = null;
     this._canvas = null;
     this._ctx = null;
     this._raf = 0;
-    this._frameIndex = 0;
 
     this.initReactiveState({
       supported: this.checkSupport(),
+      isRunning: false,
       status: "待命中",
       codec: "vp8",
       width: 640,
@@ -33,6 +30,7 @@ export class WebCodecsPage extends BaseComponent {
   checkSupport() {
     return (
       typeof window !== "undefined" && typeof window.VideoEncoder === "function"
+      && typeof window.VideoFrame === "function"
     );
   }
 
@@ -98,95 +96,111 @@ export class WebCodecsPage extends BaseComponent {
   }
 
   stopRun() {
-    this._running = false;
-    if (this._raf) {
-      cancelAnimationFrame(this._raf);
-      this._raf = 0;
-    }
-    if (this._encoder) {
-      try {
-        this._encoder.close();
-      } catch (_err) {
-        // ignore
-      }
-      this._encoder = null;
-    }
+    if (!this._run) return;
+    this.state.status = "已停止";
+    this._disposeRun();
+  }
+
+  _disposeRun() {
+    const run = this._run;
+    this._run = null;
+    this.state.isRunning = false;
+    cancelAnimationFrame(this._raf);
+    this._raf = 0;
+    if (run.encoder && run.encoder.state !== "closed") run.encoder.close();
   }
 
   async startRun() {
+    if (this._run) return;
     if (!this.state.supported) {
       notificationService.warn("此環境不支援 WebCodecs");
       return;
     }
-    if (this._running) return;
 
     this.updateCanvasSize();
+    const { codec, fps, frameCount } = this.state;
+    const run = { encoder: null, frameIndex: 0, startedAt: 0 };
+    this._run = run;
+    this.state.isRunning = true;
     this.state.lastError = "";
     this.state.status = "初始化編碼器...";
     this.state.encodedChunks = 0;
     this.state.totalBytes = 0;
-    this.state.avgChunkBytes = 0;
     this.state.elapsedMs = 0;
-    this._chunks = [];
-    this._frameIndex = 0;
+    this.state.avgChunkBytes = 0;
 
     const config = {
-      codec: this.state.codec,
-      width: this.state.width,
-      height: this.state.height,
+      codec,
+      width: 640,
+      height: 360,
       bitrate: 800_000,
-      framerate: this.state.fps,
+      framerate: fps,
       latencyMode: "realtime",
     };
 
     try {
-      // 不支援的設定會 resolve { supported: false }，不會 reject，兩種情況都要處理
       const { supported } = await VideoEncoder.isConfigSupported(config);
       if (!supported) throw new Error("unsupported");
     } catch (_err) {
+      if (this._run !== run) return;
       this.state.status = "不支援此編碼設定";
       this.state.lastError = `Codec ${config.codec} 在此瀏覽器不可用`;
+      this._disposeRun();
       notificationService.error(this.state.lastError);
       return;
     }
+    if (this._run !== run) return;
 
-    this._running = true;
-    this._startTime = performance.now();
+    const failEncoding = err => {
+      if (this._run !== run) return;
+      this.state.lastError = String(err);
+      this.state.status = "編碼錯誤";
+      this._disposeRun();
+      notificationService.error("WebCodecs 編碼失敗");
+    };
 
-    this._encoder = new VideoEncoder({
-      output: (chunk) => {
-        this._chunks.push(chunk.byteLength);
-        this.state.encodedChunks = this._chunks.length;
-        this.state.totalBytes += chunk.byteLength;
-      },
-      error: (err) => {
-        this.state.lastError = String(err);
-        this.state.status = "編碼錯誤";
-        this.stopRun();
-      },
-    });
+    try {
+      run.encoder = new VideoEncoder({
+        output: chunk => {
+          if (this._run !== run) return;
+          this.state.encodedChunks++;
+          this.state.totalBytes += chunk.byteLength;
+        },
+        error: failEncoding,
+      });
+      run.encoder.configure(config);
+    } catch (err) {
+      failEncoding(err);
+      return;
+    }
 
-    this._encoder.configure(config);
+    run.startedAt = performance.now();
     this.state.status = "編碼中...";
 
     const runFrame = () => {
-      if (!this._running || !this._encoder) return;
-
-      const done = this._frameIndex >= this.state.frameCount;
-      if (done) {
-        this.finishRun();
+      if (this._run !== run) return;
+      const tick = run.frameIndex;
+      if (tick >= frameCount) {
+        void this.finishRun();
         return;
       }
 
-      this.drawFrame(this._frameIndex);
-      const frame = new VideoFrame(this._canvas, {
-        timestamp: Math.round((this._frameIndex * 1_000_000) / this.state.fps),
-      });
-      this._encoder.encode(frame, {
-        keyFrame: this._frameIndex % this.state.fps === 0,
-      });
-      frame.close();
-      this._frameIndex += 1;
+      try {
+        this.drawFrame(tick);
+        const frame = new VideoFrame(this._canvas, {
+          timestamp: Math.round((tick * 1_000_000) / fps),
+        });
+        try {
+          run.encoder.encode(frame, { keyFrame: tick % fps === 0 });
+        } finally {
+          frame.close();
+        }
+      } catch (err) {
+        failEncoding(err);
+        return;
+      }
+
+      run.frameIndex++;
       this._raf = requestAnimationFrame(runFrame);
     };
 
@@ -194,31 +208,30 @@ export class WebCodecsPage extends BaseComponent {
   }
 
   async finishRun() {
-    if (!this._encoder) {
-      this.stopRun();
-      return;
-    }
+    const run = this._run;
+    if (!run?.encoder) return;
 
     try {
-      await this._encoder.flush();
-      const elapsed = performance.now() - this._startTime;
-      this.state.elapsedMs = Math.round(elapsed);
+      await run.encoder.flush();
+      if (this._run !== run) return;
+      this.state.elapsedMs = Math.round(performance.now() - run.startedAt);
       this.state.avgChunkBytes = this.state.encodedChunks
         ? Math.round(this.state.totalBytes / this.state.encodedChunks)
         : 0;
       this.state.status = "完成";
       notificationService.success("WebCodecs 編碼完成");
     } catch (err) {
+      if (this._run !== run) return;
       this.state.status = "flush 失敗";
       this.state.lastError = String(err);
       notificationService.error("WebCodecs flush 失敗");
     } finally {
-      this.stopRun();
+      if (this._run === run) this._disposeRun();
     }
   }
 
   render() {
-    const { supported, status, codec } = this.state;
+    const { supported, status, codec, isRunning } = this.state;
 
     return html`
       <style>
@@ -332,13 +345,14 @@ export class WebCodecsPage extends BaseComponent {
               <button
                 class="btn btn-primary"
                 onclick="this.closest('page-lab-webcodecs').startRun()"
-                ${!supported ? "disabled" : ""}
+                ${!supported || isRunning ? "disabled" : ""}
               >
                 開始編碼
               </button>
               <button
                 class="btn btn-secondary"
                 onclick="this.closest('page-lab-webcodecs').stopRun()"
+                ${!isRunning ? "disabled" : ""}
               >
                 停止
               </button>

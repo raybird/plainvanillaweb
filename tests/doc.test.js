@@ -116,7 +116,7 @@ test('引用區塊內可再解析區塊語法', () => {
 test('表格輸出 table，支援對齊與儲存格內的行內語法，代碼裡的 | 不會切開儲存格', () => {
     const out = parseMarkdown('| 語法 | 說明 |\n| :--- | :---: |\n| `a|b` | **粗** |');
     assert.match(out, /^<div class="md-table" tabindex="0" role="region" aria-label="表格：語法、說明"><table>/);
-    assert.match(out, /<th style="text-align:left">語法<\/th><th style="text-align:center">說明<\/th>/);
+    assert.match(out, /<th scope="col" style="text-align:left">語法<\/th><th scope="col" style="text-align:center">說明<\/th>/);
     assert.match(out, /<td style="text-align:left"><code class="md-inline-code">a\|b<\/code><\/td>/);
     assert.match(out, /<td style="text-align:center"><strong>粗<\/strong><\/td>/);
 });
@@ -158,4 +158,8 @@ test('getDoc 拒絕不是文件 id 的名稱（例如含 ..），不發出請求
         global.fetch = originalFetch;
         console.error = originalError;
     }
+});
+
+test('inline code is not emitted inside a link attribute', () => {
+    assert.match(parseMarkdown('[link](`code`)'), /<a href="#">link<\/a>/);
 });

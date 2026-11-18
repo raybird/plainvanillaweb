@@ -52,3 +52,8 @@ test('unsafe() 跳過轉義以渲染信任內容', () => {
         '<div><b>ok</b></div>'
     );
 });
+
+test('a data object cannot self-declare trusted template markup', () => {
+    const value = { __isSafe: true, val: '<b>ordinary data</b>' };
+    assert.doesNotMatch(String(html`${value}`), /<b>/);
+});

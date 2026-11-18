@@ -17,21 +17,28 @@ export class PWAAdvancedPage extends BaseComponent {
     super.connectedCallback();
 
     // 監聽 Background Fetch 事件
-    pwaService.on('fetch-started', ({ id }) => {
-      this.state.activeFetchId = id;
-      this.state.fetchProgress = 0;
-      notificationService.info(`背景下載已啟動: ${id}`);
-    });
+    this._subscriptions = [
+      pwaService.on('fetch-started', ({ id }) => {
+        this.state.activeFetchId = id;
+        this.state.fetchProgress = 0;
+        notificationService.info(`背景下載已啟動: ${id}`);
+      }),
 
-    pwaService.on('fetch-progress', ({ percent }) => {
-      this.state.fetchProgress = percent;
-    });
+      pwaService.on('fetch-progress', ({ percent }) => {
+        this.state.fetchProgress = percent;
+      }),
 
-    pwaService.on('fetch-success', ({ id }) => {
-      this.state.activeFetchId = null;
-      this.state.fetchProgress = 100;
-      notificationService.success(`任務 ${id} 已存入快取！`);
-    });
+      pwaService.on('fetch-success', ({ id }) => {
+        this.state.activeFetchId = null;
+        this.state.fetchProgress = 100;
+        notificationService.success(`任務 ${id} 已存入快取！`);
+      }),
+    ];
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._subscriptions.forEach(unsubscribe => unsubscribe());
   }
 
   async testSync() {

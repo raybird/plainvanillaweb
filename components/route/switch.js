@@ -14,21 +14,28 @@ export class SwitchComponent extends HTMLElement {
   connectedCallback() {
     router.addEventListener("route-change", this.update);
     // 等待子元素掛載完成
-    setTimeout(this.update, 0);
+    this._initialUpdate = setTimeout(this.update, 0);
   }
 
   disconnectedCallback() {
     router.removeEventListener("route-change", this.update);
+    clearTimeout(this._initialUpdate);
   }
 
   update() {
-    // 如果瀏覽器支援 View Transitions API，則使用它來包裹 DOM 更新
-    if (!document.startViewTransition) {
+    if (!this.isConnected) return;
+    const routePath = router.currentRoutePath;
+    const changed = this._routePath !== undefined && this._routePath !== routePath;
+    this._routePath = routePath;
+    if (!changed || this.parentElement?.closest("x-switch") || !document.startViewTransition
+        || matchMedia("(prefers-reduced-motion: reduce)").matches) {
       this._performUpdate();
       return;
     }
 
-    const transition = document.startViewTransition(() => this._performUpdate());
+    const transition = document.startViewTransition(() => {
+      if (this.isConnected && router.currentRoutePath === routePath) this._performUpdate();
+    });
     // 必須捕獲所有關聯的 Promise，防止瀏覽器在跳過動畫時拋出 Uncaught (in promise)
     transition.ready.catch(() => {});
     transition.updateCallbackDone.catch(() => {});
@@ -44,37 +51,30 @@ export class SwitchComponent extends HTMLElement {
     const routes = Array.from(this.querySelectorAll("x-route")).filter(
       (route) => route.closest("x-switch") === this,
     );
-    let matched = false;
-
-    routes.forEach((route) => {
-      if (matched) {
-        route.removeAttribute("active");
-        route.style.display = "none";
-        return;
-      }
-
-      const path = route.getAttribute("path") || "";
-      const params = router.match(path, { exact: route.hasAttribute("exact") });
-
-      if (params) {
-        // Auth Guard 邏輯
-        if (route.hasAttribute("auth-required") && !router.authGuard(route)) {
-          console.log(
-            `[Auth Guard] Protected route ${path} detected. Redirecting to login.`,
-          );
-          router.push(router.loginPath);
-          return;
-        }
-
-        matched = true;
-        route.params = params;
-        route.setAttribute("active", "");
-        route.style.display = "contents";
+    let activeRoute;
+    let params;
+    let redirect = false;
+    for (const route of routes) {
+      params = router.match(route.getAttribute("path") || "", { exact: route.hasAttribute("exact") });
+      if (!params) continue;
+      if (route.hasAttribute("auth-required") && !router.authGuard(route)) {
+        redirect = true;
       } else {
-        route.removeAttribute("active");
-        route.style.display = "none";
+        activeRoute = route;
       }
-    });
+      break;
+    }
+    for (const route of routes) {
+      if (route === activeRoute) continue;
+      route.removeAttribute("active");
+      route.style.display = "none";
+    }
+    if (redirect && router.currentRoutePath !== router.loginPath) {
+      router.push(router.loginPath);
+    } else if (activeRoute) {
+      activeRoute.params = params;
+      activeRoute.setAttribute("active", "");
+    }
   }
 }
 

@@ -8,9 +8,9 @@
 利用 <code>PerformanceObserver</code> 監聽關鍵性能事件：
 - **LCP (Largest Contentful Paint)**: 頁面主要內容載入時間。
 - **CLS (Cumulative Layout Shift)**: 頁面佈局的穩定性。
-- **FID (First Input Delay)**: 使用者首次互動的延遲。
+- **Event Timing**：只計算有互動識別碼的事件，顯示可觀測的最慢互動。
 
-註：Core Web Vitals 的互動指標已於 2024 年 3 月由 **INP (Interaction to Next Paint)** 取代 FID。本專案的 `performanceService` 目前仍以 `first-input` 量測 FID，實驗室頁面只顯示 LCP、CLS 與總體加載時間。
+CLS 取整個瀏覽期間分數最高的位移時間窗。效能頁顯示目前文件的觀測值，缺少資料時顯示「未取得」。最慢觀測互動與正式 INP 的彙整方式不同。SDK 的 `fid` 欄位保留，供既有呼叫端讀取。
 
 ### 2. Navigation Timing
 分析頁面加載的各個階段，精確定位瓶頸（是 DNS 慢、伺服器慢還是 DOM 太重）。

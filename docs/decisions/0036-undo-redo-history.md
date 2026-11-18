@@ -8,7 +8,7 @@
 1.  **快照機制**: 在 `appStore` 發生變更時，自動（或手動觸發）對底層狀態進行深拷貝快照並存入 `undoStack`。
 2.  **雙棧管理**: 維持 `undoStack` 與 `redoStack`。執行 `undo` 時，將當前狀態存入 `redoStack`；執行 `redo` 時則反之。
 3.  **Store 整合**: 擴充 `Store` 加入 `applySnapshot()` 方法，允許直接將底層數據替換為快照內容，並發送特殊變更事件通知 UI。
-4.  **防迴圈機制**: 透過 `isSnapshot` 標記與 `_isApplying` 鎖，避免在還原歷史時產生新的歷史記錄。
+4.  **防迴圈機制**: 透過 `isSnapshot` 標記，避免 Dashboard 在還原歷史時記錄新的快照。HistoryService 在移動堆疊之前先以 `structuredClone()` 建立快照，避免複製失敗時遺失歷史。對仍使用可 JSON 序列化 Proxy 狀態的呼叫端，保留舊的 JSON 快照備援。
 
 ## 後果
 - **優點**: 零依賴實作了高級狀態管理功能，大幅提升應用的互動價值。

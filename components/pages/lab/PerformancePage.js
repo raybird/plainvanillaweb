@@ -9,48 +9,45 @@ export class PerformancePage extends BaseComponent {
     constructor() {
         super();
         this.initReactiveState({
-            metrics: performanceService.metrics,
-            navMetrics: {
-                dns: 0,
-                tcp: 0,
-                request: 0,
-                response: 0,
-                dom: 0
-            }
+            metrics: performanceService.summary,
+            navMetrics: null
         });
     }
 
     connectedCallback() {
         super.connectedCallback();
 
-        performanceService.on('metric-update', ({ name, value, metrics }) => {
-            if (name === 'navigation') {
-                this.state.metrics = { ...metrics };
-                this._calculateDetailedNavigation();
-            } else {
-                this.state.metrics = { ...this.state.metrics, [name]: value };
-            }
+        this.state.metrics = performanceService.summary;
+        this._unsubscribeMetrics = performanceService.on('metric-update', ({ name }) => {
+            this.state.metrics = performanceService.summary;
+            if (name === 'navigation') this._calculateDetailedNavigation();
         });
 
         this._calculateDetailedNavigation();
     }
 
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this._unsubscribeMetrics?.();
+    }
+
     _calculateDetailedNavigation() {
         const nav = performance.getEntriesByType('navigation')[0];
+        const duration = (end, start) => end > 0 ? Math.round(end - start) : null;
         if (nav) {
             this.state.navMetrics = {
-                dns: Math.round(nav.domainLookupEnd - nav.domainLookupStart),
-                tcp: Math.round(nav.connectEnd - nav.connectStart),
-                request: Math.round(nav.responseStart - nav.requestStart),
-                response: Math.round(nav.responseEnd - nav.responseStart),
-                dom: Math.round(nav.domContentLoadedEventEnd - nav.responseEnd)
+                dns: duration(nav.domainLookupEnd, nav.domainLookupStart),
+                tcp: duration(nav.connectEnd, nav.connectStart),
+                request: duration(nav.responseStart, nav.requestStart),
+                dom: duration(nav.domInteractive, nav.responseEnd)
             };
         }
     }
 
     render() {
         const m = this.state.metrics;
-        const n = this.state.navMetrics;
+        const n = this.state.navMetrics ?? {};
+        const milliseconds = value => value == null ? '未取得' : `${value} ms`;
 
         return html`
             <style>
@@ -72,17 +69,22 @@ export class PerformancePage extends BaseComponent {
             <div class="perf-grid">
                 <div class="metric-card">
                     <span class="metric-label">LCP (載入最大內容)</span>
-                    <span class="metric-value">${m.lcp}ms</span>
-                    <small>${m.lcp < 2500 ? '✅ 良好' : '⚠️ 待優化'}</small>
+                    <span class="metric-value">${milliseconds(m.lcp)}</span>
+                    <small>${m.lcp === null ? '' : m.lcp <= 2500 ? '✅ 良好' : '⚠️ 待優化'}</small>
                 </div>
                 <div class="metric-card">
                     <span class="metric-label">CLS (累計佈局位移)</span>
-                    <span class="metric-value">${m.cls.toFixed(3)}</span>
-                    <small>${m.cls < 0.1 ? '✅ 穩定' : '⚠️ 異常'}</small>
+                    <span class="metric-value">${m.cls?.toFixed(3) ?? '未取得'}</span>
+                    <small>${m.cls === null ? '' : m.cls <= 0.1 ? '✅ 穩定' : '⚠️ 異常'}</small>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">最慢觀測互動（Event Timing）</span>
+                    <span class="metric-value">${milliseconds(m.interactionLatency)}</span>
+                    <small>單次頁面觀測，不等同於 INP</small>
                 </div>
                 <div class="metric-card">
                     <span class="metric-label">總體加載時間</span>
-                    <span class="metric-value">${m.loadTime}ms</span>
+                    <span class="metric-value">${milliseconds(m.loadTime)}</span>
                 </div>
             </div>
 
@@ -92,32 +94,32 @@ export class PerformancePage extends BaseComponent {
                 <div class="bar-container">
                     <div class="bar-label">DNS 查詢</div>
                     <div class="bar-wrapper">
-                        <div class="bar-fill" style="width: ${Math.min(100, n.dns / 2)}%"></div>
-                        <div class="bar-text">${n.dns} ms</div>
+                        <div class="bar-fill" style="width: ${Math.min(100, (n.dns ?? 0) / 2)}%"></div>
+                        <div class="bar-text">${milliseconds(n.dns)}</div>
                     </div>
                 </div>
 
                 <div class="bar-container">
                     <div class="bar-label">TCP 連線</div>
                     <div class="bar-wrapper">
-                        <div class="bar-fill" style="width: ${Math.min(100, n.tcp / 2)}%"></div>
-                        <div class="bar-text">${n.tcp} ms</div>
+                        <div class="bar-fill" style="width: ${Math.min(100, (n.tcp ?? 0) / 2)}%"></div>
+                        <div class="bar-text">${milliseconds(n.tcp)}</div>
                     </div>
                 </div>
 
                 <div class="bar-container">
-                    <div class="bar-label">伺服器回應 (TTFB)</div>
+                    <div class="bar-label">請求至首位元組</div>
                     <div class="bar-wrapper">
-                        <div class="bar-fill" style="width: ${Math.min(100, n.request / 5)}%"></div>
-                        <div class="bar-text">${n.request} ms</div>
+                        <div class="bar-fill" style="width: ${Math.min(100, (n.request ?? 0) / 5)}%"></div>
+                        <div class="bar-text">${milliseconds(n.request)}</div>
                     </div>
                 </div>
 
                 <div class="bar-container">
                     <div class="bar-label">DOM 解析</div>
                     <div class="bar-wrapper">
-                        <div class="bar-fill" style="width: ${Math.min(100, n.dom / 10)}%"></div>
-                        <div class="bar-text">${n.dom} ms</div>
+                        <div class="bar-fill" style="width: ${Math.min(100, (n.dom ?? 0) / 10)}%"></div>
+                        <div class="bar-text">${milliseconds(n.dom)}</div>
                     </div>
                 </div>
             </div>
@@ -126,8 +128,8 @@ export class PerformancePage extends BaseComponent {
                 <h3>💡 教學亮點</h3>
                 <ul>
                     <li><strong>PerformanceObserver</strong>：以非同步方式監聽瀏覽器效能事件，不阻塞主執行緒。</li>
-                    <li><strong>Web Vitals</strong>：Google 定義的核心效能指標，直接影響 SEO 與使用者留存。</li>
-                    <li><strong>Zero Framework</strong>：純原生 API 即可實現專業級的 APM (Application Performance Monitoring)。</li>
+                    <li><strong>Web Vitals</strong>：此頁顯示目前文件的觀測值，供開發除錯。</li>
+                    <li><strong>Zero Framework</strong>：直接讀取瀏覽器的效能資料。</li>
                 </ul>
                 <div style="margin-top: 1.5rem;">
                     <a href="#/lab" class="btn btn-secondary btn-sm">⬅️ 回到實驗室列表</a>

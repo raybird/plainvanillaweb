@@ -362,7 +362,6 @@ export class IndexedDBBackupPage extends BaseComponent {
           font-size: 1.5rem;
           font-weight: 700;
           color: var(--text-color);
-          outline: none;
           margin-bottom: 0.8rem;
           font-family: var(--font-title);
         }
@@ -373,7 +372,6 @@ export class IndexedDBBackupPage extends BaseComponent {
           border: none;
           background: transparent;
           resize: none;
-          outline: none;
           font-size: 1rem;
           line-height: 1.6;
           color: var(--text-color);

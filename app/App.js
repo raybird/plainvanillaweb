@@ -14,7 +14,6 @@ export class App extends BaseComponent {
     constructor() {
         super();
         this._handleAuthChange = () => this.update();
-        window.prefetchService = prefetchService;
 
         // 新增：選單開關狀態
         this.initReactiveState({
@@ -26,7 +25,8 @@ export class App extends BaseComponent {
         super.connectedCallback();
         themeService.init();
         this._unsubscribeAuth = authService.on('auth-change', this._handleAuthChange);
-        prefetchService.observeLinks(this);
+        this._focusedRouteHash = location.hash;
+        this._unsubscribeTheme = themeService.on('change', () => this.update());
 
         // 檢測是否為 PWA Share Target 傳入的分享資料，並自動重定向至對應的實驗室頁面
         const searchParams = new URLSearchParams(window.location.search);
@@ -46,7 +46,8 @@ export class App extends BaseComponent {
 
     disconnectedCallback() {
         super.disconnectedCallback();
-        if (this._unsubscribeAuth) this._unsubscribeAuth();
+        this._unsubscribeAuth?.();
+        this._unsubscribeTheme?.();
         window.removeEventListener('hashchange', this._handleHashChange);
     }
 
@@ -63,7 +64,8 @@ export class App extends BaseComponent {
         const currentLang = i18n.locale === 'zh-TW' ? 'English' : '中文';
         const nextLang = i18n.locale === 'zh-TW' ? 'en-US' : 'zh-TW';
 
-        const currentTheme = appStore.state.theme || 'system';
+        const preference = appStore.state.theme;
+        const currentTheme = ['light', 'dark'].includes(preference) ? preference : 'system';
         const themeLabel = {
             'light': '☀️',
             'dark': '🌙',
@@ -112,9 +114,10 @@ export class App extends BaseComponent {
                 <div class="nav-section-title">${section.title}</div>
                 ${section.links.map(link => html`
                     <a href="${link.href}" 
-                       class="nav-link ${currentHash === link.href ? 'active' : ''}" 
+                       class="nav-link ${currentHash === link.href ? 'active' : ''}"
+                       aria-current="${currentHash === link.href ? 'page' : 'false'}"
                        onclick="this.closest('x-app').closeMenu()" 
-                       onmouseover="prefetchService.preloadModule('${link.module}')">
+                       data-module="${link.module}">
                        <span class="nav-icon"><i data-lucide="${link.icon}"></i></span> ${link.label}
                     </a>
                 `)}
@@ -123,23 +126,23 @@ export class App extends BaseComponent {
 
         return html`
             <div class="app-container">
-                <a href="#main-content" class="skip-link" style="position: absolute; top: -40px; left: 0; background: var(--primary-color); color: white; padding: 0.5rem; z-index: 2000; transition: top 0.3s;">
-                    ${t('Skip to Content')}
+                <a href="#main-content" class="skip-link">
+                    ${i18n.locale === 'zh-TW' ? '跳至主內容' : 'Skip to content'}
                 </a>
 
-                <app-modal></app-modal>
-                <app-notification></app-notification>
+                <app-modal data-persistent="app-modal"></app-modal>
+                <app-notification data-persistent="app-notification"></app-notification>
                 
                 <!-- 手機版漢堡按鈕 -->
-                <button class="hamburger-btn" aria-label="Toggle Menu" onclick="this.closest('x-app').toggleMenu()">
+                <button type="button" class="hamburger-btn" aria-label="${t('app.navToggle')}" aria-expanded="${this.state.isMenuOpen}" aria-controls="app-nav" onclick="this.closest('x-app').toggleMenu()">
                     <span style="font-size: 1.2rem;">${this.state.isMenuOpen ? '✕' : '☰'}</span>
                 </button>
 
                 <!-- 手機版遮罩層 -->
-                <div class="menu-overlay ${this.state.isMenuOpen ? 'open' : ''}" onclick="this.closest('x-app').closeMenu()"></div>
+                <div class="menu-overlay ${this.state.isMenuOpen ? 'open' : ''}" aria-hidden="true" onclick="this.closest('x-app').closeMenu()"></div>
 
                 <!-- 側邊欄 (Sidebar) -->
-                <nav class="navbar ${this.state.isMenuOpen ? 'open' : ''}">
+                <nav id="app-nav" aria-label="${t('app.navLabel')}" class="navbar ${this.state.isMenuOpen ? 'open' : ''}">
                     <div class="nav-brand">
                         <a href="#/" class="brand-link" onclick="this.closest('x-app').closeMenu()">
                             <i data-lucide="ice-cream" style="color: var(--primary-color); margin-right: 0.25rem;"></i> VanillaWeb
@@ -162,7 +165,7 @@ export class App extends BaseComponent {
                         </div>
                         <div class="control-group">
                             <button id="lang-toggle" data-lang="${nextLang}" class="control-btn" aria-label="Switch Language">${currentLang}</button>
-                            <button id="theme-toggle" class="control-btn" aria-label="Switch Theme">${themeLabel}</button>
+                            <button id="theme-toggle" class="control-btn" aria-label="${t('app.theme')} (${t('app.theme' + currentTheme[0].toUpperCase() + currentTheme.slice(1))})">${themeLabel}</button>
                         </div>
                     </div>
                 </nav>
@@ -191,8 +194,35 @@ export class App extends BaseComponent {
     }
 
     afterFirstRender() {
+        const preloadRoute = (event) => {
+            const module = event.target.closest('a[data-module]')?.dataset.module;
+            if (module) prefetchService.preloadModule(module);
+        };
+        this.addEventListener('pointerover', preloadRoute);
+        this.addEventListener('focusin', preloadRoute);
+        this.addEventListener('route-ready', ({ target }) => {
+            if (this._focusedRouteHash === location.hash || target.querySelector('x-switch')) return;
+            this._focusedRouteHash = location.hash;
+            const heading = target.querySelector('h1, h2, h3') || this.querySelector('main');
+            heading.setAttribute('tabindex', '-1');
+            heading.focus();
+        });
+        this.addEventListener('keydown', event => {
+            if (event.key !== 'Escape' || !this.state.isMenuOpen || event.target.closest('dialog[open]')) return;
+            event.preventDefault();
+            this.closeMenu();
+            this.querySelector('.hamburger-btn').focus();
+        });
+
         // 事件委派：只在元件本身綁一次，按鈕被 morph 保留或重建都不影響，也不會重複綁定（ADR 0100）
         this.addEventListener('click', (event) => {
+            if (event.target.closest('.skip-link')) {
+                event.preventDefault();
+                const main = this.querySelector('main');
+                main.focus({ preventScroll: true });
+                main.scrollIntoView();
+                return;
+            }
             const themeToggle = event.target.closest('#theme-toggle');
             if (themeToggle) return this.toggleTheme(themeToggle);
 
@@ -209,7 +239,8 @@ export class App extends BaseComponent {
     /** 切換主題（system → light → dark），支援時以 View Transition 做圓形波紋擴散 */
     toggleTheme(button) {
         const modes = ['system', 'light', 'dark'];
-        const current = appStore.state.theme || 'system';
+        const preference = appStore.state.theme;
+        const current = modes.includes(preference) ? preference : 'system';
         const next = modes[(modes.indexOf(current) + 1) % modes.length];
         
         // 降級處理：如果不支援 View Transition，直接切換

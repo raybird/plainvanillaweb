@@ -17,7 +17,7 @@
 * **Pending (驗證中狀態)**：非同步驗證執行期間為 `true`（例如向伺服器發送 API 檢查帳號是否重複時）。
 
 ### 1.2 `FormGroup` (表單群組)
-將多個 `FormControl` 彙整為一組，透過 `form.controls.<名稱>` 取得各欄位（不支援巢狀 FormGroup）。所有子欄位的 `state.valid` 皆為 `true` 時，`FormGroup` 的 `valid` 才為 `true`；任一欄位發出 `status-change` 時，群組也會發出 `status-change`。注意欄位在第一次驗證前預設為合法，送出前請先呼叫 `validateAll()`（標記所有欄位為已觸碰並重新驗證）。
+將多個 `FormControl` 彙整為一組，透過 `form.controls.<名稱>` 取得各欄位（不支援巢狀 FormGroup）。所有子欄位的 `state.valid` 皆為 `true` 且無欄位還在驗證時，`FormGroup` 的 `valid` 才為 `true`；任一欄位發出 `status-change` 時，群組也會發出 `status-change`。注意欄位在第一次驗證前預設為合法，送出前請等待 `await form.validateAll()`。它會標記所有欄位為已觸碰，等待驗證並回傳是否可提交。
 
 ### 1.3 `Validators` (驗證器)
 提供內建的驗證規則（`required`, `email`, `minLen(N)`, `pattern(RegExp)`）。驗證器只回傳錯誤旗標，不含顯示文字：`{ required: true }`、`{ minlen: { required: N, actual: 目前長度 } }`、`{ email: true }`、`{ pattern: true }`，訊息需自行對應。非同步驗證器則是回傳 Promise 的函式，解析為 `null` 表示通過。
@@ -76,15 +76,9 @@ export class RegisterForm extends BaseComponent {
     async handleSubmit(event) {
         event.preventDefault();
 
-        // 等同 validateAll()：標記所有欄位為已觸碰並重新驗證，未填寫的欄位才會顯示錯誤。
-        // validateAll() 不回傳 Promise，有非同步驗證器時改為自行等待每個欄位的 validate() 完成
-        const controls = Object.values(this.form.controls);
-        controls.forEach(control => control.markAsTouched());
-        await Promise.all(controls.map(control => control.validate()));
-
-        if (this.form.valid) {
+        if (await this.form.validateAll()) {
             notificationService.success('表單驗證成功！正在送出資料...');
-            console.log('Submitted Value:', this.form.value);
+            // 在此送出表單，請勿將密碼寫入日誌。
         } else {
             notificationService.error('請修正表單中的錯誤欄位。');
         }

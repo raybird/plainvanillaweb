@@ -25,7 +25,8 @@ export class VirtualList extends BaseComponent {
         this._items = val.items || [];
         this._itemHeight = val.itemHeight || 80;
         this._renderItem = val.renderItem || ((item) => html`<div>${JSON.stringify(item)}</div>`);
-        this._updateVisibleRange();
+        this._updateVisibleRange(true);
+        this.scheduleUpdate();
     }
 
     connectedCallback() {
@@ -34,21 +35,30 @@ export class VirtualList extends BaseComponent {
         // 初始化容器高度
         this.style.display = 'block';
         this.style.overflowY = 'auto';
-        this.style.height = `${this._containerHeight}px`;
+        if (!this.style.height) this.style.height = `${this._containerHeight}px`;
         this.style.position = 'relative';
+        this._resize = new ResizeObserver(() => this._updateVisibleRange());
+        this._resize.observe(this);
+        this._updateVisibleRange(true);
     }
 
-    _onScroll(e) {
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this._resize?.disconnect();
+        this.removeEventListener('scroll', this._onScroll);
+    }
+
+    _onScroll() {
         this._updateVisibleRange();
     }
 
-    _updateVisibleRange() {
+    _updateVisibleRange(force = false) {
         const scrollTop = this.scrollTop;
-        const start = Math.floor(scrollTop / this._itemHeight);
+        const start = Math.max(0, Math.min(this._items.length - 1, Math.floor(scrollTop / this._itemHeight)));
         const visibleCount = Math.ceil(this.clientHeight / this._itemHeight);
         const end = start + visibleCount + 2; // 多渲染 2 個緩衝
 
-        if (start !== this.state.startIndex || end !== this.state.endIndex) {
+        if (force || start !== this.state.startIndex || end !== this.state.endIndex) {
             this.state.startIndex = start;
             this.state.endIndex = end;
             this.state.visibleItems = this._items.slice(start, end);

@@ -14,7 +14,7 @@ export class ModalPage extends BaseComponent {
     async handleShowAlert() {
         this.state.lastAction = 'Alert';
         this.state.dialogResult = '等待關閉...';
-        await modalService.alert('💡 提示', '這是原生 &lt;dialog&gt; 元素驅動的提示框。它自動管理焦點，並支援 Esc 鍵關閉。');
+        await modalService.alert('💡 提示', '這是原生 <dialog> 元素驅動的提示框。它自動管理焦點，並支援 Esc 鍵關閉。');
         this.state.dialogResult = '✅ 使用者已關閉 Alert';
     }
 
@@ -31,7 +31,7 @@ export class ModalPage extends BaseComponent {
 
         const content = html`
             <div>
-                <label style="display: block; margin-bottom: 0.5rem;">請輸入您的反饋：</label>
+                <label for="custom-modal-input" style="display: block; margin-bottom: 0.5rem;">請輸入您的反饋：</label>
                 <input type="text" id="custom-modal-input" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;" placeholder="任何想法都歡迎！" />
             </div>
         `;

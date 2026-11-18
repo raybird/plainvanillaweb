@@ -11,6 +11,11 @@
         "playground": "Playground",
         "contact": "Contact",
         "dashboard": "Dashboard",
+        "navToggle": "Toggle navigation",
+        "navLabel": "Primary navigation",
+        "themeSystem": "System",
+        "themeLight": "Light",
+        "themeDark": "Dark",
         "theme": "Toggle Theme",
         "lang": "中文"
     },

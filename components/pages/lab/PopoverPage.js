@@ -49,6 +49,7 @@ export class PopoverPage extends BaseComponent {
           gap: 1rem;
           grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         }
+        .demo-grid[hidden] { display: none; }
         .demo-card {
           border: 1px solid var(--border-color);
           border-radius: 12px;
@@ -100,7 +101,7 @@ export class PopoverPage extends BaseComponent {
           >
         </p>
 
-        <div class="demo-grid">
+        <div class="demo-grid" ${this.state.supported ? '' : 'hidden'}>
           <section class="demo-card">
             <h3>宣告式開啟</h3>
             <p>

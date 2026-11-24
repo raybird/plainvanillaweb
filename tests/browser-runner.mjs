@@ -520,23 +520,35 @@ async function runCoordinationTests(openTab, base) {
                 document.querySelector('#localCheck').checked = true;
                 document.querySelector('#publishBtn').click();
                 document.querySelector('#setABtn').click();
+                document.querySelector('#startElectionBtn').click();
             })()`);
-            const interacted = await waitFor(demoTab.page, "document.querySelector('#busLogs')?.textContent?.includes('local | ns=') && document.querySelector('#stateA')?.textContent?.includes('alpha')", 5000);
-            check(interacted, 'coordination-demo.html 點擊 Publish / 寫入 Store 未反映於畫面');
+            const interacted = await waitFor(demoTab.page, "document.querySelector('#busLogs')?.textContent?.includes('local | ns=') && document.querySelector('#stateA')?.textContent?.includes('alpha') && document.querySelector('#leaderRole')?.textContent === 'leader'", 5000);
+            check(interacted, 'coordination-demo.html 點擊 Publish / 寫入 Store / Start Election 未反映於畫面');
+            if (interacted) {
+                await demoTab.page.evaluate(`(() => {
+                    document.querySelector('#rpcAddBtn').click();
+                    document.querySelector('#rpcUnknownBtn').click();
+                    document.querySelector('#releaseElectionBtn').click();
+                })()`);
+                const rpcChecked = await waitFor(demoTab.page, "document.querySelector('#rpcLogs')?.textContent?.includes('42') && document.querySelector('#rpcLogs')?.textContent?.includes('METHOD_NOT_FOUND') && document.querySelector('#leaderRole')?.textContent === 'idle'", 5000);
+                check(rpcChecked, 'coordination-demo.html Phase 2 RPC / Release 控制未正常運作');
+            }
         }
         failures.push(...demoTracker.take().map((p) => `coordination-demo.html：${p}`));
     } finally {
         await demoTab.close();
     }
 
-    // 2. 開啟兩個真實 Chrome 分頁測試跨上下文協作
+    // 2. 開啟真實 Chrome 分頁測試跨上下文協作（Phase 1 + Phase 2）
     let tabA = null;
     let tabB = null;
+    let tabC = null;
     try {
         tabA = await openTab();
         tabB = await openTab();
         const trackerA = trackProblems(tabA.page);
         const trackerB = trackProblems(tabB.page);
+        let trackerC = null;
         const testPageUrl = new URL('tests/coordination-browser.html', base).href;
         await Promise.all([
             tabA.page.send('Page.navigate', { url: testPageUrl }),
@@ -546,21 +558,32 @@ async function runCoordinationTests(openTab, base) {
         const readyB = await waitFor(tabB.page, 'window.__COORD_READY__ === true', 10000);
         check(readyA && readyB, 'tests/coordination-browser.html 未就緒');
 
-        // 2.1 在真實瀏覽器驗證 import lib/coordination.js 不建立 BroadcastChannel
-        const bcCount = await tabA.page.evaluate(`(async () => {
+        // 2.1 在真實瀏覽器驗證 import lib/coordination.js 不建立 BroadcastChannel 也不呼叫 navigator.locks.request
+        const sideEffects = await tabA.page.evaluate(`(async () => {
             const OrigBC = window.BroadcastChannel;
-            let count = 0;
+            const locksProto = window.navigator?.locks ? Object.getPrototypeOf(window.navigator.locks) : null;
+            const origRequest = locksProto?.request;
+            let bcCount = 0;
+            let lockCount = 0;
             window.BroadcastChannel = class extends OrigBC {
-                constructor(...args) { count++; super(...args); }
+                constructor(...args) { bcCount++; super(...args); }
             };
+            if (locksProto && origRequest) {
+                locksProto.request = function (...args) {
+                    lockCount++;
+                    return origRequest.apply(this, args);
+                };
+            }
             try {
                 await import('./lib/coordination.js?e2e_side_effect=1');
-                return count;
+                return { bcCount, lockCount };
             } finally {
                 window.BroadcastChannel = OrigBC;
+                if (locksProto && origRequest) locksProto.request = origRequest;
             }
         })()`);
-        check(bcCount === 0, `import lib/coordination.js 應零副作用，實際建立 ${bcCount} 個 BroadcastChannel`);
+        check(sideEffects.bcCount === 0 && sideEffects.lockCount === 0,
+            `import lib/coordination.js 應零副作用，實際 bc=${sideEffects.bcCount}, locks=${sideEffects.lockCount}`);
 
         // 2.2 MessageBus 雙分頁投遞、local/remote、namespace 隔離、unsubscribe 與 dispose
         await tabA.page.evaluate(`(async () => {
@@ -662,14 +685,144 @@ async function runCoordinationTests(openTab, base) {
             tabB.page.evaluate(`window.__sB2.dispose(); window.__sBLate.dispose();`),
         ]);
 
-        failures.push(...trackerA.take().map((p) => `雙分頁 Tab A：${p}`));
+        // 2.4 Phase 2：真實多分頁 Web Locks Leader Election（競爭、不同 scope 隔離、release、reload 接管、關閉分頁接管）
+        const leResA = await tabA.page.evaluate(`(async () => {
+            const { createLeaderElection } = await import('./lib/coordination.js');
+            window.__elA = createLeaderElection({ namespace: 'e2e-le', scope: 'primary' });
+            return await window.__elA.start();
+        })()`);
+        const leResB = await tabB.page.evaluate(`(async () => {
+            const { createLeaderElection } = await import('./lib/coordination.js');
+            window.__elB = createLeaderElection({ namespace: 'e2e-le', scope: 'primary' });
+            window.__elBOther = createLeaderElection({ namespace: 'e2e-le', scope: 'secondary' });
+            const primary = await window.__elB.start();
+            const secondary = await window.__elBOther.start();
+            return { primary, secondary };
+        })()`);
+        check(leResA.acquired === true && leResA.role === 'leader', 'Tab A 應優先成為 leader');
+        check(leResB.primary.acquired === false && leResB.primary.role === 'follower', '同 scope Tab B 應成為 follower');
+        check(leResB.secondary.acquired === true && leResB.secondary.role === 'leader', '不同 scope 應各自持鎖');
+
+        // 主動 release 接管
+        await tabA.page.evaluate(`window.__elA.release()`);
+        check(await waitFor(tabB.page, "window.__elB.role === 'leader'", 5000), 'leader release 後 follower 未接管');
+        await tabB.page.evaluate(`window.__elB.release()`);
+        await tabB.page.evaluate(`window.__elBOther.dispose()`);
+
+        // Page.reload 接管：Tab A 重新取得 leader 後重載，Tab B 應接管
+        const reA = await tabA.page.evaluate(`window.__elA.start()`);
+        const reB = await tabB.page.evaluate(`window.__elB.start()`);
+        check(reA.role === 'leader' && reB.role === 'follower', '重測 reload 前 Tab A 應為 leader、Tab B 為 follower');
+        await tabA.page.evaluate(`window.__tabAMarker = 'before-reload'`);
+        await tabA.page.send('Page.reload');
+        check(await waitFor(tabB.page, "window.__elB.role === 'leader'", 8000), 'leader 分頁 reload 後 follower 未接管');
+        check(await waitFor(tabA.page, "window.__tabAMarker === undefined && window.__COORD_READY__ === true", 8000), 'Tab A reload 後未恢復就緒');
+
+        // Target.closeTarget 接管：開 Tab C 當 follower，關閉 Tab B（目前 leader）後 Tab C 接管
+        tabC = await openTab();
+        trackerC = trackProblems(tabC.page);
+        await tabC.page.send('Page.navigate', { url: testPageUrl });
+        check(await waitFor(tabC.page, 'window.__COORD_READY__ === true', 10000), 'Tab C 測試頁未就緒');
+        const leResC = await tabC.page.evaluate(`(async () => {
+            const { createLeaderElection } = await import('./lib/coordination.js');
+            window.__elC = createLeaderElection({ namespace: 'e2e-le', scope: 'primary' });
+            return await window.__elC.start();
+        })()`);
+        check(leResC.role === 'follower', 'Tab C 加入時應為 follower');
+
         failures.push(...trackerB.take().map((p) => `雙分頁 Tab B：${p}`));
+        await tabB.close();
+        tabB = null;
+        check(await waitFor(tabC.page, "window.__elC.role === 'leader'", 8000), '關閉 leader 分頁後 follower (Tab C) 未接管');
+        await tabC.page.evaluate(`window.__elC.dispose()`);
+
+        // 2.5 Phase 2：真實雙分頁 Cross-Tab RPC（Tab A 提供方法，Tab C 呼叫／逾時不重試／取消／dispose 清理）
+        const rpcNodeA = await tabA.page.evaluate(`(async () => {
+            const { createRpcChannel } = await import('./lib/coordination.js');
+            window.__rpcState = { sideEffects: 0, slowAborted: false };
+            window.__rpcA = createRpcChannel({ namespace: 'e2e-rpc', timeoutMs: 2000 });
+            window.__rpcA.register('math.add', ({ a, b }) => a + b);
+            window.__rpcA.register('boom', () => { throw new RangeError('out of range'); });
+            window.__rpcA.register('slowSideEffect', async ({ delayMs = 400 }, ctx) => {
+                window.__rpcState.sideEffects += 1;
+                ctx.signal.addEventListener('abort', () => { window.__rpcState.slowAborted = true; }, { once: true });
+                await new Promise((r) => setTimeout(r, delayMs));
+                return { ok: true };
+            });
+            return window.__rpcA.nodeId;
+        })()`);
+        const rpcCheck = await tabC.page.evaluate(`(async (targetA) => {
+            const { createRpcChannel, RPC_ERROR_CODES } = await import('./lib/coordination.js');
+            const rpcC = createRpcChannel({ namespace: 'e2e-rpc', timeoutMs: 2000 });
+            const out = {};
+
+            out.sum = await rpcC.call('math.add', { a: 17, b: 25 });
+
+            try {
+                await rpcC.call('nope', {}, { target: targetA });
+            } catch (e) {
+                out.unknownCode = e.code;
+            }
+
+            try {
+                await rpcC.call('boom', {}, { target: targetA });
+            } catch (e) {
+                out.boomCode = e.code;
+                out.boomRemoteName = e.remoteName;
+            }
+
+            try {
+                await rpcC.call('slowSideEffect', { delayMs: 350 }, { timeoutMs: 40 });
+            } catch (e) {
+                out.timeoutCode = e.code;
+                out.pendingAfterTimeout = rpcC.pendingCount;
+            }
+
+            const ac = new AbortController();
+            const abortP = rpcC.call('slowSideEffect', { delayMs: 350 }, { signal: ac.signal });
+            setTimeout(() => ac.abort('stop'), 20);
+            try {
+                await abortP;
+            } catch (e) {
+                out.abortCode = e.code;
+                out.pendingAfterAbort = rpcC.pendingCount;
+            }
+
+            const disposeP = rpcC.call('slowSideEffect', { delayMs: 500 });
+            rpcC.dispose();
+            out.pendingAfterDispose = rpcC.pendingCount;
+            try {
+                await disposeP;
+            } catch (e) {
+                out.disposeCode = e.code;
+            }
+            return out;
+        })(${JSON.stringify(rpcNodeA)})`);
+
+        check(rpcCheck.sum === 42, `跨分頁 RPC 回傳值錯誤：${rpcCheck.sum}`);
+        check(rpcCheck.unknownCode === 'METHOD_NOT_FOUND', `未知方法錯誤碼不符：${rpcCheck.unknownCode}`);
+        check(rpcCheck.boomCode === 'HANDLER_ERROR' && rpcCheck.boomRemoteName === 'RangeError',
+            `遠端錯誤序列化不符：${rpcCheck.boomCode}/${rpcCheck.boomRemoteName}`);
+        check(rpcCheck.timeoutCode === 'TIMEOUT' && rpcCheck.pendingAfterTimeout === 0,
+            `RPC timeout 或 pending 清理異常：${rpcCheck.timeoutCode}/${rpcCheck.pendingAfterTimeout}`);
+        check(rpcCheck.abortCode === 'ABORTED' && rpcCheck.pendingAfterAbort === 0,
+            `RPC AbortSignal 或 pending 清理異常：${rpcCheck.abortCode}/${rpcCheck.pendingAfterAbort}`);
+        check(rpcCheck.disposeCode === 'CHANNEL_CLOSED' && rpcCheck.pendingAfterDispose === 0,
+            `RPC dispose 清理異常：${rpcCheck.disposeCode}/${rpcCheck.pendingAfterDispose}`);
+        check(await waitFor(tabA.page, 'window.__rpcState.slowAborted === true && window.__rpcState.sideEffects === 3', 3000),
+            '遠端取消訊號未觸發或副作用執行次數異常（不可自動重試）');
+
+        await tabA.page.evaluate(`window.__rpcA.dispose()`);
+
+        failures.push(...trackerA.take().map((p) => `雙分頁 Tab A：${p}`));
+        if (trackerC) failures.push(...trackerC.take().map((p) => `雙分頁 Tab C：${p}`));
     } finally {
         await tabA?.close();
         await tabB?.close();
+        await tabC?.close();
     }
 
-    console.log('  雙分頁協作測試：coordination-demo.html、無副作用載入、MessageBus、Store 隔離/刪除/快照/並行更新');
+    console.log('  雙分頁協作測試：coordination-demo.html、無副作用載入、MessageBus、Store 隔離/並行、Web Locks 選舉接管、跨分頁 RPC');
     return failures;
 }
 

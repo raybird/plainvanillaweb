@@ -104,8 +104,9 @@
 | 0101 | [新增只含核心的入口 lib/core.js](./0101-core-entry-point.md) | [已實作] |
 | 0102 | [頁面的進入與離開由 `<x-route>` 管理](./0102-route-owned-page-lifecycle.md) | [已實作] |
 | 0103 | [跨執行環境協作基礎架構與 Store 同步隔離](./0103-browser-coordination-foundation.md) | [已實作] |
+| 0104 | [基於 Web Locks 的領導者選舉與跨分頁 RPC 機制](./0104-leader-election-and-rpc.md) | [已實作] |
 
 ---
-*未使用的編號：0064、0085、0089、0090、0091（保留空號，不回填）。新增 ADR 請使用 0104。*
+*未使用的編號：0064、0085、0089、0090、0091（保留空號，不回填）。新增 ADR 請使用 0105。*
 *詳細內容請參閱 `docs/decisions/*.md`。*
 *此檔案由 `scripts/update-adr-index.js` 自動生成。*

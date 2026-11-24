@@ -154,9 +154,39 @@
         </section>
     </div>
 
+    <section class="card" style="margin-top: 1rem;">
+        <h2 style="margin-top: 0;">3. Leader Election &amp; Cross-Tab RPC (Phase 2)</h2>
+        <p class="muted" style="margin-top: 0;">以 Web Locks <code>exclusive</code> 鎖保證同 scope 互斥；heartbeat 僅供觀測，取消或逾時不回滾也不自動重試遠端方法。</p>
+        <div class="row" style="justify-content: space-between;">
+            <div>
+                角色：<span id="leaderRole" class="badge warn">idle</span>
+                · Epoch：<strong id="leaderEpoch">0</strong>
+                · Lock：<code id="leaderLock">-</code>
+            </div>
+            <div class="muted">觀測到的 Leader Heartbeat：<code id="observedLeader">-</code></div>
+        </div>
+        <div class="row">
+            <button id="startElectionBtn" type="button">Start Election</button>
+            <button id="releaseElectionBtn" type="button" class="secondary">Release / Resign</button>
+            <button id="stopElectionBtn" type="button" class="secondary">Stop</button>
+            <span class="muted">RPC Pending：<strong id="rpcPending">0</strong></span>
+        </div>
+        <div class="row">
+            <label>A <input id="rpcArgA" type="text" value="12" size="5"></label>
+            <label>B <input id="rpcArgB" type="text" value="30" size="5"></label>
+            <button id="rpcAddBtn" type="button">呼叫 leader.add</button>
+            <button id="rpcUnknownBtn" type="button" class="secondary">未知方法</button>
+            <button id="rpcTimeoutBtn" type="button" class="secondary">短 Timeout 測試</button>
+            <button id="rpcAbortBtn" type="button" class="secondary">AbortSignal 取消</button>
+        </div>
+        <ul id="rpcLogs" class="log-list"></ul>
+    </section>
+
     <script type="module">
         import {
             createMessageBus,
+            createLeaderElection,
+            createRpcChannel,
             getCoordinationCapabilities,
         } from './lib/coordination.js';
         import { Store } from './lib/store.js';
@@ -299,7 +329,129 @@
             bus?.dispose();
             storeA.dispose();
             storeB.dispose();
+            void election?.dispose();
+            rpc?.dispose();
+            coordBus?.dispose();
         });
+
+        // --- Phase 2: Leader Election & Cross-Tab RPC demo ---
+        const leaderRoleEl = document.getElementById('leaderRole');
+        const leaderEpochEl = document.getElementById('leaderEpoch');
+        const leaderLockEl = document.getElementById('leaderLock');
+        const observedLeaderEl = document.getElementById('observedLeader');
+        const rpcPendingEl = document.getElementById('rpcPending');
+        const rpcLogsEl = document.getElementById('rpcLogs');
+
+        const coordBus = createMessageBus({ namespace: 'demo-coord' });
+        const election = createLeaderElection({
+            namespace: 'demo-coord',
+            scope: 'demo-room',
+            bus: coordBus,
+            heartbeatIntervalMs: 1500,
+        });
+        const rpc = createRpcChannel({ bus: coordBus, timeoutMs: 2000 });
+        const leaderMethodUnsubs = [];
+
+        function appendRpcLog(text) {
+            const li = document.createElement('li');
+            li.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            rpcLogsEl.prepend(li);
+            while (rpcLogsEl.children.length > 30) rpcLogsEl.lastElementChild.remove();
+        }
+
+        function syncLeaderMethods(isLeader) {
+            while (leaderMethodUnsubs.length) leaderMethodUnsubs.pop()();
+            if (!isLeader || rpc.closed) return;
+            leaderMethodUnsubs.push(
+                rpc.register('leader.add', ({ a = 0, b = 0 } = {}) => ({
+                    sum: Number(a) + Number(b),
+                    handledBy: rpc.nodeId,
+                })),
+                rpc.register('leader.echo', (params) => ({
+                    echo: params,
+                    handledBy: rpc.nodeId,
+                })),
+                rpc.register('leader.slow', async ({ delayMs = 800 } = {}, ctx) => {
+                    await new Promise((resolve) => {
+                        const t = setTimeout(resolve, delayMs);
+                        ctx.signal.addEventListener('abort', () => { clearTimeout(t); resolve(); }, { once: true });
+                    });
+                    return { done: !ctx.signal.aborted, handledBy: rpc.nodeId };
+                })
+            );
+        }
+
+        function refreshPhase2UI() {
+            leaderRoleEl.textContent = election.role;
+            leaderRoleEl.className = `badge ${election.isLeader ? 'ok' : 'warn'}`;
+            leaderEpochEl.textContent = String(election.epoch);
+            leaderLockEl.textContent = election.lockName;
+            rpcPendingEl.textContent = String(rpc.pendingCount);
+            const obs = election.observedLeader;
+            observedLeaderEl.textContent = obs ? `${obs.nodeId.slice(0, 8)} (epoch ${obs.epoch})` : '-';
+        }
+
+        election.on('role-change', ({ role, previousRole, epoch }) => {
+            syncLeaderMethods(role === 'leader');
+            appendRpcLog(`role-change: ${previousRole} -> ${role} (epoch=${epoch})`);
+            refreshPhase2UI();
+        });
+        election.on('leader-heartbeat', () => refreshPhase2UI());
+        election.on('leader-observed', () => refreshPhase2UI());
+        election.on('unsupported', () => {
+            appendRpcLog('Web Locks API 不支援，無法參與互斥選舉');
+            refreshPhase2UI();
+        });
+        rpc.on('duplicate-response', (d) => appendRpcLog(`duplicate-response: ${d.correlationId.slice(0, 8)}`));
+
+        document.getElementById('startElectionBtn').addEventListener('click', async () => {
+            const res = await election.start();
+            appendRpcLog(`start() -> role=${res.role}, acquired=${res.acquired}`);
+            refreshPhase2UI();
+        });
+        document.getElementById('releaseElectionBtn').addEventListener('click', async () => {
+            await election.release();
+            appendRpcLog('release() 完成');
+            refreshPhase2UI();
+        });
+        document.getElementById('stopElectionBtn').addEventListener('click', async () => {
+            await election.stop();
+            appendRpcLog('stop() 完成');
+            refreshPhase2UI();
+        });
+
+        async function runRpcDemo(label, fn) {
+            try {
+                const promise = fn();
+                refreshPhase2UI();
+                const res = await promise;
+                appendRpcLog(`${label} -> OK: ${JSON.stringify(res)}`);
+            } catch (err) {
+                appendRpcLog(`${label} -> ERR [${err.code || err.name}]: ${err.message}`);
+            } finally {
+                refreshPhase2UI();
+            }
+        }
+
+        document.getElementById('rpcAddBtn').addEventListener('click', () => {
+            const a = Number(document.getElementById('rpcArgA').value);
+            const b = Number(document.getElementById('rpcArgB').value);
+            void runRpcDemo('leader.add', () => rpc.call('leader.add', { a, b }));
+        });
+        document.getElementById('rpcUnknownBtn').addEventListener('click', () => {
+            void runRpcDemo('unknown.method', () => rpc.call('unknown.method', {}, { target: rpc.nodeId }));
+        });
+        document.getElementById('rpcTimeoutBtn').addEventListener('click', () => {
+            void runRpcDemo('leader.slow (50ms timeout)', () => rpc.call('leader.slow', { delayMs: 600 }, { timeoutMs: 50, allowLocal: false }));
+        });
+        document.getElementById('rpcAbortBtn').addEventListener('click', () => {
+            const ac = new AbortController();
+            const task = runRpcDemo('leader.slow (aborted)', () => rpc.call('leader.slow', { delayMs: 600 }, { signal: ac.signal, allowLocal: false }));
+            setTimeout(() => ac.abort(), 30);
+            void task;
+        });
+
+        refreshPhase2UI();
     </script>
 </body>
 </html>

@@ -13,7 +13,7 @@ This repository is two things, in two layers:
 | Layer | What it is | Entry point | Use it when |
 | :--- | :--- | :--- | :--- |
 | **① Core** | ~1,100 lines of reusable foundation: safe templates, reactive components with DOM morphing, services, a cross-tab store and a hash router | [`lib/core.js`](./lib/core.js) | You want to build your own app the vanilla way |
-| **①+ Coordination** | Opt-in cross-context messaging (`BroadcastService`, `MessageBus`) with zero import side effects | [`lib/coordination.js`](./lib/coordination.js) | You need isolated multi-tab/worker messaging |
+| **①+ Coordination** | Opt-in cross-context messaging (`BroadcastService`, `MessageBus`, Web Locks `LeaderElection`, cross-tab `RpcChannel`) with zero import side effects | [`lib/coordination.js`](./lib/coordination.js) | You need isolated multi-tab/worker coordination |
 | **② Showcase** | A full site built on the core: 37 interactive labs of cutting-edge Web APIs, runtime-rendered docs, a dashboard and a playground | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | You want to learn a Web API or borrow a ready-made service |
 
 The core never imports anything from the showcase; a test enforces that boundary ([ADR 0101](./docs/decisions/0101-core-entry-point.md)). Releases follow semantic versioning — see the [CHANGELOG](./CHANGELOG.md) (current: **v3.1.0**).
@@ -131,8 +131,8 @@ import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdel
 │   ├── coordination.js   # ①+ opt-in cross-context coordination entry point
 │   ├── html.js, base-component.js, morph.js, base-service.js,
 │   │   store.js, broadcast-channel.js, broadcast-service.js,
-│   │   message-bus.js, router.js,
-│   │   i18n-service.js, meta-service.js  # ① core / coordination
+│   │   message-bus.js, leader-election.js, rpc-channel.js,
+│   │   router.js, i18n-service.js, meta-service.js  # ① core / coordination
 │   ├── vanilla-sdk.js    # ② everything-in-one entry point
 │   └── *-service.js      # ② WebGPU, WebRTC, Bluetooth, Crypto…
 ├── components/

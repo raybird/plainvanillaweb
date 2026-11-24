@@ -18,7 +18,9 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 
 ### 新增
 
-- `lib/coordination.js`：獨立、零副作用的跨執行環境協作入口，統一匯出 `BroadcastService`、`MessageBus`、`createMessageBus`、`getCoordinationCapabilities`、`ENVELOPE_VERSION`、`createEnvelope` 與 `validateEnvelope`（[ADR 0103](./docs/decisions/0103-browser-coordination-foundation.md)）；`lib/vanilla-sdk.js` 同步重新匯出上述協作類別與工廠函式。
+- `LeaderElection`（`lib/leader-election.js`，[ADR 0104](./docs/decisions/0104-leader-election-and-rpc.md)）：以具 `namespace` + `scope` 隔離的 Web Locks `exclusive` 鎖為唯一互斥依據，支援非阻塞 `start()`、主動 `release()` / `stop()`、關閉／重載自動接管、選用僅作觀測之 heartbeat、背景凍結（`releaseOnFreeze`）與不支援 API 明確回報；由 `lib/coordination.js` 與 `lib/vanilla-sdk.js` 匯出。
+- `RpcChannel`、`RpcError` 與 `RPC_ERROR_CODES`（`lib/rpc-channel.js`）：基於 `MessageBus` 提供方法白名單註冊、明確 `target`／唯一 provider 路由、`correlationId`、`timeoutMs`、`AbortSignal`、錯誤序列化、重複回應事件、不自動重試副作用方法及 `dispose()` 清理，並擴充 `coordination-demo.html` 雙分頁 RPC／選舉示範與真實多分頁自動化測試。
+- `lib/coordination.js`：獨立、零副作用的跨執行環境協作入口，統一匯出 Phase 1（`BroadcastService`、`MessageBus`、`createMessageBus`、`getCoordinationCapabilities`、`ENVELOPE_VERSION`、`createEnvelope`、`validateEnvelope`）與 Phase 2（`LeaderElection`、`createLeaderElection`、`RpcChannel`、`createRpcChannel`、`RpcError`、`RPC_ERROR_CODES` 等）API（[ADR 0103](./docs/decisions/0103-browser-coordination-foundation.md)、[ADR 0104](./docs/decisions/0104-leader-election-and-rpc.md)）；`lib/vanilla-sdk.js` 同步重新匯出協作類別與工廠函式。
 - `BroadcastService`（拆分為無副作用類別模組 `lib/broadcast-channel.js`）：支援 `namespace`、v1 版本化信封、輸入驗證、capability detection（不支援 `BroadcastChannel` 時不拋錯）、可注入 `transport` 與 `close()`/`dispose()` 資源清理；`lib/broadcast-service.js` 保留預設單例維持向下相容。
 - `MessageBus`（`lib/message-bus.js`）：提供 `publish`／`subscribe`／`unsubscribe`、本地與遠端投遞控制（預設 `local: false, remote: true`）、萬用主題 `'*'`、`receive` 篩選與錯誤隔離。
 - `Store.prototype.dispose()` 與實例隔離選項（`options.broadcast`、`options.sync`、`options.acceptLegacy`）；`applySnapshot(snapshot, { replace })` 支援完整快照替換語意。

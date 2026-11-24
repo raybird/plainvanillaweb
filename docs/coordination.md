@@ -1,10 +1,10 @@
 # 跨執行環境協作基礎 (Browser Coordination Foundation)
 
-> **更新日期**：2026-11-24（Phase 1）  
+> **更新日期**：2026-11-24（Phase 1 + Phase 2）  
 > **獨立入口**：`./lib/coordination.js`  
-> **架構決策**：[ADR 0103](./decisions/0103-browser-coordination-foundation.md) · [ADR 0101](./decisions/0101-core-entry-point.md)
+> **架構決策**：[ADR 0103](./decisions/0103-browser-coordination-foundation.md) · [ADR 0104](./decisions/0104-leader-election-and-rpc.md) · [ADR 0101](./decisions/0101-core-entry-point.md)
 
-`lib/coordination.js` 提供**可獨立選用（opt-in）、零依賴、零建置**的同源跨執行環境（多分頁、視窗及適用的 Worker）訊息傳遞基礎設施。僅匯入此模組不會建立 `BroadcastChannel`、網路連線或背景任務。
+`lib/coordination.js` 提供**可獨立選用（opt-in）、零依賴、零建置**的同源跨執行環境（多分頁、視窗及適用的 Worker）訊息傳遞、領導者選舉與跨分頁 RPC 基礎設施。僅匯入此模組不會建立 `BroadcastChannel`、申請 Web Lock、網路連線或背景任務。
 
 ---
 
@@ -44,9 +44,10 @@ bus.dispose();
 
 | 模組 / 入口 | 職責 | Import 副作用 |
 | :--- | :--- | :--- |
-| `lib/coordination.js` | 獨立協作入口（匯出 `BroadcastService`、`MessageBus`、`createMessageBus`、`getCoordinationCapabilities`、`ENVELOPE_VERSION`、`DEFAULT_CHANNEL_NAME`、`DEFAULT_NAMESPACE`、`DEFAULT_BUS_CHANNEL`、`createEnvelope`、`validateEnvelope`、`VERSION`） | **無** |
+| `lib/coordination.js` | 獨立協作入口（匯出 `BroadcastService`、`MessageBus`、`createMessageBus`、`LeaderElection`、`createLeaderElection`、`RpcChannel`、`createRpcChannel`、`RpcError`、`RPC_ERROR_CODES`、`getCoordinationCapabilities`、`ENVELOPE_VERSION`、`DEFAULT_CHANNEL_NAME`、`DEFAULT_NAMESPACE`、`DEFAULT_BUS_CHANNEL`、`DEFAULT_LOCK_PREFIX`、`DEFAULT_LEADER_SCOPE`、`DEFAULT_RPC_TIMEOUT_MS`、`createEnvelope`、`validateEnvelope`、`serializeRpcError`、`deserializeRpcError`、`VERSION`） | **無** |
 | `lib/broadcast-channel.js` | 純類別 `BroadcastService`、版本化 envelope 與 capability 偵測 | **無** |
-| `lib/message-bus.js` | 跨執行環境發布／訂閱 `MessageBus` | **無** |
+| `lib/leader-election.js` | 基於 Web Locks 的 scoped 互斥領導者選舉（`LeaderElection`） | **無** |
+| `lib/rpc-channel.js` | 基於 `MessageBus` 的白名單跨分頁 RPC（`RpcChannel`、`RpcError`） | **無** |
 | `lib/broadcast-service.js` | 保留 `broadcastService` 預設單例供 `lib/core.js` 與現有展示頁向下相容 | 建立預設全域單例 |
 | `lib/core.js` | 維持輕量核心 API，不引入協調進階抽象 | 維持既有行為 |
 | `lib/vanilla-sdk.js` | 額外重新匯出協作類別與工廠函式（不自動連線） | 維持既有行為 |
@@ -120,7 +121,79 @@ channel.dispose();
 
 ---
 
-## 6. 限制與安全邊界
+## 6. `LeaderElection`（Web Locks 互斥與接管，Phase 2）
+
+`LeaderElection` 僅以瀏覽器原生的 **Web Locks API**（`mode: 'exclusive'`、鎖名 `${lockPrefix}:${namespace}:${scope}`）作為唯一互斥依據，不使用 `{ steal: true }`，詳見 [ADR 0104](./decisions/0104-leader-election-and-rpc.md)。
+
+```javascript
+import { createMessageBus, createLeaderElection } from './lib/coordination.js';
+
+const bus = createMessageBus({ namespace: 'orders' });
+const election = createLeaderElection({
+    namespace: 'orders',
+    scope: 'sync-worker',
+    bus,                      // 選用：僅用於觀測 heartbeat，不參與互斥
+    heartbeatIntervalMs: 2000 // 預設 0（停用定時器）
+});
+
+election.on('role-change', ({ role, epoch, takeover }) => {
+    console.log(`角色變更：${role} (epoch=${epoch}, takeover=${takeover})`);
+});
+
+const status = await election.start();
+if (!status.supported) {
+    console.warn('不支援 Web Locks API，不應假裝擁有跨分頁互斥鎖');
+}
+
+// 主動讓出或離開頁面時釋放資源
+await election.release();
+await election.dispose();
+bus.dispose();
+```
+
+- **兩段式取得與自動接管**：`start()` 先以 `{ mode: 'exclusive', ifAvailable: true }` 立即探測，無人持鎖時直接成為 `'leader'`；已被持有時切為 `'follower'` 並立即在背景排隊（`{ mode: 'exclusive', signal }`），不會阻塞 `start()`。原 leader 分頁關閉、重載或呼叫 `release()` 後，排隊中的 follower 會自動接管並推進 `epoch`。
+- **Heartbeat 僅供觀測**：即使停發 heartbeat 或觀察到其他訊息，系統也不會改變自身互斥角色或搶鎖。
+- **背景凍結（Background Freeze）限制與 `releaseOnFreeze`**：當分頁進入背景凍結（Page Lifecycle `freeze`）時，瀏覽器會暫停 JS 計時器但**通常仍保留既有 Web Lock**。這代表互斥安全性不會被破壞（不會雙重 leader），但接管時間會延後到該分頁恢復或關閉。若應用場景可容忍主動讓出，可設定 `{ releaseOnFreeze: true }`，於 `freeze` 事件釋放鎖並在 `resume` 時重新參與競選。
+- **不支援 API 行為**：無 `navigator.locks` 時明確回報 `supported: false`、`role: 'unsupported'`、`start()` 回傳 `{ acquired: false, role: 'unsupported', supported: false }`，絕不以 `localStorage` 假裝互斥。
+
+---
+
+## 7. `RpcChannel`（跨分頁 Request / Response，Phase 2）
+
+`RpcChannel` 建立於 `MessageBus` 之上，提供可取消、具逾時與錯誤序列化的跨分頁方法呼叫：
+
+```javascript
+import { createRpcChannel, RPC_ERROR_CODES } from './lib/coordination.js';
+
+const rpc = createRpcChannel({ namespace: 'orders', timeoutMs: 3000 });
+
+const unregister = rpc.register('math.add', ({ a, b }, ctx) => {
+    if (ctx.signal.aborted) return null;
+    return a + b;
+});
+
+try {
+    // 呼叫明確目標或同 namespace 唯一 provider（target 省略或為 null）
+    const sum = await rpc.call('math.add', { a: 2, b: 3 }, { allowLocal: false });
+    console.log(sum);
+} catch (err) {
+    if (err.code === RPC_ERROR_CODES.TIMEOUT) {
+        console.warn('請求逾時，不會自動重試');
+    }
+}
+
+unregister();
+rpc.dispose();
+```
+
+- **方法白名單與目標路由**：僅接受透過 `register()` 註冊的方法（阻擋 `__proto__`/`constructor`/`prototype`）。指定 `target` 時非目標節點忽略、目標未註冊則回 `METHOD_NOT_FOUND`；`target: null` 適用於唯一服務提供者。
+- **生命週期與清理**：支援單次 `timeoutMs` 與 `AbortSignal`，逾時或取消會立刻清除 `_pending` 與計時器並發出 best-effort `__rpc:cancel` 讓遠端 `context.signal` 中止；`dispose()` 會立即將所有未完成請求以 `CHANNEL_CLOSED` 結束並清空 `pendingCount`。
+- **不自動重試與不回滾語意**：RPC 預設**不重試**任何失敗或逾時呼叫；取消／逾時僅代表呼叫端停止等待，不會回滾遠端已經產生的副作用。
+- **重複回應與無傳輸層處理**：逾時後遲到或重複的回應會被安全忽略並發出 `'duplicate-response'` 事件；不支援 `BroadcastChannel` 時遠端呼叫會立即回報 `TRANSPORT_UNAVAILABLE`。
+
+---
+
+## 8. 限制與安全邊界
 
 1. **同源不等同授權；`namespace` 不是安全邊界**：任何同源腳本皆可監聽或傳送至同一 channel 與 `namespace`。請勿廣播身份驗證權杖、密碼或敏感個資，也勿將訊息當作任意程式執行指令。
 2. **純同源同儲存分區限制**：`BroadcastChannel` 無法跨越不同 Origin、不同瀏覽器或不同裝置，且受瀏覽器 Storage Partitioning 規範約束。

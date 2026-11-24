@@ -10,7 +10,9 @@ const COORDINATION_FILES = [
     'lib/base-service.js',
     'lib/broadcast-channel.js',
     'lib/coordination.js',
+    'lib/leader-election.js',
     'lib/message-bus.js',
+    'lib/rpc-channel.js',
     'lib/version.js',
 ].sort();
 
@@ -71,21 +73,42 @@ test('lib/coordination.js 靜態相依圖只包含協調基礎模組，不依賴
     assert.ok(!graph.includes('lib/base-component.js'));
 });
 
-test('匯入 lib/coordination.js 不建立 BroadcastChannel，且在無 BroadcastChannel 環境不拋錯', async () => {
+test('匯入 lib/coordination.js 不建立 BroadcastChannel 也不呼叫 navigator.locks.request，且在無 API 環境不拋錯', async () => {
     const OriginalBC = globalThis.BroadcastChannel;
+    const origNavDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
     let constructCount = 0;
+    let lockRequestCount = 0;
+
     globalThis.BroadcastChannel = class {
         constructor() {
             constructCount += 1;
         }
     };
+    Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        value: {
+            locks: {
+                request() {
+                    lockRequestCount += 1;
+                    return Promise.resolve();
+                },
+            },
+        },
+    });
     try {
         const mod = await import('../lib/coordination.js?spy=1');
         assert.equal(constructCount, 0);
+        assert.equal(lockRequestCount, 0);
         assert.equal(typeof mod.MessageBus, 'function');
-        assert.equal(typeof mod.BroadcastService, 'function');
+        assert.equal(typeof mod.LeaderElection, 'function');
+        assert.equal(typeof mod.RpcChannel, 'function');
     } finally {
         globalThis.BroadcastChannel = OriginalBC;
+        if (origNavDescriptor) {
+            Object.defineProperty(globalThis, 'navigator', origNavDescriptor);
+        } else {
+            delete globalThis.navigator;
+        }
     }
 
     globalThis.BroadcastChannel = undefined;
@@ -94,6 +117,8 @@ test('匯入 lib/coordination.js 不建立 BroadcastChannel，且在無 Broadcas
         const caps = modNoBc.getCoordinationCapabilities();
         assert.equal(caps.broadcastChannel, false);
         assert.equal(typeof modNoBc.createMessageBus, 'function');
+        assert.equal(typeof modNoBc.createLeaderElection, 'function');
+        assert.equal(typeof modNoBc.createRpcChannel, 'function');
     } finally {
         globalThis.BroadcastChannel = OriginalBC;
     }

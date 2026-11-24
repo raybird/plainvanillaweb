@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vanilla-cache-ae2ed4ac5325';
+const CACHE_NAME = 'vanilla-cache-6f2095d4f1b2';
 const CORE_ASSETS = [
     './',
     './index.html',

@@ -13,7 +13,7 @@
 | 層級 | 是什麼 | 入口 | 適合什麼時候用 |
 | :--- | :--- | :--- | :--- |
 | **① 核心** | 約 1,100 行可重用的基礎建設：安全模板、具 DOM morphing 的反應式元件、服務基底、跨分頁 Store 與 hash 路由 | [`lib/core.js`](./lib/core.js) | 想用原生方式打造自己的應用 |
-| **①+ 跨分頁協作** | 可選載入、零匯入副作用的跨執行環境訊息匯流排（`BroadcastService`、`MessageBus`） | [`lib/coordination.js`](./lib/coordination.js) | 需要具命名空間隔離的多分頁／Worker 通訊 |
+| **①+ 跨分頁協作** | 可選載入、零匯入副作用的跨執行環境協作（`BroadcastService`、`MessageBus`、Web Locks `LeaderElection` 與跨分頁 `RpcChannel`） | [`lib/coordination.js`](./lib/coordination.js) | 需要具命名空間隔離的多分頁／Worker 協作 |
 | **② 展示站** | 以核心打造的完整網站：37 個前沿 Web API 互動實驗室、執行期渲染的文件、儀表板與遊樂場 | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | 想學某個 Web API，或直接借用寫好的 service |
 
 核心不會 import 任何展示站的程式，並由測試守住這條邊界（[ADR 0101](./docs/decisions/0101-core-entry-point.md)）。版本依語意化版本編號，見 [CHANGELOG](./CHANGELOG.md)（目前為 **v3.1.0**）。
@@ -131,8 +131,8 @@ import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdel
 │   ├── coordination.js   # ①+ 跨分頁協作獨立入口
 │   ├── html.js, base-component.js, morph.js, base-service.js,
 │   │   store.js, broadcast-channel.js, broadcast-service.js,
-│   │   message-bus.js, router.js,
-│   │   i18n-service.js, meta-service.js  # ① 核心 / 協作基礎
+│   │   message-bus.js, leader-election.js, rpc-channel.js,
+│   │   router.js, i18n-service.js, meta-service.js  # ① 核心 / 協作基礎
 │   ├── vanilla-sdk.js    # ② 一次全部引入的入口
 │   └── *-service.js      # ② WebGPU、WebRTC、Bluetooth、Crypto…
 ├── components/

@@ -8,6 +8,7 @@ export class SerialPage extends BaseComponent {
         super();
         this.initReactiveState({
             isSerialConnected: false,
+            isSerialBusy: false,
             serialLogs: [],
             serialBaud: 9600,
             serialInput: '',
@@ -26,6 +27,15 @@ export class SerialPage extends BaseComponent {
         serialService.on('data', this._onData);
         serialService.on('connected', this._onConnected);
         serialService.on('disconnected', this._onDisconnected);
+        this.state.isSerialConnected = Boolean(serialService.port);
+    }
+
+    afterFirstRender() {
+        this.addEventListener('submit', event => {
+            if (!event.target.matches('.serial-command')) return;
+            event.preventDefault();
+            void this.sendSerialCommand(event.target.elements.command);
+        });
     }
 
     disconnectedCallback() {
@@ -36,23 +46,31 @@ export class SerialPage extends BaseComponent {
     }
 
     async runSerialConnect() {
-        if (this.state.isSerialConnected) {
-            await serialService.disconnect();
-            return;
-        }
+        if (this.state.isSerialBusy) return;
+        this.state.isSerialBusy = true;
         try {
-            await serialService.connect(this.state.serialBaud);
+            if (this.state.isSerialConnected) {
+                await serialService.disconnect();
+            } else {
+                await serialService.connect(this.state.serialBaud);
+            }
         } catch (err) {
             if (err.name !== 'NotFoundError') notificationService.error(err.message);
+        } finally {
+            this.state.isSerialBusy = false;
         }
     }
 
-    async sendSerialCommand() {
-        const input = this.querySelector('#serial-input');
-        const text = input?.value?.trim();
-        if (!text) return;
-        await serialService.write(text + '\n');
-        if (input) input.value = '';
+    async sendSerialCommand(input) {
+        const submittedValue = input.value;
+        const text = submittedValue.trim();
+        if (!text || !this.state.isSerialConnected || this.state.isSerialBusy) return;
+        try {
+            await serialService.write(text + '\n');
+            if (input.value === submittedValue) input.value = '';
+        } catch (err) {
+            notificationService.error(err.message);
+        }
     }
 
     render() {
@@ -64,24 +82,27 @@ export class SerialPage extends BaseComponent {
                 </div>
                 <div class="btn-group" style="margin-bottom: 1.5rem;">
                     <button class="btn ${this.state.isSerialConnected ? 'btn-danger' : 'btn-primary'}" 
-                            ${!serialService.isSupported ? 'disabled' : ''}
+                            ${!serialService.isSupported || this.state.isSerialBusy ? 'disabled' : ''}
                             onclick="this.closest('page-lab-serial').runSerialConnect()">
                         ${this.state.isSerialConnected ? '🔌 斷開連線' : '🔍 掃描並連線'}
                     </button>
-                    <select class="control-btn" style="width: auto; margin-bottom: 0;"
+                    <label for="serial-baud">鮑率</label>
+                    <select id="serial-baud" class="control-btn" style="width: auto; margin-bottom: 0;"
                             onchange="this.closest('page-lab-serial').state.serialBaud = Number(this.value)">
                         <option value="9600">9600 Baud</option>
                         <option value="115200">115200 Baud</option>
                     </select>
                 </div>
                 <div class="chat-box" style="height: 120px; font-family: monospace; background: #1a1a1a; color: #00ff00; padding: 1rem; border-radius: 8px; overflow-y: auto;">
-                    ${this.state.serialLogs.length === 0 ? '> 等待數據輸入...' : this.state.serialLogs.map(log => `<div>> ${log}</div>`).join('')}
+                    ${this.state.serialLogs.length === 0 ? '> 等待數據輸入...' : this.state.serialLogs.map(log => html`<div>> ${log}</div>`)}
                 </div>
-                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                    <input type="text" id="serial-input" placeholder="發送命令..." 
-                           onkeydown="if(event.key==='Enter') this.closest('page-lab-serial').sendSerialCommand()">
-                    <button class="btn btn-secondary" onclick="this.closest('page-lab-serial').sendSerialCommand()">傳送</button>
-                </div>
+                <form class="serial-command" style="margin-top: 1rem;">
+                    <label for="serial-input">序列埠命令</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="serial-input" name="command" required enterkeyhint="send">
+                        <button type="submit" class="btn btn-secondary" ${!this.state.isSerialConnected || this.state.isSerialBusy ? 'disabled' : ''}>傳送</button>
+                    </div>
+                </form>
             </div>
             <a href="#/lab" class="btn btn-secondary" style="margin-top: 2rem;">⬅️ 回實驗室首頁</a>
         `;

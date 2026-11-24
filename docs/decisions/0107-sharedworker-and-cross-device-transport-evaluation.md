@@ -29,7 +29,7 @@ Phase 1–4 已透過 `lib/coordination.js` 交付同源跨執行環境協調 SD
 
 ### 2. 既有 `lib/webrtc-service.js` 與跨裝置 Transport Adapter
 
-- **`lib/webrtc-service.js` 實查評估**：目前為展示導向單例類別（[webrtc-service.js](../../lib/webrtc-service.js)），採 1-to-1 手動複製貼上 SDP、2000ms 固定等待 ICE gathering、僅含公共 STUN（無 TURN 無法穿透對稱型 NAT）、缺乏自動重連／背壓控制／身分驗證／權限邊界、並預設以 JSON 字串收發（未連通時僅 `console.warn`）。因此**不應直接改造 `lib/webrtc-service.js` 作為協調傳輸層**。
+- **`lib/webrtc-service.js` 實查評估**：目前為展示導向單例類別（[webrtc-service.js](../../lib/webrtc-service.js)，雖已具備 `close()` 與 `AbortController` 生命週期清理），採 1-to-1 手動複製貼上 SDP、2000ms 固定等待 ICE gathering、僅含公共 STUN（無 TURN 無法穿透對稱型 NAT）、缺乏自動重連／背壓控制／身分驗證／權限邊界、並預設以 JSON 字串收發（未連通時 `send()` 回傳 `false`）。因此**不應直接改造 `lib/webrtc-service.js` 作為協調傳輸層**。
 - **協定重用與誠實邊界實證**：
   - 既有 `BroadcastService` 的 `options.transport`（只需 `postMessage` / `close` / `onmessage` / `onmessageerror`）與 `MessageBus`／`RpcChannel`／`PeerDiscovery` 的 v1 信封協定**可於零修改 `lib/` 原始碼下直接承載 SharedWorker Port 與 WebSocket Relay PoC**。
   - 然而，PoC 同時證實若隱藏 transport 語意將造成嚴重誤判：

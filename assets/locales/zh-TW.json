@@ -11,6 +11,11 @@
         "playground": "遊樂場",
         "contact": "聯絡我們",
         "dashboard": "儀表板",
+        "navToggle": "切換導覽選單",
+        "navLabel": "主要導覽",
+        "themeSystem": "跟隨系統",
+        "themeLight": "淺色",
+        "themeDark": "深色",
         "theme": "切換主題",
         "lang": "English"
     },

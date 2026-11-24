@@ -42,14 +42,15 @@ export class Dashboard extends BaseComponent {
             this.state.canUndo = e.detail.canUndo;
             this.state.canRedo = e.detail.canRedo;
         };
-        this.onStorageUpdate = (m) => {
-            this.state.storageMetrics = m;
+        this.onStorageUpdate = (e) => {
+            this.state.storageMetrics = e.detail;
         };
     }
 
     connectedCallback() {
         super.connectedCallback();
         computeService.addEventListener('done', this.onWorkerDone);
+        this._previousStoreState = structuredClone(appStore._baseState);
         appStore.addEventListener('change', this.onStoreChange);
         networkMonitor.addEventListener('log', this.onNetworkLog);
         networkMonitor.addEventListener('clear', this.onNetworkLog);
@@ -57,7 +58,7 @@ export class Dashboard extends BaseComponent {
         syncService.addEventListener('action-queued', this.onSyncUpdate);
         syncService.addEventListener('action-synced', this.onSyncUpdate);
         historyService.addEventListener('change', this.onHistoryChange);
-        storageService.addEventListener('update', (e) => this.onStorageUpdate(e.detail));
+        storageService.addEventListener('update', this.onStorageUpdate);
 
         this.state.networkLogs = networkMonitor.logs;
         this.state.perfMetrics = performanceService.summary;
@@ -81,6 +82,8 @@ export class Dashboard extends BaseComponent {
     }
 
     disconnectedCallback() {
+        super.disconnectedCallback();
+        storageService.removeEventListener('update', this.onStorageUpdate);
         computeService.removeEventListener('done', this.onWorkerDone);
         appStore.removeEventListener('change', this.onStoreChange);
         networkMonitor.removeEventListener('log', this.onNetworkLog);
@@ -99,8 +102,10 @@ export class Dashboard extends BaseComponent {
 
     onStoreUpdate(e) {
         if (!e.detail.isSnapshot && !e.detail.remote) {
-            historyService.push(appStore._baseState);
+            historyService.push(this._previousStoreState);
         }
+
+        this._previousStoreState = structuredClone(appStore._baseState);
 
         if (e.detail.remote) {
             this.state.lastSyncTab = e.detail.sender;
@@ -158,6 +163,7 @@ export class Dashboard extends BaseComponent {
 
     render() {
         const lastSearch = appStore.state.lastSearch || '無';
+        const milliseconds = value => value === null ? '未取得' : `${value} ms`;
         const stateJson = JSON.stringify(appStore.state, null, 2);
         const { perfMetrics, lastSyncTab, syncCount, thisTabId, syncQueueCount, canUndo, canRedo, storageMetrics } = this.state;
 
@@ -283,12 +289,12 @@ export class Dashboard extends BaseComponent {
 
                 <!-- 性能監控 -->
                 <div class="card">
-                    <h3>🚀 性能核心 (Web Vitals)</h3>
+                    <h3>🚀 文件效能 (Performance Timing)</h3>
                     <div class="perf-grid">
-                        <div class="perf-item"><strong>LCP:</strong> ${perfMetrics.lcp}ms</div>
-                        <div class="perf-item"><strong>FID:</strong> ${perfMetrics.fid}ms</div>
-                        <div class="perf-item"><strong>CLS:</strong> ${perfMetrics.cls.toFixed(3)}</div>
-                        <div class="perf-item"><strong>Load:</strong> ${perfMetrics.loadTime}ms</div>
+                        <div class="perf-item"><strong>LCP:</strong> ${milliseconds(perfMetrics.lcp)}</div>
+                        <div class="perf-item"><strong>最慢觀測互動:</strong> ${milliseconds(perfMetrics.interactionLatency)}</div>
+                        <div class="perf-item"><strong>CLS:</strong> ${perfMetrics.cls?.toFixed(3) ?? '未取得'}</div>
+                        <div class="perf-item"><strong>Load:</strong> ${milliseconds(perfMetrics.loadTime)}</div>
                     </div>
                 </div>
 

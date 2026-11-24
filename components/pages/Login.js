@@ -12,6 +12,7 @@ export class LoginPage extends BaseComponent {
 
     async handleLogin(e) {
         e.preventDefault();
+        if (this.state.loading) return;
         const form = e.target;
         const username = form.username.value;
         const password = form.password.value;
@@ -27,7 +28,7 @@ export class LoginPage extends BaseComponent {
             router.push('/');
         } catch (err) {
             this.state.error = err.message;
-            notificationService.error(err.message);
+
         } finally {
             this.state.loading = false;
         }
@@ -52,16 +53,16 @@ export class LoginPage extends BaseComponent {
                 <h2 style="text-align:center; margin-top:0;">🔐 系統登入</h2>
                 <p style="text-align:center; color:var(--text-muted); font-size:0.9rem; margin-bottom:2rem;">請輸入您的憑證以存取受保護資源</p>
 
-                ${error ? html`<div class="error-box">${error}</div>` : ''}
+                <div role="alert" class="${error ? 'error-box' : ''}">${error}</div>
 
-                <form id="login-form">
+                <form id="login-form" method="post">
                     <div class="input-group">
-                        <label>帳號 (Username)</label>
-                        <input name="username" type="text" placeholder="請輸入 admin" required autofocus>
+                        <label for="login-username">帳號 (Username)</label>
+                        <input id="login-username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" type="text" placeholder="請輸入 admin" required>
                     </div>
                     <div class="input-group">
-                        <label>密碼 (Password)</label>
-                        <input name="password" type="password" placeholder="請輸入 1234" required>
+                        <label for="login-password">密碼 (Password)</label>
+                        <input id="login-password" name="password" autocomplete="current-password" type="password" placeholder="請輸入 1234" required>
                     </div>
                     <button type="submit" class="btn-login" ${loading ? 'disabled' : ''}>
                         ${loading ? '正在驗證...' : '登入系統'}

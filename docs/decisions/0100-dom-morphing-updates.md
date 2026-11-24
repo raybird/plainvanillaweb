@@ -21,7 +21,7 @@
 
 1. **一般元素就地更新**：同位置、同標籤的元素保留節點本身，只同步屬性並遞迴比對子節點；帶 `id` 的元素優先依 `id` 配對，順序改變時搬移而不重建。
 2. **子元件（自訂元素）一律重建**：與舊行為相同，父元件重繪時子元件會經過 `disconnectedCallback`／`connectedCallback`。這保留了既有的生命週期假設，例如離開頁面時釋放相機、`Docs` 依網址重新載入文件。
-3. **表單控制項**：`value`、`checked`、`selected` 以新 HTML 為準同步（與重建後的結果相同），值相同時不寫入，避免游標跳動。
+3. **表單控制項**：新模板的預設值變動時同步 `value`、`checked`、`selected`。預設值未變時保留使用者輸入、自動填入與游標位置。需要每次強制同步的控制項可使用 `data-controlled-value`。
 4. **`data-persistent`**：舊節點與新 HTML 的 `data-persistent-placeholder` 同 id 時直接保留；位置改變時仍沿用原本的搬移機制。
 5. **Lucide 圖示**：產生的 `<svg>` 記住來源 `<i data-lucide>` 的 HTML，並把屬性改名為 `data-lucide-icon`，避免每次更新被 Lucide 重新產生；來源相同時保留，不同時重建。
 6. **逃生口**：元件可設定 `static morphUpdates = false` 改回整塊重繪。

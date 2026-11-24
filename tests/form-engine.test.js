@@ -100,3 +100,28 @@ test('FormGroup 全部子欄位有效才 valid', async () => {
     await email.validate();
     assert.strictEqual(group.valid, true);
 });
+
+test('latest validation owns errors and pending blocks group validity', async () => {
+    const requests = [];
+    const control = new FormControl('', [], [value => new Promise(resolve => requests.push({value, resolve}))]);
+    const group = new FormGroup({ control });
+    control.value = 'old';
+    control.value = 'new';
+    assert.equal(group.valid, false);
+    requests[1].resolve(null);
+    await Promise.resolve();
+    requests[0].resolve({ stale: true });
+    await Promise.resolve();
+    assert.equal(group.valid, true);
+    assert.equal(control.state.errors, null);
+});
+
+test('validateAll waits for async controls', async () => {
+    let resolve;
+    const control = new FormControl('name', [], [() => new Promise(done => { resolve = done; })]);
+    const group = new FormGroup({ control });
+    const result = group.validateAll();
+    resolve({ taken: true });
+    assert.equal(await result, false);
+    assert.deepEqual(control.state.errors, { taken: true });
+});

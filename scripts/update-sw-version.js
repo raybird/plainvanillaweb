@@ -21,8 +21,8 @@ const SW_PATH = 'sw.js';
 const INDEX_PATH = 'index.html';
 
 // 不會被網站載入的檔案：改動它們不需要讓使用者更新快取
-const EXCLUDED_PREFIXES = ['.github/', '.agent/', 'scripts/', 'tests/'];
-const EXCLUDED_FILES = new Set([SW_PATH, '.gitignore']);
+const EXCLUDED_PREFIXES = ['.github/', '.agent/', 'scripts/', 'tests/', 'docs/audits/', 'docs/superpowers/'];
+const EXCLUDED_FILES = new Set(['.gitignore']);
 
 const CACHE_NAME_RE = /const CACHE_NAME = '[^']*';/;
 const INDEX_VERSION_RE = /(index\.js\?v=)[^"']*/;
@@ -48,6 +48,8 @@ function computeVersion() {
         if (file === INDEX_PATH) {
             // 版本字串本身不納入計算，否則寫入版本號會改變雜湊
             content = Buffer.from(content.toString('utf8').replace(INDEX_VERSION_RE, '$1'));
+        } else if (file === SW_PATH) {
+            content = Buffer.from(content.toString('utf8').replace(CACHE_NAME_RE, "const CACHE_NAME = '';"));
         }
         hash.update(file).update('\0').update(content).update('\0');
     }

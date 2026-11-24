@@ -285,6 +285,56 @@
             assertEq(el.querySelector('.sel').value, 'x', 'select 應更新');
         });
 
+        test('morph preserves user edits when template defaults are unchanged', async () => {
+            class C extends BaseComponent {
+                constructor() { super(); this.initReactiveState({ loading: false }); }
+                render() { return `<input><textarea></textarea><input type="checkbox">
+                    <select><option>a</option><option>b</option></select><span>${this.state.loading}</span>`; }
+            }
+            customElements.define('t-morph-live-forms', C);
+            const el = mount(document.createElement('t-morph-live-forms'));
+            const [text, area, check, select] = el.querySelectorAll('input,textarea,select');
+            text.value = 'typed'; area.value = 'draft'; check.checked = true; select.value = 'b';
+            el.state.loading = true;
+            await nextFrame();
+            assertEq(text.value, 'typed');
+            assertEq(area.value, 'draft');
+            assertEq(check.checked, true);
+            assertEq(select.value, 'b');
+        });
+
+        test('virtual list refreshes data without changing the viewport range', async () => {
+            await import('./components/VirtualList.js');
+            const list = mount(document.createElement('v-list'));
+            list.props = { items: ['before'] };
+            await nextFrame();
+            assert(list.textContent.includes('before'));
+            list.props = { items: ['after'] };
+            await nextFrame();
+            assert(list.textContent.includes('after') && !list.textContent.includes('before'));
+        });
+
+        test('native dialog close and replacement settle pending confirmations', async () => {
+            const { modalService } = await import('./lib/modal-service.js');
+            await import('./components/Modal.js');
+            const el = mount(document.createElement('app-modal'));
+            try {
+                const first = modalService.confirm('First', 'Content');
+                await nextFrame();
+                el.querySelector('dialog').close();
+                const settle = promise => Promise.race([promise, new Promise(r => setTimeout(() => r('pending'), 100))]);
+                assertEq(await settle(first), false);
+                const replaced = modalService.confirm('Replaced', 'Content');
+                const next = modalService.confirm('Next', 'Content');
+                assertEq(await settle(replaced), false);
+                await nextFrame();
+                el.querySelector('button[value="confirm"]').click();
+                assertEq(await settle(next), true);
+            } finally {
+                el.remove();
+            }
+        });
+
         test('morph：沒有 id 的輸入框重繪後仍保有焦點與游標', async () => {
             class C extends BaseComponent {
                 constructor() { super(); this.initReactiveState({ n: 0 }); }

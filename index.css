@@ -5,6 +5,7 @@
 
 /* ── Design Tokens ── */
 :root {
+  color-scheme: light dark;
   /* 主色系：從工程師藍升級為深邃藍紫系 */
   --primary-color: #2563eb;
   --primary-hover: #1d4ed8;
@@ -44,7 +45,10 @@
 }
 
 /* ── Dark Mode ── */
+[data-theme="light"] { color-scheme: light; }
+
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg-color: #0a0f1a;
   --surface-color: #0f172a;
   --border-color: rgba(255, 255, 255, 0.08);
@@ -86,7 +90,7 @@ body {
   color: var(--text-color);
   margin: 0;
   line-height: 1.7;
-  font-size: 16px;
+  font-size: 1rem;
   /* 貝氏曲線平滑明暗轉換 */
   transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s ease;
 }
@@ -273,12 +277,14 @@ h4 {
 .app-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100svh;
 }
 
 /* ── Sidebar (深色專業風格) ── */
 .navbar {
   width: var(--nav-width);
   height: 100vh;
+  height: 100dvh;
   background: var(--nav-bg);
   padding: 0;
   display: flex;
@@ -631,7 +637,7 @@ a:hover {
 input,
 textarea,
 select {
-  font-size: 16px;
+  font-size: 1rem;
   padding: 0.75rem 1rem;
   border: 1.5px solid var(--border-color);
   border-radius: var(--border-radius);
@@ -646,7 +652,6 @@ select {
 input:focus,
 textarea:focus,
 select:focus {
-  outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px var(--primary-subtle);
 }
@@ -737,8 +742,32 @@ hr {
 }
 
 /* ── Skip Link ── */
-.skip-link:focus {
-  top: 0 !important;
+.skip-link {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  transform: translateY(-110%);
+  background: var(--primary-color);
+  color: white;
+  padding: 0.5rem;
+  z-index: 2000;
+}
+.skip-link:focus { transform: none; }
+
+:is(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body, .navbar, .nav-icon, .nav-link, .btn, .lucide-icon {
+    transition: none;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }
 
 /* ── Page Transitions ── */
@@ -753,11 +782,13 @@ hr {
 @media (max-width: 1024px) {
   .navbar {
     transform: translateX(-100%);
+    visibility: hidden;
     width: 280px;
   }
 
   .navbar.open {
     transform: translateX(0);
+    visibility: visible;
   }
 
   main#main-content {
@@ -935,4 +966,31 @@ hr {
 }
 [data-theme="dark"]::view-transition-new(root) {
   z-index: 1;
+}
+.app-toasts {
+  position: fixed;
+  inset-block-start: 1rem;
+  inset-inline-end: 1rem;
+  z-index: 9999;
+  display: grid;
+  justify-items: end;
+  gap: 0.5rem;
+  max-inline-size: calc(100% - 2rem);
+}
+.app-toast {
+  background: #334155;
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  overflow-wrap: anywhere;
+}
+.app-toast[data-type="success"] { background: #166534; }
+.app-toast[data-type="error"] { background: #991b1b; }
+.app-toast[data-type="warning"] { background: #facc15; color: #272106; }
+@media (prefers-reduced-motion: no-preference) {
+  .app-toast { animation: toast-in 0.2s ease-out; }
+}
+@keyframes toast-in {
+  from { transform: translateX(1rem); opacity: 0; }
 }

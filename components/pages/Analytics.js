@@ -26,7 +26,10 @@ export class AnalyticsPage extends BaseComponent {
         if (lcpCanvas) {
             this.charts.set('lcp', new CanvasChart(lcpCanvas, { color: '#007bff' }));
         }
+    }
 
+    connectedCallback() {
+        super.connectedCallback();
         this.startMonitoring();
     }
 
@@ -43,13 +46,14 @@ export class AnalyticsPage extends BaseComponent {
 
             // 更新 LCP 趨勢 (來自 service)
             const summary = performanceService.summary;
-            this.charts.get('lcp')?.addData(summary.lcp);
+            if (summary.lcp !== null) this.charts.get('lcp')?.addData(summary.lcp);
         }, 1000);
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
         clearInterval(this.monitorInterval);
+        this.state.isMonitoring = false;
     }
 
     render() {

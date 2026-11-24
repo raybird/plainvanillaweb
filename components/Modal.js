@@ -14,58 +14,40 @@ export class ModalContainer extends HTMLElement {
         this._dialog = null;
         this._options = null;
 
-        // 具名 handler，確保 removeEventListener 能正確移除
         this._onOpen = (e) => this.show(e.detail.modal);
-        this._onClose = () => this.hide();
+        this._onClose = (e) => {
+            if (this._options?.id === e.detail.id) this.hide();
+        };
     }
 
     connectedCallback() {
-        // 先移除再加入，防止 App 重繪後重複綁定
-        modalService.removeEventListener('open', this._onOpen);
-        modalService.removeEventListener('close', this._onClose);
         modalService.addEventListener('open', this._onOpen);
         modalService.addEventListener('close', this._onClose);
-        this.render();
     }
 
     disconnectedCallback() {
         modalService.removeEventListener('open', this._onOpen);
         modalService.removeEventListener('close', this._onClose);
+        if (this._options) modalService.close(false, this._options.id);
+        this.hide();
     }
 
     show(options) {
+        this.hide();
         this._options = options;
         this.render();
-
-        // 使用 requestAnimationFrame 確保 innerHTML 已更新至 DOM 後再呼叫 showModal()
-        requestAnimationFrame(() => {
-            this._dialog = this.querySelector('dialog');
-            if (this._dialog && !this._dialog.open) {
-                this._dialog.showModal();
-
-                // 監聽原生 close 事件（處理 Escape 鍵）
-                this._dialog.addEventListener('close', () => {
-                    this._options = null;
-                }, { once: true });
-            }
-        });
+        const dialog = this.querySelector('dialog');
+        this._dialog = dialog;
+        dialog.addEventListener('close', () => {
+            modalService.close(dialog.returnValue === 'confirm', options.id);
+        }, { once: true });
+        dialog.showModal();
     }
 
     hide() {
-        if (this._dialog && this._dialog.open) {
-            this._dialog.close();
-        }
+        this._dialog?.close();
         this._dialog = null;
-    }
-
-    handleConfirm() {
-        if (this._options?.onConfirm) this._options.onConfirm();
-        this.hide();
-    }
-
-    handleCancel() {
-        if (this._options?.onCancel) this._options.onCancel();
-        this.hide();
+        this._options = null;
     }
 
     render() {
@@ -78,7 +60,7 @@ export class ModalContainer extends HTMLElement {
 
         this.innerHTML = html`
             <style>
-                dialog {
+                app-modal dialog {
                     border: none;
                     border-radius: 12px;
                     padding: 0;
@@ -88,7 +70,10 @@ export class ModalContainer extends HTMLElement {
                     background: var(--bg-color);
                     color: var(--text-color);
                 }
-                dialog::backdrop {
+                app-modal dialog:modal { overscroll-behavior: contain; }
+                app-modal dialog::backdrop {
+                    overflow: hidden;
+                    overscroll-behavior: contain;
                     background: rgba(0, 0, 0, 0.5);
                     backdrop-filter: blur(2px);
                 }
@@ -100,17 +85,17 @@ export class ModalContainer extends HTMLElement {
                 .btn-primary { background: var(--primary-color); color: white; }
                 .btn-secondary { background: #6c757d; color: white; }
             </style>
-            <dialog>
+            <dialog aria-labelledby="app-modal-title">
                 <div class="modal-header">
-                    <h3 style="margin:0;">${title}</h3>
+                    <h3 id="app-modal-title" style="margin:0;">${title}</h3>
                 </div>
                 <div class="modal-body">
                     ${content}
                 </div>
-                <div class="modal-footer">
-                    ${cancelText ? html`<button class="btn btn-secondary" onclick="this.closest('app-modal').handleCancel()">${cancelText}</button>` : ''}
-                    <button class="btn btn-primary" onclick="this.closest('app-modal').handleConfirm()">${confirmText || '確定'}</button>
-                </div>
+                <form class="modal-footer" method="dialog">
+                    ${cancelText ? html`<button class="btn btn-secondary" value="cancel" autofocus>${cancelText}</button>` : ''}
+                    <button class="btn btn-primary" value="confirm" ${cancelText ? '' : 'autofocus'}>${confirmText || '確定'}</button>
+                </form>
             </dialog>
         `.toString();
     }

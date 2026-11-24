@@ -1,6 +1,6 @@
 import { html, unsafe } from '../../../lib/html.js';
 import { BaseComponent } from '../../../lib/base-component.js';
-import { webrtcService } from '../../../lib/webrtc-service.js';
+import { WebRTCService } from '../../../lib/webrtc-service.js';
 import { notificationService } from '../../../lib/notification-service.js';
 
 /**
@@ -10,6 +10,9 @@ import { notificationService } from '../../../lib/notification-service.js';
 export class WebRTCPage extends BaseComponent {
     constructor() {
         super();
+        // 實驗頁擁有自己的連線，離開時不會關閉 SDK 其他呼叫者的連線。
+        this._service = new WebRTCService();
+        this._handshake = null;
         this.initReactiveState({
             // 'none' | 'caller' | 'answerer'
             role: 'none',
@@ -51,68 +54,93 @@ export class WebRTCPage extends BaseComponent {
             this.state.statusLabel = '⚫ 通道已關閉';
         };
 
-        webrtcService.on('message', this._onMessage);
-        webrtcService.on('state-change', this._onStateChange);
-        webrtcService.on('channel-open', this._onChannelOpen);
-        webrtcService.on('channel-close', this._onChannelClose);
+        this._service.on('message', this._onMessage);
+        this._service.on('state-change', this._onStateChange);
+        this._service.on('channel-open', this._onChannelOpen);
+        this._service.on('channel-close', this._onChannelClose);
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
-        webrtcService.off('message', this._onMessage);
-        webrtcService.off('state-change', this._onStateChange);
-        webrtcService.off('channel-open', this._onChannelOpen);
-        webrtcService.off('channel-close', this._onChannelClose);
+        this._service.off('message', this._onMessage);
+        this._service.off('state-change', this._onStateChange);
+        this._service.off('channel-open', this._onChannelOpen);
+        this._service.off('channel-close', this._onChannelClose);
+        this.selectRole('none');
     }
 
     selectRole(role) {
+        this._handshake = null;
+        this._service.close();
         this.state.role = role;
         this.state.step = 'idle';
         this.state.localSdp = '';
         this.state.remoteSdpInput = '';
+        this.state.messages = [];
+        this.state.isChannelOpen = false;
+        this.state.statusLabel = '🔴 未連線';
     }
 
-    async startAsCallerStep1() {
+    async _runHandshake(action, onSuccess, errorMessage) {
+        if (this._handshake) return;
+        const handshake = {};
+        this._handshake = handshake;
         try {
-            notificationService.info('正在建立 Offer，請稍候...');
-            const offer = await webrtcService.createOffer();
-            this.state.localSdp = JSON.stringify(offer);
-            this.state.step = 'offer-ready';
-            notificationService.success('Offer 已生成！請複製後傳給對方（接收者）。');
-        } catch (e) {
-            notificationService.error('建立 Offer 失敗: ' + e.message);
+            const result = await action();
+            if (this._handshake === handshake) onSuccess(result);
+        } catch (err) {
+            if (this._handshake === handshake) notificationService.error(errorMessage(err));
+        } finally {
+            if (this._handshake === handshake) this._handshake = null;
         }
     }
 
-    async startAsAnswererStep1() {
-        if (!this.state.remoteSdpInput.trim()) {
+    startAsCallerStep1() {
+        return this._runHandshake(
+            () => {
+                notificationService.info('正在建立 Offer，請稍候...');
+                return this._service.createOffer();
+            },
+            offer => {
+                this.state.localSdp = JSON.stringify(offer);
+                this.state.step = 'offer-ready';
+                notificationService.success('Offer 已生成！請複製後傳給對方（接收者）。');
+            },
+            err => '建立 Offer 失敗: ' + err.message
+        );
+    }
+
+    startAsAnswererStep1() {
+        const input = this.state.remoteSdpInput.trim();
+        if (!input) {
             notificationService.error('請先貼上 Caller 給你的 Offer SDP！');
             return;
         }
-        try {
-            notificationService.info('正在建立 Answer，請稍候...');
-            const offer = JSON.parse(this.state.remoteSdpInput);
-            const answer = await webrtcService.createAnswer(offer);
-            this.state.localSdp = JSON.stringify(answer);
-            this.state.step = 'answer-ready';
-            notificationService.success('Answer 已生成！請複製後傳回給 Caller。');
-        } catch (e) {
-            notificationService.error('建立 Answer 失敗，請確認貼入的 SDP 是否正確。');
-        }
+        return this._runHandshake(
+            () => {
+                notificationService.info('正在建立 Answer，請稍候...');
+                return this._service.createAnswer(JSON.parse(input));
+            },
+            answer => {
+                this.state.localSdp = JSON.stringify(answer);
+                this.state.step = 'answer-ready';
+                notificationService.success('Answer 已生成！請複製後傳回給 Caller。');
+            },
+            () => '建立 Answer 失敗，請確認貼入的 SDP 是否正確。'
+        );
     }
 
-    async callerApplyAnswer() {
-        if (!this.state.remoteSdpInput.trim()) {
+    callerApplyAnswer() {
+        const input = this.state.remoteSdpInput.trim();
+        if (!input) {
             notificationService.error('請先貼上 Answerer 回傳的 Answer SDP！');
             return;
         }
-        try {
-            const answer = JSON.parse(this.state.remoteSdpInput);
-            await webrtcService.setAnswer(answer);
-            notificationService.info('Answer 已套用，等待連線建立...');
-        } catch (e) {
-            notificationService.error('套用 Answer 失敗: ' + e.message);
-        }
+        return this._runHandshake(
+            () => this._service.setAnswer(JSON.parse(input)),
+            () => notificationService.info('Answer 已套用，等待連線建立...'),
+            err => '套用 Answer 失敗: ' + err.message
+        );
     }
 
     copySdp() {
@@ -122,18 +150,25 @@ export class WebRTCPage extends BaseComponent {
             .catch(() => notificationService.error('複製失敗，請手動選取複製'));
     }
 
+    afterFirstRender() {
+        this.addEventListener('submit', event => {
+            if (!event.target.matches('.chat-input-area')) return;
+            event.preventDefault();
+            this.sendMessage();
+        });
+    }
+
     sendMessage() {
         // 直接從 DOM 讀取，不走 reactive state，避免 oninput 觸發全頁重繪
         const input = this.querySelector('#webrtc-chat-input');
         const text = input?.value?.trim();
         if (!text) return;
-        try {
-            webrtcService.send(text);
-            this.state.messages = [...this.state.messages, { side: 'local', text }];
-            if (input) input.value = '';
-        } catch (e) {
-            notificationService.error('傳送失敗: ' + e.message);
+        if (!this._service.send(text)) {
+            notificationService.error('傳送失敗，請確認資料通道仍在連線中。');
+            return;
         }
+        this.state.messages = [...this.state.messages, { side: 'local', text }];
+        input.value = '';
     }
 
     render() {
@@ -144,10 +179,11 @@ export class WebRTCPage extends BaseComponent {
                 .status-text { font-weight: 600; }
                 
                 .role-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-                .role-card { padding: 2rem; border: 2px solid var(--border-color); border-radius: 12px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--card-bg); }
+                .role-card { font: inherit; color: inherit; padding: 2rem; border: 2px solid var(--border-color); border-radius: 12px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--card-bg); }
                 .role-card:hover { border-color: var(--primary-color, #2563eb); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1); transform: translateY(-2px); }
                 .role-card.active { border-color: var(--primary-color, #2563eb); background: #eff6ff; }
-                .role-card h3 { margin-top: 0; color: var(--primary-color, #2563eb); }
+                .role-card strong, .role-card .role-description { display: block; }
+                .role-card strong { margin-top: 0; color: var(--primary-color, #2563eb); }
                 .role-icon { font-size: 3rem; margin-bottom: 1rem; }
 
                 .guide-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
@@ -161,7 +197,7 @@ export class WebRTCPage extends BaseComponent {
                 
                 .sdp-box { font-family: monospace; font-size: 0.8rem; background: #1e293b; color: #a6accd; padding: 1rem; border-radius: 8px; word-break: break-all; max-height: 120px; overflow-y: auto; margin: 0.8rem 0; border: none; width: 100%; resize: vertical; }
                 .sdp-input { font-family: monospace; font-size: 0.8rem; padding: 0.8rem; border: 2px solid var(--border-color); border-radius: 8px; width: 100%; resize: vertical; line-height: 1.4; }
-                .sdp-input:focus { outline: none; border-color: var(--primary-color, #2563eb); }
+                .sdp-input:focus { outline: 2px solid currentColor; outline-offset: 2px; border-color: var(--primary-color, #2563eb); }
 
                 .chat-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; margin-top: 2rem; }
                 .chat-header { padding: 1rem 1.5rem; background: var(--surface-color); border-bottom: 1px solid var(--border-color); font-weight: 600; }
@@ -170,7 +206,7 @@ export class WebRTCPage extends BaseComponent {
                 .msg-remote { align-self: flex-start; background: var(--card-bg); color: #334155; padding: 0.6rem 1rem; border-radius: 16px 16px 16px 4px; max-width: 75%; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
                 .chat-input-area { display: flex; gap: 0.5rem; padding: 1rem; border-top: 1px solid var(--border-color); }
                 .chat-input-area input { flex: 1; padding: 0.7rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
-                .chat-input-area input:focus { outline: none; border-color: var(--primary-color, #2563eb); }
+                .chat-input-area input:focus { outline: 2px solid currentColor; outline-offset: 2px; border-color: var(--primary-color, #2563eb); }
                 
                 .instruction-box { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 1rem; border-radius: 4px; font-size: 0.9rem; margin-top: 1rem; }
             </style>
@@ -188,16 +224,16 @@ export class WebRTCPage extends BaseComponent {
                 <!-- 第 1 步：選擇角色 -->
                 <h3>① 選擇你在這個視窗的角色</h3>
                 <div class="role-selector">
-                    <div class="role-card ${this.state.role === 'caller' ? 'active' : ''}" onclick="this.closest('page-lab-webrtc').selectRole('caller')">
-                        <div class="role-icon">📞</div>
-                        <h3>我是 Caller（發起者）</h3>
-                        <p>我來建立連線、產生 Offer，等對方回傳 Answer 後完成配對。</p>
-                    </div>
-                    <div class="role-card ${this.state.role === 'answerer' ? 'active' : ''}" onclick="this.closest('page-lab-webrtc').selectRole('answerer')">
-                        <div class="role-icon">📲</div>
-                        <h3>我是 Answerer（接收者）</h3>
-                        <p>Caller 把 Offer 給我，我貼上後產生 Answer 並回傳給 Caller。</p>
-                    </div>
+                    <button type="button" aria-pressed="${this.state.role === 'caller'}" class="role-card ${this.state.role === 'caller' ? 'active' : ''}" onclick="this.closest('page-lab-webrtc').selectRole('caller')">
+                        <span class="role-icon" aria-hidden="true">📞</span>
+                        <strong>我是 Caller（發起者）</strong>
+                        <span class="role-description">我來建立連線、產生 Offer，等對方回傳 Answer 後完成配對。</span>
+                    </button>
+                    <button type="button" aria-pressed="${this.state.role === 'answerer'}" class="role-card ${this.state.role === 'answerer' ? 'active' : ''}" onclick="this.closest('page-lab-webrtc').selectRole('answerer')">
+                        <span class="role-icon" aria-hidden="true">📲</span>
+                        <strong>我是 Answerer（接收者）</strong>
+                        <span class="role-description">Caller 把 Offer 給我，我貼上後產生 Answer 並回傳給 Caller。</span>
+                    </button>
                 </div>
 
                 ${this.state.role === 'none' ? html`
@@ -304,15 +340,15 @@ export class WebRTCPage extends BaseComponent {
                                 <div class="msg-${m.side}">${m.text}</div>
                             `)}
                         </div>
-                        <div class="chat-input-area">
+                        <form class="chat-input-area">
                             <input 
                                 type="text" 
                                 id="webrtc-chat-input"
                                 placeholder="輸入訊息..."
-                                onkeydown="if(event.key==='Enter'){ this.closest('page-lab-webrtc').sendMessage(); }"
+                                aria-label="聊天訊息"
                             />
-                            <button class="btn btn-primary" onclick="this.closest('page-lab-webrtc').sendMessage()">發送</button>
-                        </div>
+                            <button type="submit" class="btn btn-primary">發送</button>
+                        </form>
                     </div>
                 ` : ''}
 

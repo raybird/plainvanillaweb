@@ -1,6 +1,5 @@
 import { html } from "../../../lib/html.js";
 import { BaseComponent } from "../../../lib/base-component.js";
-import { mediaService } from "../../../lib/media-service.js";
 import { streamProcessorService } from "../../../lib/stream-processor-service.js";
 import { notificationService } from "../../../lib/notification-service.js";
 
@@ -15,13 +14,13 @@ export class MediaPage extends BaseComponent {
     });
     this._inputStream = null;
     this._processedStream = null;
-    this._isStartingStream = false;
+    this._cameraRequest = null;
     this._isStoppingStream = false;
     this._isRecoveringStream = false;
     this._resumeStreamTimer = null;
     this._onVisibilityChange = () => this._handleVisibilityChange();
     this._onInputTrackEnded = () => {
-      if (this._isStoppingStream || this._isStartingStream) return;
+      if (this._isStoppingStream || this._cameraRequest) return;
       void this._recoverLiveStream();
     };
   }
@@ -44,7 +43,7 @@ export class MediaPage extends BaseComponent {
     }
   }
 
-  async _requestCameraStream() {
+  async _requestCameraStream(signal) {
     if (!window.isSecureContext) {
       throw new Error("鏡頭功能需要在 HTTPS 或 localhost 環境使用");
     }
@@ -63,6 +62,7 @@ export class MediaPage extends BaseComponent {
 
     let lastError;
     for (const constraints of candidates) {
+      signal.throwIfAborted();
       try {
         return await navigator.mediaDevices.getUserMedia(constraints);
       } catch (err) {
@@ -79,11 +79,16 @@ export class MediaPage extends BaseComponent {
       return;
     }
 
-    if (this._isStartingStream) return;
-    this._isStartingStream = true;
+    if (this._cameraRequest) return;
+    const request = new AbortController();
+    this._cameraRequest = request;
 
     try {
-      const stream = await this._requestCameraStream();
+      const stream = await this._requestCameraStream(request.signal);
+      if (request.signal.aborted) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
       this._inputStream = stream;
       this._bindInputTrackLifecycle();
 
@@ -108,32 +113,32 @@ export class MediaPage extends BaseComponent {
 
       this._processedStream = outputStream;
 
-      const videoEl = this.querySelector("#processedVideo");
-      if (videoEl) {
-        await this._syncProcessedVideo();
-      }
-
       this.state.isProcessingStream = true;
-      this._syncProcessedVideo();
+      await this._syncProcessedVideo();
     } catch (err) {
+      if (request.signal.aborted) return;
       this.stopLiveStream();
       notificationService.error(err.message || "啟動鏡頭失敗");
     } finally {
-      this._isStartingStream = false;
+      if (this._cameraRequest === request) this._cameraRequest = null;
     }
   }
 
   stopLiveStream() {
     this._isStoppingStream = true;
+    this._cameraRequest?.abort();
+    this._cameraRequest = null;
 
     if (this._resumeStreamTimer) {
       clearTimeout(this._resumeStreamTimer);
       this._resumeStreamTimer = null;
     }
 
-    streamProcessorService.stop();
+    if (this._processedStream && this._processedStream !== this._inputStream) {
+      void streamProcessorService.stop();
+    }
     this._unbindInputTrackLifecycle();
-    [this._processedStream, this._inputStream].forEach((stream) => {
+    new Set([this._processedStream, this._inputStream]).forEach((stream) => {
       stream?.getTracks().forEach((track) => track.stop());
     });
     this._processedStream = null;
@@ -168,7 +173,7 @@ export class MediaPage extends BaseComponent {
 
   async _recoverLiveStream() {
     if (!this.state.isProcessingStream) return;
-    if (this._isRecoveringStream || this._isStartingStream) return;
+    if (this._isRecoveringStream || this._cameraRequest) return;
     this._isRecoveringStream = true;
 
     try {

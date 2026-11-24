@@ -43,6 +43,7 @@ const MIME = {
 /** @param {string} prefix 只提供這個前綴底下的檔案 */
 function startServer(prefix) {
     const server = http.createServer((req, res) => {
+        if (server.testOffline) { req.socket.destroy(); return; }
         const { pathname } = new URL(req.url, 'http://localhost');
         if (!pathname.startsWith(prefix)) return send404(res);
         let file = path.join(ROOT, decodeURIComponent(pathname.slice(prefix.length)));
@@ -389,6 +390,39 @@ async function interact(page, base, network, failures) {
     await waitFor(page, "document.querySelector('#theme-toggle') !== null", 15000);
     await settle();
     await page.evaluate('window.__noReload = true');
+
+    const skip = await page.evaluate(`(() => {
+        const before = location.hash;
+        document.querySelector('.skip-link').click();
+        return location.hash === before && document.activeElement.id === 'main-content';
+    })()`);
+    check(skip, '跳至主內容應移動焦點並保留路由');
+    await page.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 800, deviceScaleFactor: 1, mobile: true });
+    const mobileNav = await page.evaluate(`(async () => {
+        const button = document.querySelector('.hamburger-btn');
+        const link = document.querySelector('#app-nav a');
+        link.focus();
+        const closed = document.activeElement !== link;
+        button.click();
+        await new Promise(requestAnimationFrame);
+        link.focus();
+        const opened = document.activeElement === link && button.getAttribute('aria-expanded') === 'true';
+        link.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        await new Promise(requestAnimationFrame);
+        return closed && opened && document.activeElement === button && button.getAttribute('aria-expanded') === 'false';
+    })()`);
+    await page.send('Emulation.clearDeviceMetricsOverride');
+    check(mobileNav, '手機導覽關閉後不可聚焦，Esc 應返回開關');
+
+    await page.evaluate("location.hash = '#/playground'");
+    const preview = await waitFor(page, `(() => {
+        const frame = document.querySelector('page-playground iframe');
+        return frame?.src.startsWith('blob:') && frame.sandbox.contains('allow-scripts')
+            && !frame.sandbox.contains('allow-same-origin') && !!frame.title;
+    })()`, 4000);
+    check(preview, 'Playground 應在有名稱且隔離來源的 iframe 執行預覽');
+    await page.evaluate("location.hash = '#/'");
+    await waitFor(page, '!!document.querySelector("page-home")');
 
     // 主題：每按一次只前進一步（重複綁定監聽器會一次跳好幾步）
     const modes = ['system', 'light', 'dark'];
@@ -1629,6 +1663,26 @@ async function runCoordinationTests(openTab, base, realtime) {
     return failures;
 }
 
+/** A fresh origin installs the worker before any prior fetch can warm its runtime cache. */
+async function checkOfflineShell(page, base, server) {
+    await page.send('Network.setBypassServiceWorker', { bypass: false });
+    try {
+        await page.send('Page.navigate', { url: base });
+        if (!await waitFor(page, '!!navigator.serviceWorker.controller && !!document.querySelector("page-home")')) {
+            return 'Service Worker 未接管首頁';
+        }
+        await page.send('Network.clearBrowserCache');
+        server.testOffline = true;
+        await page.evaluate('window.__offlineBeforeReload = true');
+        await page.send('Page.reload');
+        const loaded = await waitFor(page, '!window.__offlineBeforeReload && !!navigator.serviceWorker.controller && !!document.querySelector("page-home")');
+        return loaded ? null : '原始伺服器離線後，首頁未能從快取重啟';
+    } finally {
+        server.testOffline = false;
+        await page.send('Network.setBypassServiceWorker', { bypass: true });
+    }
+}
+
 async function main() {
     const servers = {
         '根目錄': await startServer('/'),
@@ -1672,6 +1726,15 @@ async function main() {
                 ...(await runInteractionTests(page, base, tracker, network)),
                 ...(await runCoordinationTests(openTab, base, realtime)),
             ];
+            const offlineServer = await startServer(prefix);
+            try {
+                const offlineBase = `http://127.0.0.1:${offlineServer.address().port}${prefix}`;
+                const offlineFailure = await checkOfflineShell(page, offlineBase, offlineServer);
+                if (offlineFailure) failures.push(`離線：${offlineFailure}`);
+                else console.log('  離線冷重載：首頁完成渲染');
+            } finally {
+                offlineServer.close();
+            }
             // 同一個問題常在多頁重複出現（例如背景預載失敗），只列一次並註明第一次出現的頁面與次數
             const grouped = new Map();
             for (const f of failures) {

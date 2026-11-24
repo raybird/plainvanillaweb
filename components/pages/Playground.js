@@ -8,9 +8,9 @@ export class PlaygroundPage extends BaseComponent {
     constructor() {
         super();
         this.initReactiveState({
-            html: `<h1>Hello Vanilla!</h1>\n<button id="btn">Click Me</button>`,
+            html: `<h1>Hello Vanilla!</h1>\n<button id="btn">Click Me</button>\n<p id="result" role="status"></p>`,
             css: `body { font-family: system-ui; padding: 20px; }\nbutton { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }`,
-            js: `document.getElementById("btn").addEventListener("click", () => {\n  alert("Native power!");\n});`,
+            js: `document.getElementById("btn").addEventListener("click", () => {\n  document.getElementById("result").textContent = "Native power!";\n});`,
             runnerUrl: '',
             isLocalMode: false,
             localDirName: ''
@@ -98,6 +98,7 @@ export class PlaygroundPage extends BaseComponent {
                     grid-template-columns: 1fr 1fr;
                     gap: 1rem;
                     height: calc(100vh - 280px);
+                    height: calc(100dvh - 280px);
                     min-height: 500px;
                 }
                 .editor-pane {
@@ -199,16 +200,16 @@ export class PlaygroundPage extends BaseComponent {
                 <!-- 編輯區 -->
                 <div class="editor-pane">
                     <div class="editor-block">
-                        <label>HTML (index.html)</label>
-                        <textarea oninput="this.closest('page-playground').handleInput('html', this.value)">${this.state.html}</textarea>
+                        <label for="playground-html">HTML (index.html)</label>
+                        <textarea id="playground-html" oninput="this.closest('page-playground').handleInput('html', this.value)">${this.state.html}</textarea>
                     </div>
                     <div class="editor-block">
-                        <label>CSS (style.css)</label>
-                        <textarea oninput="this.closest('page-playground').handleInput('css', this.value)">${this.state.css}</textarea>
+                        <label for="playground-css">CSS (style.css)</label>
+                        <textarea id="playground-css" oninput="this.closest('page-playground').handleInput('css', this.value)">${this.state.css}</textarea>
                     </div>
                     <div class="editor-block">
-                        <label>JavaScript (app.js)</label>
-                        <textarea oninput="this.closest('page-playground').handleInput('js', this.value)">${this.state.js}</textarea>
+                        <label for="playground-js">JavaScript (app.js)</label>
+                        <textarea id="playground-js" oninput="this.closest('page-playground').handleInput('js', this.value)">${this.state.js}</textarea>
                     </div>
                 </div>
 
@@ -218,7 +219,7 @@ export class PlaygroundPage extends BaseComponent {
                         <span>預覽視窗 (Live Preview)</span>
                         <span style="color:var(--success);">● Running</span>
                     </div>
-                    <iframe src="${this.state.runnerUrl}"></iframe>
+                    <iframe title="Playground 程式碼預覽" sandbox="allow-scripts" src="${this.state.runnerUrl}"></iframe>
                 </div>
             </div>
 

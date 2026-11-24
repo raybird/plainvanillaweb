@@ -28,12 +28,12 @@
 
 ### 2.1 `lib/webrtc-service.js` 實查評估
 
-檢視 [lib/webrtc-service.js](../lib/webrtc-service.js)（共 179 行）後確認其定位為單純教學展示組件：
+檢視 [lib/webrtc-service.js](../lib/webrtc-service.js)（共 203 行）後確認其定位為單純教學展示組件：
 
-1. **全域單例耦合**：模組尾端直接建立並匯出 `webrtcService` 單例，僅管理單一條 `this.pc` 與 `this.dataChannel`（無法作為多節點／多裝置 Mesh 路由層）。
+1. **全域單例耦合**：模組尾端直接建立並匯出 `webrtcService` 單例，僅管理單一條 `this.pc` 與 `this.dataChannel`（無法作為多節點／多裝置 Mesh 路由層；雖已具備 `close()` 與 `AbortController` 資源釋放，仍屬單條示範連線設計）。
 2. **手動 SDP 與無完整信令協定**：`createOffer()`／`createAnswer()` 等待固定 2000ms `_waitForIceGathering()`，需人工交換完整 SDP 字串，缺乏 Trickle ICE 與連線房間協商。
-3. **無 TURN 中繼與企業 NAT 穿透能力**：僅設定 Google 與 Twilio 公共 STUN（見該檔第 14–19 行），對稱型 NAT 或嚴格企業防火牆下容易建線失敗。
-4. **無連線可靠性、背壓與安全機制**：未處理斷線自動退避重連、`bufferedAmount` 背壓節流、`sender` 密碼學認證或資料隔離驗證，且在通道未開啟時僅 `console.warn`（無法通知上層失敗）。
+3. **無 TURN 中繼與企業 NAT 穿透能力**：僅設定 Google 與 Twilio 公共 STUN（見該檔第 15–20 行），對稱型 NAT 或嚴格企業防火牆下容易建線失敗。
+4. **無連線可靠性、背壓與安全機制**：未處理斷線自動退避重連、`bufferedAmount` 背壓節流、`sender` 密碼學認證或資料隔離驗證，且在通道未開啟時 `send()` 僅回傳 `false`（無重試或佇列承諾）。
 
 **判定**：直接修改 `lib/webrtc-service.js` 作為協調傳輸層為 **No-Go**；該檔案應維持教學示例專責。
 

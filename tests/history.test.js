@@ -76,3 +76,32 @@ test('clear 重置兩個棧', () => {
     assert.strictEqual(h.canUndo, false);
     assert.strictEqual(h.canRedo, false);
 });
+
+test('snapshots preserve native structured data and cyclic references', () => {
+    const h = new HistoryService();
+    const original = { when: new Date(0), values: new Map([['size', 42n]]) };
+    original.self = original;
+    h.push(original);
+    const restored = h.undo('current');
+    assert.deepStrictEqual(restored.when, original.when);
+    assert.deepStrictEqual(restored.values, original.values);
+    assert.strictEqual(restored.self, restored);
+});
+
+test('failed snapshot creation does not consume undo or disable future pushes', () => {
+    const h = new HistoryService();
+    h.push('initial');
+    assert.throws(() => h.undo({ value: 1n, callback: () => {} }), { name: 'DataCloneError' });
+    assert.strictEqual(h.canUndo, true);
+    assert.strictEqual(h.canRedo, false);
+    h.push('next');
+    assert.strictEqual(h.undo('current'), 'next');
+});
+
+test('existing JSON-compatible reactive state can still be snapshotted', () => {
+    const h = new HistoryService();
+    const state = new Proxy({ count: 3 }, {});
+    h.push(state);
+    state.count = 4;
+    assert.deepStrictEqual(h.undo(state), { count: 3 });
+});

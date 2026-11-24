@@ -15,6 +15,7 @@ const COORDINATION_FILES = [
     'lib/peer-discovery.js',
     'lib/rpc-channel.js',
     'lib/shared-connection.js',
+    'lib/task-queue.js',
     'lib/version.js',
 ].sort();
 
@@ -75,15 +76,17 @@ test('lib/coordination.js 靜態相依圖只包含協調基礎模組，不依賴
     assert.ok(!graph.includes('lib/base-component.js'));
 });
 
-test('匯入 lib/coordination.js 不建立 BroadcastChannel、WebSocket、EventSource 也不呼叫 navigator.locks.request，且在無 API 環境不拋錯', async () => {
+test('匯入 lib/coordination.js 不建立 BroadcastChannel、WebSocket、EventSource、不開啟 IndexedDB 也不呼叫 navigator.locks.request，且在無 API 環境不拋錯', async () => {
     const OriginalBC = globalThis.BroadcastChannel;
     const OriginalWS = globalThis.WebSocket;
     const OriginalES = globalThis.EventSource;
     const origNavDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    const origIdbDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB');
     let constructCount = 0;
     let lockRequestCount = 0;
     let wsConstructCount = 0;
     let sseConstructCount = 0;
+    let idbOpenCount = 0;
 
     globalThis.BroadcastChannel = class {
         constructor() {
@@ -100,6 +103,15 @@ test('匯入 lib/coordination.js 不建立 BroadcastChannel、WebSocket、EventS
             sseConstructCount += 1;
         }
     };
+    Object.defineProperty(globalThis, 'indexedDB', {
+        configurable: true,
+        value: {
+            open() {
+                idbOpenCount += 1;
+                throw new Error('Should not open IndexedDB during import');
+            },
+        },
+    });
     Object.defineProperty(globalThis, 'navigator', {
         configurable: true,
         value: {
@@ -117,16 +129,26 @@ test('匯入 lib/coordination.js 不建立 BroadcastChannel、WebSocket、EventS
         assert.equal(lockRequestCount, 0);
         assert.equal(wsConstructCount, 0);
         assert.equal(sseConstructCount, 0);
+        assert.equal(idbOpenCount, 0);
         assert.equal(typeof mod.MessageBus, 'function');
         assert.equal(typeof mod.LeaderElection, 'function');
         assert.equal(typeof mod.RpcChannel, 'function');
         assert.equal(typeof mod.PeerDiscovery, 'function');
         assert.equal(typeof mod.SharedConnection, 'function');
         assert.equal(typeof mod.buildConnectionScope, 'function');
+        assert.equal(typeof mod.DurableTaskQueue, 'function');
+        assert.equal(typeof mod.createDurableTaskQueue, 'function');
+        assert.equal(typeof mod.createMemoryTaskStorage, 'function');
+        assert.equal(typeof mod.createIndexedDBTaskStorage, 'function');
     } finally {
         globalThis.BroadcastChannel = OriginalBC;
         globalThis.WebSocket = OriginalWS;
         globalThis.EventSource = OriginalES;
+        if (origIdbDescriptor) {
+            Object.defineProperty(globalThis, 'indexedDB', origIdbDescriptor);
+        } else {
+            delete globalThis.indexedDB;
+        }
         if (origNavDescriptor) {
             Object.defineProperty(globalThis, 'navigator', origNavDescriptor);
         } else {

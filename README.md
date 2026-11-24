@@ -13,8 +13,8 @@ This repository is two things, in two layers:
 | Layer | What it is | Entry point | Use it when |
 | :--- | :--- | :--- | :--- |
 | **① Core** | ~1,100 lines of reusable foundation: safe templates, reactive components with DOM morphing, services, a cross-tab store and a hash router | [`lib/core.js`](./lib/core.js) | You want to build your own app the vanilla way |
-| **①+ Coordination** | Opt-in cross-context messaging & coordination (`BroadcastService`, `MessageBus`, Web Locks `LeaderElection`, cross-tab `RpcChannel`, `PeerDiscovery`, `SharedConnection` for WS/SSE) with zero import side effects | [`lib/coordination.js`](./lib/coordination.js) | You need isolated multi-tab/worker coordination |
-| **② Showcase** | A full site built on the core: 37 interactive labs of cutting-edge Web APIs, runtime-rendered docs, a dashboard and a playground | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | You want to learn a Web API or borrow a ready-made service |
+| **①+ Coordination** | Opt-in cross-context messaging & coordination (`BroadcastService`, `MessageBus`, Web Locks `LeaderElection`, cross-tab `RpcChannel`, `PeerDiscovery`, `SharedConnection` for WS/SSE, `DurableTaskQueue` on IndexedDB) with zero import side effects | [`lib/coordination.js`](./lib/coordination.js) | You need isolated multi-tab/worker coordination |
+| **② Showcase** | A full site built on the core: 39 interactive labs of cutting-edge Web APIs, runtime-rendered docs, a dashboard and a playground | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | You want to learn a Web API or borrow a ready-made service |
 
 The core never imports anything from the showcase; a test enforces that boundary ([ADR 0101](./docs/decisions/0101-core-entry-point.md)). Releases follow semantic versioning — see the [CHANGELOG](./CHANGELOG.md) (current: **v3.1.0**).
 
@@ -87,7 +87,7 @@ python3 -m http.server   # or: npx serve .
 Open `http://localhost:8000/`. The sidebar is organized into:
 
 - **📚 Docs** — the `docs/*.md` files, fetched and rendered at runtime.
-- **🧪 Lab** — 37 self-contained labs of cutting-edge native APIs, most with a matching doc.
+- **🧪 Lab** — 39 self-contained labs of cutting-edge native APIs, most with a matching doc.
 - **🎡 Playground** — a WYSIWYG code playground powered by `Blob` and object URLs.
 - **📊 Dashboard / 📈 Analytics** — live IndexedDB, network and Store inspection; Web Vitals (LCP, CLS) on a native Canvas chart.
 - **⚡ Worker Demo / 🔍 Repo Search** — off-main-thread compute; a GitHub REST search UI with a virtual list.
@@ -132,14 +132,14 @@ import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdel
 │   ├── html.js, base-component.js, morph.js, base-service.js,
 │   │   store.js, broadcast-channel.js, broadcast-service.js,
 │   │   message-bus.js, leader-election.js, rpc-channel.js,
-│   │   peer-discovery.js, shared-connection.js,
+│   │   peer-discovery.js, shared-connection.js, task-queue.js,
 │   │   router.js, i18n-service.js, meta-service.js  # ① core / coordination
 │   ├── vanilla-sdk.js    # ② everything-in-one entry point
 │   └── *-service.js      # ② WebGPU, WebRTC, Bluetooth, Crypto…
 ├── components/
 │   ├── route/            # ① <x-switch>, <x-route>
 │   ├── pages/            # ② route pages (Home, Docs, Dashboard, Login…)
-│   │   └── lab/          # ② 37 Web API labs
+│   │   └── lab/          # ② 39 Web API labs
 │   └── ui/               # ② reusable UI (Card, NativeChart…)
 ├── app/App.js            # ② site shell: sidebar and all routes
 ├── docs/                 # runtime-loaded docs (Markdown)

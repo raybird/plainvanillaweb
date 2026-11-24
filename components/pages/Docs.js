@@ -90,6 +90,7 @@ export class Documentation extends BaseComponent {
       "native-image-processing": "/lab/image-studio",
       connectivity: "/lab/network",
       "web-performance": "/lab/performance",
+      coordination: "/lab/browser-cluster",
     };
     return map[docId] || null;
   }

@@ -5,6 +5,12 @@ export class LabIndex extends BaseComponent {
   render() {
     const experiments = [
       {
+        id: "browser-cluster",
+        docId: "coordination",
+        title: "🧩 跨分頁叢集與持久佇列",
+        desc: "Web Locks 選主、PeerDiscovery、RPC 與 IndexedDB 原子任務佇列整合"
+      },
+      {
         id: "indexeddb-backup",
         docId: "indexeddb-backup",
         title: "💾 離線資料庫與備份",

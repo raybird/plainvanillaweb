@@ -1,10 +1,10 @@
 # 跨執行環境協作基礎 (Browser Coordination Foundation)
 
-> **更新日期**：2026-11-24（Phase 1 + Phase 2 + Phase 3）  
+> **更新日期**：2026-11-24（Phase 1 + Phase 2 + Phase 3 + Phase 4）  
 > **獨立入口**：`./lib/coordination.js`  
-> **架構決策**：[ADR 0103](./decisions/0103-browser-coordination-foundation.md) · [ADR 0104](./decisions/0104-leader-election-and-rpc.md) · [ADR 0105](./decisions/0105-peer-discovery-and-shared-connection.md) · [ADR 0101](./decisions/0101-core-entry-point.md)
+> **架構決策**：[ADR 0103](./decisions/0103-browser-coordination-foundation.md) · [ADR 0104](./decisions/0104-leader-election-and-rpc.md) · [ADR 0105](./decisions/0105-peer-discovery-and-shared-connection.md) · [ADR 0106](./decisions/0106-durable-task-queue-and-cluster-lab.md) · [ADR 0101](./decisions/0101-core-entry-point.md)
 
-`lib/coordination.js` 提供**可獨立選用（opt-in）、零依賴、零建置**的同源跨執行環境（多分頁、視窗及適用的 Worker）訊息傳遞、領導者選舉、跨分頁 RPC、節點探索與共享即時連線基礎設施。僅匯入此模組不會建立 `BroadcastChannel`、申請 Web Lock、建立 `WebSocket`／`EventSource` 或啟動背景任務。
+`lib/coordination.js` 提供**可獨立選用（opt-in）、零依賴、零建置**的同源跨執行環境（多分頁、視窗及適用的 Worker）訊息傳遞、領導者選舉、跨分頁 RPC、節點探索、共享即時連線與 IndexedDB 持久工作佇列基礎設施。僅匯入此模組不會建立 `BroadcastChannel`、開啟 `IndexedDB`、申請 Web Lock、建立 `WebSocket`／`EventSource` 或啟動背景任務。
 
 ---
 
@@ -44,12 +44,13 @@ bus.dispose();
 
 | 模組 / 入口 | 職責 | Import 副作用 |
 | :--- | :--- | :--- |
-| `lib/coordination.js` | 獨立協作入口（匯出 `BroadcastService`、`MessageBus`、`createMessageBus`、`LeaderElection`、`createLeaderElection`、`RpcChannel`、`createRpcChannel`、`RpcError`、`RPC_ERROR_CODES`、`PeerDiscovery`、`createPeerDiscovery`、`SharedConnection`、`createSharedConnection`、`buildConnectionScope`、`SharedConnectionError`、`SHARED_CONNECTION_ERROR_CODES`、`DEFAULT_RECONNECT_OPTIONS`、`DEFAULT_PEER_HEARTBEAT_MS`、`DEFAULT_PEER_TIMEOUT_MS`、`getCoordinationCapabilities`、`ENVELOPE_VERSION`、`DEFAULT_CHANNEL_NAME`、`DEFAULT_NAMESPACE`、`DEFAULT_BUS_CHANNEL`、`DEFAULT_LOCK_PREFIX`、`DEFAULT_LEADER_SCOPE`、`DEFAULT_RPC_TIMEOUT_MS`、`createEnvelope`、`validateEnvelope`、`serializeRpcError`、`deserializeRpcError`、`VERSION`） | **無** |
+| `lib/coordination.js` | 獨立協作入口（匯出 `BroadcastService`、`MessageBus`、`createMessageBus`、`LeaderElection`、`createLeaderElection`、`RpcChannel`、`createRpcChannel`、`RpcError`、`RPC_ERROR_CODES`、`PeerDiscovery`、`createPeerDiscovery`、`SharedConnection`、`createSharedConnection`、`buildConnectionScope`、`SharedConnectionError`、`SHARED_CONNECTION_ERROR_CODES`、`DurableTaskQueue`、`createDurableTaskQueue`、`createMemoryTaskStorage`、`createIndexedDBTaskStorage`、`TaskQueueError`、`TASK_QUEUE_ERROR_CODES`、`TASK_STATUS`、`TASK_SCHEMA_VERSION` 等） | **無** |
 | `lib/broadcast-channel.js` | 純類別 `BroadcastService`、版本化 envelope 與 capability 偵測 | **無** |
 | `lib/leader-election.js` | 基於 Web Locks 的 scoped 互斥領導者選舉（`LeaderElection`） | **無** |
 | `lib/rpc-channel.js` | 基於 `MessageBus` 的白名單跨分頁 RPC（`RpcChannel`、`RpcError`） | **無** |
 | `lib/peer-discovery.js` | 跨執行環境節點探索、能力宣告與心跳觀測（`PeerDiscovery`） | **無** |
 | `lib/shared-connection.js` | 基於 Web Locks 與 RPC 的同 scope 共享即時連線（`SharedConnection`） | **無** |
+| `lib/task-queue.js` | IndexedDB 單 transaction 原子認領、租約防護與重試退避佇列（`DurableTaskQueue`） | **無** |
 | `lib/broadcast-service.js` | 保留 `broadcastService` 預設單例供 `lib/core.js` 與現有展示頁向下相容 | 建立預設全域單例 |
 | `lib/core.js` | 維持輕量核心 API，不引入協調進階抽象 | 維持既有行為 |
 | `lib/vanilla-sdk.js` | 額外重新匯出協作類別與工廠函式（不自動連線） | 維持既有行為 |
@@ -264,9 +265,48 @@ await conn.dispose();
 
 ---
 
-## 10. 限制、Failover 缺口與安全邊界
+## 10. `DurableTaskQueue`（IndexedDB 持久工作佇列，Phase 4）
+
+`DurableTaskQueue`（[ADR 0106](./decisions/0106-durable-task-queue-and-cluster-lab.md)）以獨立的 `vanilla_coordination_tasks` v1 IndexedDB 資料庫提供跨分頁持久化背景工作排程與原子接手復原：
+
+```javascript
+import {
+    createDurableTaskQueue,
+    createMessageBus,
+} from './lib/coordination.js';
+
+const bus = createMessageBus({ namespace: 'orders' });
+const queue = createDurableTaskQueue({
+    namespace: 'orders',
+    bus,
+    leaseDurationMs: 5000,
+    defaultMaxAttempts: 3,
+});
+
+queue.registerHandler('chunk.checksum', async (payload, ctx) => {
+    if (ctx.signal.aborted) throw ctx.signal.reason;
+    return { size: payload.text.length, worker: ctx.ownerId };
+}, { version: 1 });
+
+await queue.start();
+await queue.enqueue({
+    type: 'chunk.checksum',
+    idempotencyKey: 'doc-123',
+    payload: { text: 'hello' },
+});
+```
+
+- **單一 Transaction 原子認領與 `leaseId` 防護**：`claimAtomic` 在單一 IndexedDB `readwrite` transaction 內同時回收已逾時任務並挑選出最高優先的 `pending` 任務；`completeAtomic`、`failAtomic`、`renewLeaseAtomic`、`reclaimOrphanAtomic` 均比對 `ownerId` 與 `leaseId`，阻擋已逾時舊 Worker 覆寫新結果。
+- **Web Locks 孤兒偵測快收（絕不用 `steal: true`）**：執行期間可搭配非搶奪式 `ifAvailable: true` 鎖協助偵測異常關閉分頁所遺留的執行中任務，於租約屆期前即可安全回收。
+- **版本化處理器與重試上限**：`registerHandler(type, fn, { version })` 確保不同版本的分頁不會錯誤認領或破壞其他版本的工作結構；失敗時依指數退避重排並於達到 `maxAttempts`（含租約逾時達上限）時轉為 `failed`。
+- **Browser Cluster Lab（`#/lab/browser-cluster`）**：站內提供整合實驗室串接 `MessageBus`、`LeaderElection`、`PeerDiscovery`、`RpcChannel`、`DurableTaskQueue` 與清楚標註為靜態展示模擬的 `MockSharedConnection`，供開啟多個瀏覽器分頁實測認領、RPC 與接管復原。
+
+---
+
+## 11. 限制、Failover 缺口與安全邊界
 
 1. **同源不等同授權；絕不廣播認證 Token**：任何同源腳本皆可監聽同 channel 與 `namespace`。請勿將 JWT、Bearer Token、密碼或敏感憑證放進 `url`、`identityKey`、`configKey`、`MessageBus` 或 `PeerDiscovery` 宣告。建議搭配 `HttpOnly` Cookie，或使用僅在 leader 本地執行且結果絕不廣播的 `resolveUrl()` 取得短效單次連線票證。
 2. **Failover 訊息缺口、短暫雙連線與服務端 Fencing**：leader 分頁關閉、重載或崩潰後，從斷線到新 leader 取得 Web Lock 並完成握手之間必定存在空窗期（會產生訊息缺口），且極端情境下伺服器可能短暫同時存在舊連線與新連線。請務必實作 `onResync`／SSE `lastEventId` 補齊資料；由於純前端 `epoch` 僅為單實例單調遞增，需要嚴格單一寫入保證時須由服務端實施 fencing token 驗證。
-3. **背景凍結（Background Freeze）與 `releaseOnFreeze`**：背景分頁被凍結後計時器與心跳會暫停，可能觸發 `PeerDiscovery` `peer-expire`，但瀏覽器通常會維持其持有的 Web Lock 直到恢復或關閉；需主動交接上游連線時請設定 `releaseOnFreeze: true`。
-4. **純同源、非持久廣播與能力降級**：`BroadcastChannel` 受同源與 Storage Partitioning 限制、不保證歷史重播（持久狀態請交給 `Store`）；不支援原生 API 時明確以 `supported: false` 降級而不拋錯或偽裝成功。
+3. **At-least-once 佇列語義與無背景執行保證**：`DurableTaskQueue` 提供 **at-least-once** 投遞語義，不保證 exactly-once，亦**不保證**在所有分頁皆關閉後仍能在背景執行；任務會持久化保留至下一次開啟分頁時復原。不支援 `indexedDB` 時明確回報 `supported: false`。
+4. **背景凍結（Background Freeze）與 `releaseOnFreeze`**：背景分頁被凍結後計時器與心跳會暫停，可能觸發 `PeerDiscovery` `peer-expire`，但瀏覽器通常會維持其持有的 Web Lock 直到恢復或關閉；需主動交接上游連線時請設定 `releaseOnFreeze: true`。
+5. **純同源、非持久廣播與能力降級**：`BroadcastChannel` 受同源與 Storage Partitioning 限制、不保證歷史重播（持久狀態請交給 `Store`）；不支援原生 API 時明確以 `supported: false` 降級而不拋錯或偽裝成功。

@@ -168,6 +168,9 @@ export class LabPage extends BaseComponent {
                                                   <x-route path="/lab/indexeddb-backup" exact module="./components/pages/lab/IndexedDBBackupPage.js"
                                                     ><template><indexeddb-backup-page></indexeddb-backup-page
                                                   ></template></x-route>
+                                                  <x-route path="/lab/browser-cluster" exact module="./components/pages/lab/BrowserClusterPage.js"
+                                                    ><template><page-lab-browser-cluster></page-lab-browser-cluster
+                                                  ></template></x-route>
                                                   
                               <!-- 通配符 fallback -->
           

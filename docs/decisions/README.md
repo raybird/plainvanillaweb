@@ -106,8 +106,9 @@
 | 0103 | [跨執行環境協作基礎架構與 Store 同步隔離](./0103-browser-coordination-foundation.md) | [已實作] |
 | 0104 | [基於 Web Locks 的領導者選舉與跨分頁 RPC 機制](./0104-leader-election-and-rpc.md) | [已實作] |
 | 0105 | [節點探索（Peer Discovery）與共享即時連線（SharedConnection）](./0105-peer-discovery-and-shared-connection.md) | [已實作] |
+| 0106 | [IndexedDB Durable Task Queue 與 Browser Cluster Lab](./0106-durable-task-queue-and-cluster-lab.md) | [已實作] |
 
 ---
-*未使用的編號：0064、0085、0089、0090、0091（保留空號，不回填）。新增 ADR 請使用 0106。*
+*未使用的編號：0064、0085、0089、0090、0091（保留空號，不回填）。新增 ADR 請使用 0107。*
 *詳細內容請參閱 `docs/decisions/*.md`。*
 *此檔案由 `scripts/update-adr-index.js` 自動生成。*

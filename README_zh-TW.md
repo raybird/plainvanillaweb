@@ -13,8 +13,8 @@
 | 層級 | 是什麼 | 入口 | 適合什麼時候用 |
 | :--- | :--- | :--- | :--- |
 | **① 核心** | 約 1,100 行可重用的基礎建設：安全模板、具 DOM morphing 的反應式元件、服務基底、跨分頁 Store 與 hash 路由 | [`lib/core.js`](./lib/core.js) | 想用原生方式打造自己的應用 |
-| **①+ 跨分頁協作** | 可選載入、零匯入副作用的跨執行環境協作（`BroadcastService`、`MessageBus`、Web Locks `LeaderElection`、跨分頁 `RpcChannel`、`PeerDiscovery` 與 WS／SSE `SharedConnection`） | [`lib/coordination.js`](./lib/coordination.js) | 需要具命名空間隔離的多分頁／Worker 協作 |
-| **② 展示站** | 以核心打造的完整網站：37 個前沿 Web API 互動實驗室、執行期渲染的文件、儀表板與遊樂場 | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | 想學某個 Web API，或直接借用寫好的 service |
+| **①+ 跨分頁協作** | 可選載入、零匯入副作用的跨執行環境協作（`BroadcastService`、`MessageBus`、Web Locks `LeaderElection`、跨分頁 `RpcChannel`、`PeerDiscovery`、WS／SSE `SharedConnection` 與 IndexedDB `DurableTaskQueue`） | [`lib/coordination.js`](./lib/coordination.js) | 需要具命名空間隔離的多分頁／Worker 協作 |
+| **② 展示站** | 以核心打造的完整網站：39 個前沿 Web API 互動實驗室、執行期渲染的文件、儀表板與遊樂場 | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | 想學某個 Web API，或直接借用寫好的 service |
 
 核心不會 import 任何展示站的程式，並由測試守住這條邊界（[ADR 0101](./docs/decisions/0101-core-entry-point.md)）。版本依語意化版本編號，見 [CHANGELOG](./CHANGELOG.md)（目前為 **v3.1.0**）。
 
@@ -87,7 +87,7 @@ python3 -m http.server   # 或：npx serve .
 開啟 `http://localhost:8000/`，側邊欄分為：
 
 - **📚 技術手冊 (Docs)**：`docs/*.md` 文件，於執行期載入並渲染。
-- **🧪 互動式實驗室 (Lab)**：37 個獨立的前沿原生 API 實驗室，多數附對應文件。
+- **🧪 互動式實驗室 (Lab)**：39 個獨立的前沿原生 API 實驗室，多數附對應文件。
 - **🎡 Vanilla 遊樂場 (Playground)**：以 `Blob` 與 object URL 實作的所見即所得程式碼編輯器。
 - **📊 開發者儀表板／📈 效能分析中心**：即時檢視 IndexedDB、網路請求與 Store 狀態；以原生 Canvas 圖表呈現 Web Vitals（LCP、CLS）。
 - **⚡ Web Worker 展示／🔍 開源碼搜尋**：主執行緒外的運算；串接 GitHub REST API、搭配虛擬清單的搜尋介面。
@@ -132,14 +132,14 @@ import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdel
 │   ├── html.js, base-component.js, morph.js, base-service.js,
 │   │   store.js, broadcast-channel.js, broadcast-service.js,
 │   │   message-bus.js, leader-election.js, rpc-channel.js,
-│   │   peer-discovery.js, shared-connection.js,
+│   │   peer-discovery.js, shared-connection.js, task-queue.js,
 │   │   router.js, i18n-service.js, meta-service.js  # ① 核心 / 協作基礎
 │   ├── vanilla-sdk.js    # ② 一次全部引入的入口
 │   └── *-service.js      # ② WebGPU、WebRTC、Bluetooth、Crypto…
 ├── components/
 │   ├── route/            # ① <x-switch>、<x-route>
 │   ├── pages/            # ② 路由頁面（Home、Docs、Dashboard、Login…）
-│   │   └── lab/          # ② 37 個 Web API 實驗室
+│   │   └── lab/          # ② 39 個 Web API 實驗室
 │   └── ui/               # ② 可重用 UI（Card、NativeChart…）
 ├── app/App.js            # ② 網站外框：側邊欄與所有路由
 ├── docs/                 # 執行期載入的文件（Markdown）

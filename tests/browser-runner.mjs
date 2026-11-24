@@ -565,17 +565,20 @@ async function runCoordinationTests(openTab, base, realtime) {
         const readyB = await waitFor(tabB.page, 'window.__COORD_READY__ === true', 10000);
         check(readyA && readyB, 'tests/coordination-browser.html 未就緒');
 
-        // 2.1 在真實瀏覽器驗證 import lib/coordination.js 不建立 BroadcastChannel、WebSocket、EventSource 也不呼叫 navigator.locks.request
+        // 2.1 在真實瀏覽器驗證 import lib/coordination.js 不建立 BroadcastChannel、WebSocket、EventSource、不開啟 IndexedDB 也不呼叫 navigator.locks.request
         const sideEffects = await tabA.page.evaluate(`(async () => {
             const OrigBC = window.BroadcastChannel;
             const OrigWS = window.WebSocket;
             const OrigES = window.EventSource;
             const locksProto = window.navigator?.locks ? Object.getPrototypeOf(window.navigator.locks) : null;
             const origRequest = locksProto?.request;
+            const idbProto = window.indexedDB ? Object.getPrototypeOf(window.indexedDB) : null;
+            const origIdbOpen = idbProto?.open;
             let bcCount = 0;
             let lockCount = 0;
             let wsCount = 0;
             let sseCount = 0;
+            let idbOpenCount = 0;
             window.BroadcastChannel = class extends OrigBC {
                 constructor(...args) { bcCount++; super(...args); }
             };
@@ -589,6 +592,12 @@ async function runCoordinationTests(openTab, base, realtime) {
                     constructor(...args) { sseCount++; super(...args); }
                 };
             }
+            if (idbProto && origIdbOpen) {
+                idbProto.open = function (...args) {
+                    idbOpenCount++;
+                    return origIdbOpen.apply(this, args);
+                };
+            }
             if (locksProto && origRequest) {
                 locksProto.request = function (...args) {
                     lockCount++;
@@ -597,16 +606,22 @@ async function runCoordinationTests(openTab, base, realtime) {
             }
             try {
                 await import('./lib/coordination.js?e2e_side_effect=1');
-                return { bcCount, lockCount, wsCount, sseCount };
+                return { bcCount, lockCount, wsCount, sseCount, idbOpenCount };
             } finally {
                 window.BroadcastChannel = OrigBC;
                 window.WebSocket = OrigWS;
                 window.EventSource = OrigES;
+                if (idbProto && origIdbOpen) idbProto.open = origIdbOpen;
                 if (locksProto && origRequest) locksProto.request = origRequest;
             }
         })()`);
-        check(sideEffects.bcCount === 0 && sideEffects.lockCount === 0 && sideEffects.wsCount === 0 && sideEffects.sseCount === 0,
-            `import lib/coordination.js 應零副作用，實際 bc=${sideEffects.bcCount}, locks=${sideEffects.lockCount}, ws=${sideEffects.wsCount}, sse=${sideEffects.sseCount}`);
+        check(
+            sideEffects.bcCount === 0 &&
+            sideEffects.lockCount === 0 &&
+            sideEffects.wsCount === 0 &&
+            sideEffects.sseCount === 0 &&
+            sideEffects.idbOpenCount === 0,
+            `import lib/coordination.js 應零副作用，實際 bc=${sideEffects.bcCount}, locks=${sideEffects.lockCount}, ws=${sideEffects.wsCount}, sse=${sideEffects.sseCount}, idb=${sideEffects.idbOpenCount}`);
 
         // 2.2 MessageBus 雙分頁投遞、local/remote、namespace 隔離、unsubscribe 與 dispose
         await tabA.page.evaluate(`(async () => {
@@ -1082,6 +1097,378 @@ async function runCoordinationTests(openTab, base, realtime) {
         check(realtime.getStats().activeWsCount === 0 && realtime.getStats().activeSseCount === 0,
             'dispose() 後仍有殘留即時連線未關閉');
 
+        // 2.8 真實 3+ 分頁 IndexedDB DurableTaskQueue 與 #/lab/browser-cluster 整合測試
+        {
+            const tqDbName = `e2e_tq_db_${Date.now()}`;
+            const tqNsParallel = `tq-par-${Date.now()}`;
+            const tqNsIso = `tq-iso-${Date.now()}`;
+            const tqNsCrash = `tq-crash-${Date.now()}`;
+            const tqNsReload = `tq-reload-${Date.now()}`;
+            const uiNs = `ui-cluster-${Date.now()}`;
+
+            const tqTab1 = await openTab();
+            const tqTab2 = await openTab();
+            const tqTab3 = await openTab();
+            let tqTab4 = null;
+            const uiTab1 = await openTab();
+            const uiTab2 = await openTab();
+            const uiTab3 = await openTab();
+
+            const tqTrack1 = trackProblems(tqTab1.page);
+            const tqTrack2 = trackProblems(tqTab2.page);
+            const tqTrack3 = trackProblems(tqTab3.page);
+            const uiTrack1 = trackProblems(uiTab1.page);
+            const uiTrack2 = trackProblems(uiTab2.page);
+            const uiTrack3 = trackProblems(uiTab3.page);
+
+            try {
+                await Promise.all([
+                    tqTab1.page.send('Page.navigate', { url: testPageUrl }),
+                    tqTab2.page.send('Page.navigate', { url: testPageUrl }),
+                    tqTab3.page.send('Page.navigate', { url: testPageUrl }),
+                ]);
+                const tqReady = await Promise.all([
+                    waitFor(tqTab1.page, 'window.__COORD_READY__ === true', 10000),
+                    waitFor(tqTab2.page, 'window.__COORD_READY__ === true', 10000),
+                    waitFor(tqTab3.page, 'window.__COORD_READY__ === true', 10000),
+                ]);
+                check(tqReady.every(Boolean), 'DurableTaskQueue 測試分頁未就緒');
+
+                // 2.8.1 Idempotency 去重 + namespace 隔離 + 3 分頁並發原子認領
+                await Promise.all([
+                    tqTab1.page.evaluate(`(async () => {
+                        const { createDurableTaskQueue, createMessageBus } = await import('./lib/coordination.js');
+                        window.__tqExecutions = [];
+                        window.__tqBus1 = createMessageBus({ namespace: ${JSON.stringify(tqNsParallel)} });
+                        window.__tq1 = createDurableTaskQueue({
+                            namespace: ${JSON.stringify(tqNsParallel)},
+                            dbName: ${JSON.stringify(tqDbName)},
+                            workerId: 'tq-worker-1',
+                            bus: window.__tqBus1,
+                            pollIntervalMs: 40,
+                            leaseDurationMs: 4000,
+                        });
+                        window.__tq1.registerHandler('work', async (payload, ctx) => {
+                            window.__tqExecutions.push(ctx.taskId);
+                            await new Promise((r) => setTimeout(r, 35));
+                            return { n: payload.n, worker: ctx.ownerId };
+                        });
+                        window.__tq1.registerHandler('alwaysFail', async () => {
+                            throw new Error('forced failure');
+                        });
+                        window.__tqIso = createDurableTaskQueue({
+                            namespace: ${JSON.stringify(tqNsIso)},
+                            dbName: ${JSON.stringify(tqDbName)},
+                            workerId: 'tq-iso-worker',
+                        });
+                        const e1 = await window.__tq1.enqueue({ type: 'work', idempotencyKey: 'same-key', payload: { n: 1 }, priority: 5 });
+                        const e2 = await window.__tq1.enqueue({ type: 'work', idempotencyKey: 'same-key', payload: { n: 999 } });
+                        const eIso = await window.__tqIso.enqueue({ type: 'work', idempotencyKey: 'same-key', payload: { n: 2 } });
+                        window.__idemRes = {
+                            d1: e1.deduplicated,
+                            d2: e2.deduplicated,
+                            sameId: e1.task.id === e2.task.id,
+                            isoDedup: eIso.deduplicated,
+                            isoDiffId: eIso.task.id !== e1.task.id,
+                        };
+                        for (let i = 2; i <= 6; i++) {
+                            await window.__tq1.enqueue({ type: 'work', payload: { n: i }, priority: i });
+                        }
+                    })()`),
+                    tqTab2.page.evaluate(`(async () => {
+                        const { createDurableTaskQueue, createMessageBus } = await import('./lib/coordination.js');
+                        window.__tqExecutions = [];
+                        window.__tqBus2 = createMessageBus({ namespace: ${JSON.stringify(tqNsParallel)} });
+                        window.__tq2 = createDurableTaskQueue({
+                            namespace: ${JSON.stringify(tqNsParallel)},
+                            dbName: ${JSON.stringify(tqDbName)},
+                            workerId: 'tq-worker-2',
+                            bus: window.__tqBus2,
+                            pollIntervalMs: 40,
+                            leaseDurationMs: 4000,
+                        });
+                        window.__tq2.registerHandler('work', async (payload, ctx) => {
+                            window.__tqExecutions.push(ctx.taskId);
+                            await new Promise((r) => setTimeout(r, 35));
+                            return { n: payload.n, worker: ctx.ownerId };
+                        });
+                    })()`),
+                    tqTab3.page.evaluate(`(async () => {
+                        const { createDurableTaskQueue, createMessageBus } = await import('./lib/coordination.js');
+                        window.__tqExecutions = [];
+                        window.__tqBus3 = createMessageBus({ namespace: ${JSON.stringify(tqNsParallel)} });
+                        window.__tq3 = createDurableTaskQueue({
+                            namespace: ${JSON.stringify(tqNsParallel)},
+                            dbName: ${JSON.stringify(tqDbName)},
+                            workerId: 'tq-worker-3',
+                            bus: window.__tqBus3,
+                            pollIntervalMs: 40,
+                            leaseDurationMs: 4000,
+                        });
+                        window.__tq3.registerHandler('work', async (payload, ctx) => {
+                            window.__tqExecutions.push(ctx.taskId);
+                            await new Promise((r) => setTimeout(r, 35));
+                            return { n: payload.n, worker: ctx.ownerId };
+                        });
+                    })()`),
+                ]);
+
+                const idemRes = await tqTab1.page.evaluate('window.__idemRes');
+                check(idemRes.d1 === false && idemRes.d2 === true && idemRes.sameId && idemRes.isoDedup === false && idemRes.isoDiffId,
+                    `IndexedDB idempotency/namespace 檢查失敗：${JSON.stringify(idemRes)}`);
+
+                await Promise.all([
+                    tqTab1.page.evaluate('window.__tq1.start()'),
+                    tqTab2.page.evaluate('window.__tq2.start()'),
+                    tqTab3.page.evaluate('window.__tq3.start()'),
+                ]);
+
+                const parDone = await waitFor(tqTab1.page, `(async () => {
+                    const stats = await window.__tq1.getStats();
+                    return stats.completed === 6 && stats.pending === 0 && stats.running === 0;
+                })()`, 10000);
+                check(parDone, '3 分頁並發原子認領 IndexedDB 任務未在時限內完成');
+
+                const [exec1, exec2, exec3] = await Promise.all([
+                    tqTab1.page.evaluate('window.__tqExecutions'),
+                    tqTab2.page.evaluate('window.__tqExecutions'),
+                    tqTab3.page.evaluate('window.__tqExecutions'),
+                ]);
+                const allExecs = [...exec1, ...exec2, ...exec3];
+                check(allExecs.length === 6 && new Set(allExecs).size === 6,
+                    `3 分頁正常並發認領應零重複，實際總執行次數=${allExecs.length}, unique=${new Set(allExecs).size}`);
+
+                // 2.8.2 Retry 上限與 Purge（不影響他 namespace）
+                const failDone = await tqTab1.page.evaluate(`(async () => {
+                    await window.__tq1.enqueue({ type: 'alwaysFail', maxAttempts: 2, payload: {} });
+                    for (let i = 0; i < 60; i++) {
+                        const stats = await window.__tq1.getStats();
+                        if (stats.failed === 1) break;
+                        await new Promise((r) => setTimeout(r, 50));
+                    }
+                    const statsAfterFail = await window.__tq1.getStats();
+                    const purged = await window.__tq1.purge({ olderThanMs: 0 });
+                    const isoAfterPurge = await window.__tqIso.listTasks();
+                    await window.__tqIso.clearNamespace();
+                    return { statsAfterFail, purgedCount: purged.purgedCount, isoLen: isoAfterPurge.length };
+                })()`);
+                check(failDone.statsAfterFail.failed === 1 && failDone.purgedCount === 7 && failDone.isoLen === 1,
+                    `重試上限與 purge 結果不如預期：${JSON.stringify(failDone)}`);
+
+                // 2.8.3 真實 Worker 分頁關閉（Crash/Close）Web Lock 孤兒快速回收接手
+                await tqTab3.page.evaluate(`(async () => {
+                    const { createDurableTaskQueue } = await import('./lib/coordination.js');
+                    window.__crashWorker3 = createDurableTaskQueue({
+                        namespace: ${JSON.stringify(tqNsCrash)},
+                        dbName: ${JSON.stringify(tqDbName)},
+                        workerId: 'crash-w3',
+                        pollIntervalMs: 30,
+                        leaseDurationMs: 8000,
+                    });
+                    window.__crashWorker3.registerHandler('slowCrash', async () => {
+                        await new Promise((r) => setTimeout(r, 6000));
+                        return { from: 'w3' };
+                    });
+                    const { task } = await window.__crashWorker3.enqueue({ type: 'slowCrash', payload: { marker: 'takeover' } });
+                    window.__crashTaskId = task.id;
+                    await window.__crashWorker3.start();
+                })()`);
+                const lockedRunning = await waitFor(tqTab3.page, `(async () => {
+                    const t = await window.__crashWorker3.getTask(window.__crashTaskId);
+                    return t && t.status === 'running' && t.lockProtected === true;
+                })()`, 8000);
+                check(lockedRunning, 'Worker 3 未進入 lockProtected running 狀態');
+                const crashTaskId = await tqTab3.page.evaluate('window.__crashTaskId');
+
+                await Promise.all([
+                    tqTab1.page.evaluate(`(async () => {
+                        const { createDurableTaskQueue } = await import('./lib/coordination.js');
+                        window.__crashWorker1 = createDurableTaskQueue({
+                            namespace: ${JSON.stringify(tqNsCrash)},
+                            dbName: ${JSON.stringify(tqDbName)},
+                            workerId: 'survivor-w1',
+                            pollIntervalMs: 40,
+                            reclaimIntervalMs: 60,
+                            leaseDurationMs: 8000,
+                        });
+                        window.__crashWorker1.registerHandler('slowCrash', async (p, ctx) => ({ from: 'w1', marker: p.marker, attempt: ctx.attemptCount }));
+                        await window.__crashWorker1.start();
+                    })()`),
+                    tqTab2.page.evaluate(`(async () => {
+                        const { createDurableTaskQueue } = await import('./lib/coordination.js');
+                        window.__crashWorker2 = createDurableTaskQueue({
+                            namespace: ${JSON.stringify(tqNsCrash)},
+                            dbName: ${JSON.stringify(tqDbName)},
+                            workerId: 'survivor-w2',
+                            pollIntervalMs: 40,
+                            reclaimIntervalMs: 60,
+                            leaseDurationMs: 8000,
+                        });
+                        window.__crashWorker2.registerHandler('slowCrash', async (p, ctx) => ({ from: 'w2', marker: p.marker, attempt: ctx.attemptCount }));
+                        await window.__crashWorker2.start();
+                    })()`),
+                ]);
+
+                // 確認尚在執行的 tqTab3 問題記錄清空，然後直接關閉分頁模擬崩潰
+                failures.push(...tqTrack3.take().map((p) => `DurableTaskQueue Tab 3：${p}`));
+                await tqTab3.close();
+
+                const recoveredCrash = await waitFor(tqTab1.page, `(async () => {
+                    const t = await window.__crashWorker1.getTask(${JSON.stringify(crashTaskId)});
+                    return t && t.status === 'completed';
+                })()`, 5000);
+                check(recoveredCrash, 'Worker 3 關閉分頁後存活 Worker 未透過孤兒快收接手完成');
+                const crashFinal = await tqTab1.page.evaluate(`window.__crashWorker1.getTask(${JSON.stringify(crashTaskId)})`);
+                check(crashFinal.result?.marker === 'takeover' && crashFinal.attemptCount === 2,
+                    `孤兒接手後任務結果異常：${JSON.stringify(crashFinal)}`);
+
+                // 2.8.4 所有分頁全數關閉後再重開新分頁，任務仍從 IndexedDB 持久化復原完成
+                await tqTab1.page.evaluate(`(async () => {
+                    const { createDurableTaskQueue } = await import('./lib/coordination.js');
+                    const q = createDurableTaskQueue({ namespace: ${JSON.stringify(tqNsReload)}, dbName: ${JSON.stringify(tqDbName)} });
+                    await q.enqueue({ type: 'afterReload', payload: { item: 'persisted' } });
+                    await window.__tq1.dispose();
+                    await window.__tqIso.dispose();
+                    await window.__crashWorker1.dispose();
+                    window.__tqBus1.close();
+                    await q.dispose();
+                })()`);
+                await tqTab2.page.evaluate(`(async () => {
+                    await window.__tq2.dispose();
+                    await window.__crashWorker2.dispose();
+                    window.__tqBus2.close();
+                })()`);
+
+                failures.push(...tqTrack1.take().map((p) => `DurableTaskQueue Tab 1：${p}`));
+                failures.push(...tqTrack2.take().map((p) => `DurableTaskQueue Tab 2：${p}`));
+                await tqTab1.close();
+                await tqTab2.close();
+
+                tqTab4 = await openTab();
+                const tqTrack4 = trackProblems(tqTab4.page);
+                await tqTab4.page.send('Page.navigate', { url: testPageUrl });
+                check(await waitFor(tqTab4.page, 'window.__COORD_READY__ === true', 10000), '重開分頁 Tab 4 未就緒');
+
+                const reloadRecovered = await tqTab4.page.evaluate(`(async () => {
+                    const { createDurableTaskQueue } = await import('./lib/coordination.js');
+                    const q = createDurableTaskQueue({
+                        namespace: ${JSON.stringify(tqNsReload)},
+                        dbName: ${JSON.stringify(tqDbName)},
+                        pollIntervalMs: 30,
+                    });
+                    const beforeList = await q.listTasks();
+                    q.registerHandler('afterReload', (p) => ({ ok: true, item: p.item }));
+                    await q.start();
+                    for (let i = 0; i < 60; i++) {
+                        const list = await q.listTasks();
+                        if (list[0]?.status === 'completed') {
+                            await q.clearNamespace();
+                            const crashQ = createDurableTaskQueue({ namespace: ${JSON.stringify(tqNsCrash)}, dbName: ${JSON.stringify(tqDbName)} });
+                            await crashQ.clearNamespace();
+                            await crashQ.dispose();
+                            await q.dispose();
+                            return { beforeStatus: beforeList[0]?.status, after: list[0] };
+                        }
+                        await new Promise((r) => setTimeout(r, 40));
+                    }
+                    await q.dispose();
+                    return { beforeStatus: beforeList[0]?.status, after: null };
+                })()`);
+                check(reloadRecovered.beforeStatus === 'pending' && reloadRecovered.after?.status === 'completed' && reloadRecovered.after?.result?.item === 'persisted',
+                    `所有分頁關閉重開後 IndexedDB 復原失敗：${JSON.stringify(reloadRecovered)}`);
+                failures.push(...tqTrack4.take().map((p) => `DurableTaskQueue Tab 4：${p}`));
+                await tqTab4.close();
+                tqTab4 = null;
+
+                // 2.8.5 真實 3 分頁 #/lab/browser-cluster UI 整合測試（opt-in、join、Peer/Leader/RPC、送出任務與 Leader 關分頁接管）
+                const clusterUrl = `${base}#/lab/browser-cluster?ns=${encodeURIComponent(uiNs)}`;
+                await Promise.all([
+                    uiTab1.page.send('Page.navigate', { url: clusterUrl }),
+                    uiTab2.page.send('Page.navigate', { url: clusterUrl }),
+                    uiTab3.page.send('Page.navigate', { url: clusterUrl }),
+                ]);
+                const uiReady = await Promise.all([
+                    waitFor(uiTab1.page, 'Boolean(document.querySelector("page-lab-browser-cluster #bc-join-btn"))', 10000),
+                    waitFor(uiTab2.page, 'Boolean(document.querySelector("page-lab-browser-cluster #bc-join-btn"))', 10000),
+                    waitFor(uiTab3.page, 'Boolean(document.querySelector("page-lab-browser-cluster #bc-join-btn"))', 10000),
+                ]);
+                check(uiReady.every(Boolean), 'Browser Cluster Lab 三分頁 UI 未載入完成');
+
+                // 確認預設 opt-in：尚未點擊前不應成為 leader 也不應有活躍節點
+                const optInState = await uiTab1.page.evaluate(`({
+                    roleText: document.querySelector('#bc-role-badge')?.textContent || '',
+                    peerRows: document.querySelectorAll('#bc-peers-table tbody tr[data-label], #bc-peers-table tbody th[scope="row"]').length,
+                    nsValue: document.querySelector('#bc-namespace')?.value || '',
+                })`);
+                check(optInState.roleText.includes('idle') && optInState.peerRows === 0 && optInState.nsValue === uiNs,
+                    `Browser Cluster Lab 應採 opt-in 啟動，實際：${JSON.stringify(optInState)}`);
+
+                // 分頁 1 加入成為 leader，隨後分頁 2 與 3 加入成為 follower
+                await uiTab1.page.evaluate(`document.querySelector('#bc-join-btn').click()`);
+                check(await waitFor(uiTab1.page, '(document.querySelector("#bc-role-badge")?.textContent || "").includes("leader")', 8000),
+                    'Browser Cluster UI Tab 1 未成為 leader');
+
+                await uiTab2.page.evaluate(`document.querySelector('#bc-join-btn').click()`);
+                await uiTab3.page.evaluate(`document.querySelector('#bc-join-btn').click()`);
+                check(await waitFor(uiTab2.page, '(document.querySelector("#bc-stats-summary")?.textContent || "").includes("3 節點")', 8000),
+                    'Browser Cluster UI 未偵測到 3 個線上節點');
+
+                // 在 UI 送出真實持久化任務並等待完成
+                await uiTab1.page.evaluate(`(() => {
+                    const input = document.querySelector('#bc-task-input');
+                    const keyInput = document.querySelector('#bc-task-idempotency');
+                    input.value = 'ui-e2e-checksum';
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    keyInput.value = 'ui-idem-1';
+                    keyInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    document.querySelector('#bc-enqueue-btn').click();
+                })()`);
+                check(await waitFor(uiTab2.page, 'Boolean(document.querySelector("#bc-tasks-table tbody tr[data-task-status=\'completed\']"))', 8000),
+                    'Browser Cluster UI 送出的任務未完成並同步於其他分頁');
+
+                // Follower 透過 UI 呼叫 RPC cluster.ping
+                await uiTab2.page.evaluate(`document.querySelector('#bc-rpc-ping-btn').click()`);
+                check(await waitFor(uiTab2.page, '(document.querySelector("#bc-rpc-result")?.textContent || "").includes(\'"pong": true\')', 5000),
+                    'Browser Cluster UI RPC cluster.ping 未收到正確回應');
+
+                // 關閉 UI Leader 分頁 1，驗證分頁 2/3 其中之一自動接管成為 Leader
+                failures.push(...uiTrack1.take().map((p) => `Cluster Lab Tab 1：${p}`));
+                await uiTab1.close();
+
+                const deadlineTakeover = Date.now() + 8000;
+                let r2 = '';
+                let r3 = '';
+                let leadersAfterClose = [];
+                while (Date.now() < deadlineTakeover) {
+                    [r2, r3] = await Promise.all([
+                        uiTab2.page.evaluate('document.querySelector("#bc-role-badge")?.textContent || ""').catch(() => ''),
+                        uiTab3.page.evaluate('document.querySelector("#bc-role-badge")?.textContent || ""').catch(() => ''),
+                    ]);
+                    leadersAfterClose = [r2, r3].filter((txt) => txt.includes('leader'));
+                    if (leadersAfterClose.length === 1) break;
+                    await sleep(100);
+                }
+                check(leadersAfterClose.length === 1,
+                    `關閉 Cluster Lab Leader 後應唯一新分頁接管，實際 r2=${r2.trim()}, r3=${r3.trim()}`);
+
+                // 清理 UI namespace 測試資料
+                await uiTab2.page.evaluate(`document.querySelector('#bc-reset-ns-btn').click()`);
+                check(await waitFor(uiTab2.page, '!document.querySelector("#bc-tasks-table tbody tr[data-task-id]")', 5000),
+                    'Browser Cluster UI 重置命名空間未清空任務表');
+
+                failures.push(...uiTrack2.take().map((p) => `Cluster Lab Tab 2：${p}`));
+                failures.push(...uiTrack3.take().map((p) => `Cluster Lab Tab 3：${p}`));
+            } finally {
+                await tqTab4?.close();
+                await tqTab1.close();
+                await tqTab2.close();
+                await tqTab3.close();
+                await uiTab1.close();
+                await uiTab2.close();
+                await uiTab3.close();
+            }
+        }
+
         if (trackerA && tabA) failures.push(...trackerA.take().map((p) => `雙分頁 Tab A：${p}`));
         if (trackerC) failures.push(...trackerC.take().map((p) => `雙分頁 Tab C：${p}`));
         if (trackerD) failures.push(...trackerD.take().map((p) => `雙分頁 Tab D：${p}`));
@@ -1092,7 +1479,7 @@ async function runCoordinationTests(openTab, base, realtime) {
         await tabD?.close();
     }
 
-    console.log('  雙分頁協作測試：coordination-demo.html、無副作用載入、MessageBus、Store、Web Locks、RPC、PeerDiscovery、Shared WS/SSE');
+    console.log('  雙分頁協作測試：coordination-demo.html、無副作用載入、MessageBus、Store、Web Locks、RPC、PeerDiscovery、Shared WS/SSE、DurableTaskQueue、Browser Cluster Lab');
     return failures;
 }
 

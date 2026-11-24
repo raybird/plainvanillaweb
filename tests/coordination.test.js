@@ -12,7 +12,9 @@ const COORDINATION_FILES = [
     'lib/coordination.js',
     'lib/leader-election.js',
     'lib/message-bus.js',
+    'lib/peer-discovery.js',
     'lib/rpc-channel.js',
+    'lib/shared-connection.js',
     'lib/version.js',
 ].sort();
 
@@ -73,15 +75,29 @@ test('lib/coordination.js 靜態相依圖只包含協調基礎模組，不依賴
     assert.ok(!graph.includes('lib/base-component.js'));
 });
 
-test('匯入 lib/coordination.js 不建立 BroadcastChannel 也不呼叫 navigator.locks.request，且在無 API 環境不拋錯', async () => {
+test('匯入 lib/coordination.js 不建立 BroadcastChannel、WebSocket、EventSource 也不呼叫 navigator.locks.request，且在無 API 環境不拋錯', async () => {
     const OriginalBC = globalThis.BroadcastChannel;
+    const OriginalWS = globalThis.WebSocket;
+    const OriginalES = globalThis.EventSource;
     const origNavDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
     let constructCount = 0;
     let lockRequestCount = 0;
+    let wsConstructCount = 0;
+    let sseConstructCount = 0;
 
     globalThis.BroadcastChannel = class {
         constructor() {
             constructCount += 1;
+        }
+    };
+    globalThis.WebSocket = class {
+        constructor() {
+            wsConstructCount += 1;
+        }
+    };
+    globalThis.EventSource = class {
+        constructor() {
+            sseConstructCount += 1;
         }
     };
     Object.defineProperty(globalThis, 'navigator', {
@@ -99,11 +115,18 @@ test('匯入 lib/coordination.js 不建立 BroadcastChannel 也不呼叫 navigat
         const mod = await import('../lib/coordination.js?spy=1');
         assert.equal(constructCount, 0);
         assert.equal(lockRequestCount, 0);
+        assert.equal(wsConstructCount, 0);
+        assert.equal(sseConstructCount, 0);
         assert.equal(typeof mod.MessageBus, 'function');
         assert.equal(typeof mod.LeaderElection, 'function');
         assert.equal(typeof mod.RpcChannel, 'function');
+        assert.equal(typeof mod.PeerDiscovery, 'function');
+        assert.equal(typeof mod.SharedConnection, 'function');
+        assert.equal(typeof mod.buildConnectionScope, 'function');
     } finally {
         globalThis.BroadcastChannel = OriginalBC;
+        globalThis.WebSocket = OriginalWS;
+        globalThis.EventSource = OriginalES;
         if (origNavDescriptor) {
             Object.defineProperty(globalThis, 'navigator', origNavDescriptor);
         } else {
@@ -116,9 +139,13 @@ test('匯入 lib/coordination.js 不建立 BroadcastChannel 也不呼叫 navigat
         const modNoBc = await import('../lib/coordination.js?nobc=1');
         const caps = modNoBc.getCoordinationCapabilities();
         assert.equal(caps.broadcastChannel, false);
+        assert.equal(typeof caps.webSocket, 'boolean');
+        assert.equal(typeof caps.eventSource, 'boolean');
         assert.equal(typeof modNoBc.createMessageBus, 'function');
         assert.equal(typeof modNoBc.createLeaderElection, 'function');
         assert.equal(typeof modNoBc.createRpcChannel, 'function');
+        assert.equal(typeof modNoBc.createPeerDiscovery, 'function');
+        assert.equal(typeof modNoBc.createSharedConnection, 'function');
     } finally {
         globalThis.BroadcastChannel = OriginalBC;
     }

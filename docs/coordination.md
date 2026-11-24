@@ -1,10 +1,10 @@
 # 跨執行環境協作基礎 (Browser Coordination Foundation)
 
-> **更新日期**：2026-11-24（Phase 1 + Phase 2）  
+> **更新日期**：2026-11-24（Phase 1 + Phase 2 + Phase 3）  
 > **獨立入口**：`./lib/coordination.js`  
-> **架構決策**：[ADR 0103](./decisions/0103-browser-coordination-foundation.md) · [ADR 0104](./decisions/0104-leader-election-and-rpc.md) · [ADR 0101](./decisions/0101-core-entry-point.md)
+> **架構決策**：[ADR 0103](./decisions/0103-browser-coordination-foundation.md) · [ADR 0104](./decisions/0104-leader-election-and-rpc.md) · [ADR 0105](./decisions/0105-peer-discovery-and-shared-connection.md) · [ADR 0101](./decisions/0101-core-entry-point.md)
 
-`lib/coordination.js` 提供**可獨立選用（opt-in）、零依賴、零建置**的同源跨執行環境（多分頁、視窗及適用的 Worker）訊息傳遞、領導者選舉與跨分頁 RPC 基礎設施。僅匯入此模組不會建立 `BroadcastChannel`、申請 Web Lock、網路連線或背景任務。
+`lib/coordination.js` 提供**可獨立選用（opt-in）、零依賴、零建置**的同源跨執行環境（多分頁、視窗及適用的 Worker）訊息傳遞、領導者選舉、跨分頁 RPC、節點探索與共享即時連線基礎設施。僅匯入此模組不會建立 `BroadcastChannel`、申請 Web Lock、建立 `WebSocket`／`EventSource` 或啟動背景任務。
 
 ---
 
@@ -44,10 +44,12 @@ bus.dispose();
 
 | 模組 / 入口 | 職責 | Import 副作用 |
 | :--- | :--- | :--- |
-| `lib/coordination.js` | 獨立協作入口（匯出 `BroadcastService`、`MessageBus`、`createMessageBus`、`LeaderElection`、`createLeaderElection`、`RpcChannel`、`createRpcChannel`、`RpcError`、`RPC_ERROR_CODES`、`getCoordinationCapabilities`、`ENVELOPE_VERSION`、`DEFAULT_CHANNEL_NAME`、`DEFAULT_NAMESPACE`、`DEFAULT_BUS_CHANNEL`、`DEFAULT_LOCK_PREFIX`、`DEFAULT_LEADER_SCOPE`、`DEFAULT_RPC_TIMEOUT_MS`、`createEnvelope`、`validateEnvelope`、`serializeRpcError`、`deserializeRpcError`、`VERSION`） | **無** |
+| `lib/coordination.js` | 獨立協作入口（匯出 `BroadcastService`、`MessageBus`、`createMessageBus`、`LeaderElection`、`createLeaderElection`、`RpcChannel`、`createRpcChannel`、`RpcError`、`RPC_ERROR_CODES`、`PeerDiscovery`、`createPeerDiscovery`、`SharedConnection`、`createSharedConnection`、`buildConnectionScope`、`SharedConnectionError`、`SHARED_CONNECTION_ERROR_CODES`、`DEFAULT_RECONNECT_OPTIONS`、`DEFAULT_PEER_HEARTBEAT_MS`、`DEFAULT_PEER_TIMEOUT_MS`、`getCoordinationCapabilities`、`ENVELOPE_VERSION`、`DEFAULT_CHANNEL_NAME`、`DEFAULT_NAMESPACE`、`DEFAULT_BUS_CHANNEL`、`DEFAULT_LOCK_PREFIX`、`DEFAULT_LEADER_SCOPE`、`DEFAULT_RPC_TIMEOUT_MS`、`createEnvelope`、`validateEnvelope`、`serializeRpcError`、`deserializeRpcError`、`VERSION`） | **無** |
 | `lib/broadcast-channel.js` | 純類別 `BroadcastService`、版本化 envelope 與 capability 偵測 | **無** |
 | `lib/leader-election.js` | 基於 Web Locks 的 scoped 互斥領導者選舉（`LeaderElection`） | **無** |
 | `lib/rpc-channel.js` | 基於 `MessageBus` 的白名單跨分頁 RPC（`RpcChannel`、`RpcError`） | **無** |
+| `lib/peer-discovery.js` | 跨執行環境節點探索、能力宣告與心跳觀測（`PeerDiscovery`） | **無** |
+| `lib/shared-connection.js` | 基於 Web Locks 與 RPC 的同 scope 共享即時連線（`SharedConnection`） | **無** |
 | `lib/broadcast-service.js` | 保留 `broadcastService` 預設單例供 `lib/core.js` 與現有展示頁向下相容 | 建立預設全域單例 |
 | `lib/core.js` | 維持輕量核心 API，不引入協調進階抽象 | 維持既有行為 |
 | `lib/vanilla-sdk.js` | 額外重新匯出協作類別與工廠函式（不自動連線） | 維持既有行為 |
@@ -193,9 +195,78 @@ rpc.dispose();
 
 ---
 
-## 8. 限制與安全邊界
+## 8. `PeerDiscovery`（節點能力宣告與心跳觀測，Phase 3）
 
-1. **同源不等同授權；`namespace` 不是安全邊界**：任何同源腳本皆可監聽或傳送至同一 channel 與 `namespace`。請勿廣播身份驗證權杖、密碼或敏感個資，也勿將訊息當作任意程式執行指令。
-2. **純同源同儲存分區限制**：`BroadcastChannel` 無法跨越不同 Origin、不同瀏覽器或不同裝置，且受瀏覽器 Storage Partitioning 規範約束。
-3. **不保證持久化與重播**：`BroadcastChannel` 僅投遞給當下活躍的上下文，離線或尚未開啟的分頁不會補收歷史訊息；持久化狀態請依賴 `Store`（`localStorage`）或後續持久層機制。
-4. **Capability 降級行為**：不支援 `BroadcastChannel` 時不會拋錯也不會偽裝遠端成功，`supported` 為 `false`、`post()` 回傳 `false`、`publish()` 回傳 `remoteSent: false`。
+`PeerDiscovery` 提供同 `namespace` 內跨執行環境的節點可觀測性，詳見 [ADR 0105](./decisions/0105-peer-discovery-and-shared-connection.md)：
+
+```javascript
+import { createPeerDiscovery } from './lib/coordination.js';
+
+const discovery = createPeerDiscovery({
+    namespace: 'workspace-1',
+    capabilities: ['sync', 'audio'],
+    heartbeatIntervalMs: 2000,
+    peerTimeoutMs: 6000,
+});
+
+discovery.on('peer-join', ({ peer, rejoined }) => {
+    console.log(peer.nodeId, peer.capabilities, rejoined);
+});
+discovery.on('peer-expire', ({ peer }) => {
+    console.warn('失去心跳（僅代表不可觀測，不代表 Web Lock 已釋放）:', peer.nodeId);
+});
+
+discovery.start();
+discovery.updateCapabilities(['sync', 'audio', 'ws']);
+discovery.dispose();
+```
+
+- **能力宣告與查詢**：支援物件或字串陣列格式的 `capabilities`（阻擋 `__proto__`/`constructor`/`prototype`），可用 `getPeers({ includeSelf, includeExpired, capability })` 篩選查詢；以單調遞增 `seq` 忽略過期或亂序訊息。
+- **過期與離開語意**：主動呼叫 `stop()`、`dispose()` 或分頁觸發 `pagehide` 會發出 `'peer-leave'` 並移除節點；超過 `peerTimeoutMs` 未見心跳則轉為 `'expired'` 並發出 `'peer-expire'`，恢復送出心跳時會切回 `'alive'` 並觸發 `{ rejoined: true }`。
+- **重要原則**：`peer-expire` 僅作狀態觀測，**絕不表示該節點持有的 Web Lock 已釋放或可安全搶鎖**。
+
+---
+
+## 9. `SharedConnection`（共享 WebSocket / SSE 連線，Phase 3）
+
+`SharedConnection` 重用 `MessageBus`、`LeaderElection`（Web Locks）與 `RpcChannel`，使同 `scopeKey` 的多個分頁在穩定狀態只維持 **1 條**上游即時連線：
+
+```javascript
+import {
+    createSharedConnection,
+    SHARED_CONNECTION_ERROR_CODES,
+} from './lib/coordination.js';
+
+const conn = createSharedConnection({
+    transport: 'websocket', // 或 'sse'
+    url: 'wss://example.com/stream',
+    identityKey: 'user:42',   // 不同帳號必須使用不同 identityKey，絕不混用連線
+    configKey: 'v1',          // 設定差異也會納入 scopeKey 隔離
+    resolveUrl: ({ url, epoch, lastEventId }) => `${url}?epoch=${epoch}&cursor=${lastEventId}`,
+    onResync: ({ reason, subscriptions }) => console.log('重新同步:', reason, subscriptions),
+});
+
+conn.on('message', ({ data, relayed }) => console.log('收到推播:', data, { relayed }));
+await conn.start();
+
+// WebSocket 支援雙向轉發（不自動重試）；SSE 的 canSend 為 false，呼叫 send() 會立即以 UNSUPPORTED_OPERATION 拒絕
+if (conn.canSend) {
+    await conn.send(JSON.stringify({ type: 'ping' }));
+}
+await conn.dispose();
+```
+
+- **嚴格 Scope 隔離（`buildConnectionScope`）**：將 `transport`、正規化 `url`（拒絕內嵌 `user:pass@`）、`identityKey`、`configKey` 與 `protocols`/`withCredentials` 以 `encodeURIComponent` 組合為唯一 `scopeKey`，防止不同帳號或參數錯用同一條伺服器連線。
+- **WebSocket vs SSE 明確分工**：
+  - WebSocket leader 持有連線並向 followers 廣播訊息；follower 呼叫 `send()` 透過 `RpcChannel` 轉發至 leader，失敗或逾時**不自動重試**。
+  - SSE 為嚴格單向接收：`canSend === false`、不註冊傳送 RPC、`send()` 無論在 leader 或 follower 均立即 reject `UNSUPPORTED_OPERATION`，並追蹤與同步 `lastEventId` 及自訂 `eventTypes`。
+- **重連、訂閱同步與環境降級**：支援指數退避重連（`reconnect`）、跨分頁 `subscribe(channel)` 聯集同步、`onResync` 重新對帳與 `releaseOnFreeze`（未觸發 `pagehide` 或強行關閉的分頁訂閱會於下次切鎖時重整清除）；缺乏 Web Locks 或對應 `WebSocket`/`EventSource` 時明確回報 `state: 'unsupported'`，絕不偽裝單連線保證。
+
+---
+
+## 10. 限制、Failover 缺口與安全邊界
+
+1. **同源不等同授權；絕不廣播認證 Token**：任何同源腳本皆可監聽同 channel 與 `namespace`。請勿將 JWT、Bearer Token、密碼或敏感憑證放進 `url`、`identityKey`、`configKey`、`MessageBus` 或 `PeerDiscovery` 宣告。建議搭配 `HttpOnly` Cookie，或使用僅在 leader 本地執行且結果絕不廣播的 `resolveUrl()` 取得短效單次連線票證。
+2. **Failover 訊息缺口、短暫雙連線與服務端 Fencing**：leader 分頁關閉、重載或崩潰後，從斷線到新 leader 取得 Web Lock 並完成握手之間必定存在空窗期（會產生訊息缺口），且極端情境下伺服器可能短暫同時存在舊連線與新連線。請務必實作 `onResync`／SSE `lastEventId` 補齊資料；由於純前端 `epoch` 僅為單實例單調遞增，需要嚴格單一寫入保證時須由服務端實施 fencing token 驗證。
+3. **背景凍結（Background Freeze）與 `releaseOnFreeze`**：背景分頁被凍結後計時器與心跳會暫停，可能觸發 `PeerDiscovery` `peer-expire`，但瀏覽器通常會維持其持有的 Web Lock 直到恢復或關閉；需主動交接上游連線時請設定 `releaseOnFreeze: true`。
+4. **純同源、非持久廣播與能力降級**：`BroadcastChannel` 受同源與 Storage Partitioning 限制、不保證歷史重播（持久狀態請交給 `Store`）；不支援原生 API 時明確以 `supported: false` 降級而不拋錯或偽裝成功。

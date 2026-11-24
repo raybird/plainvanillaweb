@@ -182,11 +182,30 @@
         <ul id="rpcLogs" class="log-list"></ul>
     </section>
 
+    <section class="card" style="margin-top: 1rem;">
+        <h2 style="margin-top: 0;">4. Peer Discovery（節點能力宣告與心跳觀測，Phase 3）</h2>
+        <p class="muted" style="margin-top: 0;">完全 opt-in：點擊 Start 後才會啟動 heartbeat 與掃描；節點過期（<code>peer-expire</code>）僅作可觀測狀態，不代表 Web Lock 已釋放。</p>
+        <div class="row" style="justify-content: space-between;">
+            <div>
+                狀態：<span id="peerStatus" class="badge warn">stopped</span>
+                · 已見活躍節點：<strong id="peerCount">0</strong>
+            </div>
+            <label>能力標籤 <input id="peerCapInput" type="text" value="sync,audio" size="18"></label>
+        </div>
+        <div class="row">
+            <button id="startPeerBtn" type="button">Start Discovery</button>
+            <button id="updatePeerCapBtn" type="button" class="secondary">Update Capability</button>
+            <button id="stopPeerBtn" type="button" class="secondary">Stop Discovery</button>
+        </div>
+        <ul id="peerLogs" class="log-list"></ul>
+    </section>
+
     <script type="module">
         import {
             createMessageBus,
             createLeaderElection,
             createRpcChannel,
+            createPeerDiscovery,
             getCoordinationCapabilities,
         } from './lib/coordination.js';
         import { Store } from './lib/store.js';
@@ -329,6 +348,7 @@
             bus?.dispose();
             storeA.dispose();
             storeB.dispose();
+            discovery?.dispose();
             void election?.dispose();
             rpc?.dispose();
             coordBus?.dispose();
@@ -452,6 +472,69 @@
         });
 
         refreshPhase2UI();
+
+        // --- Phase 3: Peer Discovery demo (opt-in) ---
+        const peerStatusEl = document.getElementById('peerStatus');
+        const peerCountEl = document.getElementById('peerCount');
+        const peerCapInput = document.getElementById('peerCapInput');
+        const peerLogsEl = document.getElementById('peerLogs');
+
+        const parseCaps = () => peerCapInput.value.split(',').map((s) => s.trim()).filter(Boolean);
+        const discovery = createPeerDiscovery({
+            namespace: 'demo-peers',
+            capabilities: parseCaps(),
+            heartbeatIntervalMs: 1500,
+            peerTimeoutMs: 4500,
+        });
+
+        function appendPeerLog(text) {
+            const li = document.createElement('li');
+            li.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            peerLogsEl.prepend(li);
+            while (peerLogsEl.children.length > 30) peerLogsEl.lastElementChild.remove();
+        }
+
+        function refreshPeerUI() {
+            peerStatusEl.textContent = discovery.started ? 'running' : 'stopped';
+            peerStatusEl.className = `badge ${discovery.started ? 'ok' : 'warn'}`;
+            peerCountEl.textContent = String(discovery.getPeers({ includeSelf: true }).length);
+        }
+
+        discovery.on('peer-join', ({ peer, rejoined }) => {
+            appendPeerLog(`peer-join (${rejoined ? 'rejoin' : 'new'}): ${peer.nodeId.slice(0, 8)} caps=${JSON.stringify(peer.capabilities)}`);
+            refreshPeerUI();
+        });
+        discovery.on('peer-update', ({ peer }) => {
+            appendPeerLog(`peer-update: ${peer.nodeId.slice(0, 8)} caps=${JSON.stringify(peer.capabilities)}`);
+            refreshPeerUI();
+        });
+        discovery.on('peer-expire', ({ peer }) => {
+            appendPeerLog(`peer-expire (不影響 Web Lock): ${peer.nodeId.slice(0, 8)}`);
+            refreshPeerUI();
+        });
+        discovery.on('peer-leave', ({ peer }) => {
+            appendPeerLog(`peer-leave: ${peer.nodeId.slice(0, 8)}`);
+            refreshPeerUI();
+        });
+
+        document.getElementById('startPeerBtn').addEventListener('click', () => {
+            discovery.updateCapabilities(parseCaps());
+            discovery.start();
+            appendPeerLog(`discovery started (node=${discovery.nodeId.slice(0, 8)})`);
+            refreshPeerUI();
+        });
+        document.getElementById('updatePeerCapBtn').addEventListener('click', () => {
+            discovery.updateCapabilities(parseCaps());
+            appendPeerLog(`local capabilities updated: ${JSON.stringify(discovery.localCapabilities)}`);
+            refreshPeerUI();
+        });
+        document.getElementById('stopPeerBtn').addEventListener('click', () => {
+            discovery.stop();
+            appendPeerLog('discovery stopped');
+            refreshPeerUI();
+        });
+
+        refreshPeerUI();
     </script>
 </body>
 </html>

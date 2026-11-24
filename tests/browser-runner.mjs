@@ -22,6 +22,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { startRealtimeTestServer } from './helpers/realtime-server.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SUBPATH = '/plainvanillaweb/';
@@ -503,8 +504,8 @@ async function interact(page, base, network, failures) {
     check(await page.evaluate("localStorage.getItem('vanilla_auth_token') === null"), '登出後應清除登入狀態');
 }
 
-/** 雙分頁協作測試：coordination-demo.html 載入檢查 + 真實雙分頁 MessageBus 與 Store 隔離/刪除/快照/並行更新 */
-async function runCoordinationTests(openTab, base) {
+/** 雙分頁協作測試：coordination-demo.html 載入檢查 + 真實多分頁協調／選舉／RPC／探索／共享連線 */
+async function runCoordinationTests(openTab, base, realtime) {
     const failures = [];
     const check = (ok, message) => { if (!ok) failures.push(`雙分頁協作：${message}`); };
 
@@ -513,25 +514,29 @@ async function runCoordinationTests(openTab, base) {
     const demoTracker = trackProblems(demoTab.page);
     try {
         await demoTab.page.send('Page.navigate', { url: new URL('coordination-demo.html', base).href });
-        const ready = await waitFor(demoTab.page, "document.querySelector('#busTabId')?.textContent !== '-' && document.querySelector('#stateA')?.textContent?.includes('count')", 10000);
-        check(ready, 'coordination-demo.html 未正常初始化');
+        const ready = await waitFor(demoTab.page, "document.querySelector('#busTabId')?.textContent !== '-' && document.querySelector('#stateA')?.textContent?.includes('count') && document.querySelector('#peerStatus')?.textContent === 'stopped'", 10000);
+        check(ready, 'coordination-demo.html 未正常初始化或 PeerDiscovery 未維持 opt-in stopped');
         if (ready) {
             await demoTab.page.evaluate(`(() => {
                 document.querySelector('#localCheck').checked = true;
                 document.querySelector('#publishBtn').click();
                 document.querySelector('#setABtn').click();
                 document.querySelector('#startElectionBtn').click();
+                document.querySelector('#startPeerBtn').click();
             })()`);
-            const interacted = await waitFor(demoTab.page, "document.querySelector('#busLogs')?.textContent?.includes('local | ns=') && document.querySelector('#stateA')?.textContent?.includes('alpha') && document.querySelector('#leaderRole')?.textContent === 'leader'", 5000);
-            check(interacted, 'coordination-demo.html 點擊 Publish / 寫入 Store / Start Election 未反映於畫面');
+            const interacted = await waitFor(demoTab.page, "document.querySelector('#busLogs')?.textContent?.includes('local | ns=') && document.querySelector('#stateA')?.textContent?.includes('alpha') && document.querySelector('#leaderRole')?.textContent === 'leader' && document.querySelector('#peerStatus')?.textContent === 'running' && document.querySelector('#peerCount')?.textContent === '1'", 5000);
+            check(interacted, 'coordination-demo.html 點擊 Publish / 寫入 Store / Start Election / Start Discovery 未反映於畫面');
             if (interacted) {
                 await demoTab.page.evaluate(`(() => {
                     document.querySelector('#rpcAddBtn').click();
                     document.querySelector('#rpcUnknownBtn').click();
                     document.querySelector('#releaseElectionBtn').click();
+                    document.querySelector('#peerCapInput').value = 'sync,ws';
+                    document.querySelector('#updatePeerCapBtn').click();
+                    document.querySelector('#stopPeerBtn').click();
                 })()`);
-                const rpcChecked = await waitFor(demoTab.page, "document.querySelector('#rpcLogs')?.textContent?.includes('42') && document.querySelector('#rpcLogs')?.textContent?.includes('METHOD_NOT_FOUND') && document.querySelector('#leaderRole')?.textContent === 'idle'", 5000);
-                check(rpcChecked, 'coordination-demo.html Phase 2 RPC / Release 控制未正常運作');
+                const rpcAndPeerChecked = await waitFor(demoTab.page, "document.querySelector('#rpcLogs')?.textContent?.includes('42') && document.querySelector('#rpcLogs')?.textContent?.includes('METHOD_NOT_FOUND') && document.querySelector('#leaderRole')?.textContent === 'idle' && document.querySelector('#peerStatus')?.textContent === 'stopped' && document.querySelector('#peerLogs')?.textContent?.includes('sync')", 5000);
+                check(rpcAndPeerChecked, 'coordination-demo.html Phase 2/3 控制互動未正常運作');
             }
         }
         failures.push(...demoTracker.take().map((p) => `coordination-demo.html：${p}`));
@@ -539,16 +544,18 @@ async function runCoordinationTests(openTab, base) {
         await demoTab.close();
     }
 
-    // 2. 開啟真實 Chrome 分頁測試跨上下文協作（Phase 1 + Phase 2）
+    // 2. 開啟真實 Chrome 分頁測試跨上下文協作（Phase 1 + Phase 2 + Phase 3）
     let tabA = null;
     let tabB = null;
     let tabC = null;
+    let tabD = null;
     try {
         tabA = await openTab();
         tabB = await openTab();
         const trackerA = trackProblems(tabA.page);
         const trackerB = trackProblems(tabB.page);
         let trackerC = null;
+        let trackerD = null;
         const testPageUrl = new URL('tests/coordination-browser.html', base).href;
         await Promise.all([
             tabA.page.send('Page.navigate', { url: testPageUrl }),
@@ -558,16 +565,30 @@ async function runCoordinationTests(openTab, base) {
         const readyB = await waitFor(tabB.page, 'window.__COORD_READY__ === true', 10000);
         check(readyA && readyB, 'tests/coordination-browser.html 未就緒');
 
-        // 2.1 在真實瀏覽器驗證 import lib/coordination.js 不建立 BroadcastChannel 也不呼叫 navigator.locks.request
+        // 2.1 在真實瀏覽器驗證 import lib/coordination.js 不建立 BroadcastChannel、WebSocket、EventSource 也不呼叫 navigator.locks.request
         const sideEffects = await tabA.page.evaluate(`(async () => {
             const OrigBC = window.BroadcastChannel;
+            const OrigWS = window.WebSocket;
+            const OrigES = window.EventSource;
             const locksProto = window.navigator?.locks ? Object.getPrototypeOf(window.navigator.locks) : null;
             const origRequest = locksProto?.request;
             let bcCount = 0;
             let lockCount = 0;
+            let wsCount = 0;
+            let sseCount = 0;
             window.BroadcastChannel = class extends OrigBC {
                 constructor(...args) { bcCount++; super(...args); }
             };
+            if (OrigWS) {
+                window.WebSocket = class extends OrigWS {
+                    constructor(...args) { wsCount++; super(...args); }
+                };
+            }
+            if (OrigES) {
+                window.EventSource = class extends OrigES {
+                    constructor(...args) { sseCount++; super(...args); }
+                };
+            }
             if (locksProto && origRequest) {
                 locksProto.request = function (...args) {
                     lockCount++;
@@ -576,14 +597,16 @@ async function runCoordinationTests(openTab, base) {
             }
             try {
                 await import('./lib/coordination.js?e2e_side_effect=1');
-                return { bcCount, lockCount };
+                return { bcCount, lockCount, wsCount, sseCount };
             } finally {
                 window.BroadcastChannel = OrigBC;
+                window.WebSocket = OrigWS;
+                window.EventSource = OrigES;
                 if (locksProto && origRequest) locksProto.request = origRequest;
             }
         })()`);
-        check(sideEffects.bcCount === 0 && sideEffects.lockCount === 0,
-            `import lib/coordination.js 應零副作用，實際 bc=${sideEffects.bcCount}, locks=${sideEffects.lockCount}`);
+        check(sideEffects.bcCount === 0 && sideEffects.lockCount === 0 && sideEffects.wsCount === 0 && sideEffects.sseCount === 0,
+            `import lib/coordination.js 應零副作用，實際 bc=${sideEffects.bcCount}, locks=${sideEffects.lockCount}, ws=${sideEffects.wsCount}, sse=${sideEffects.sseCount}`);
 
         // 2.2 MessageBus 雙分頁投遞、local/remote、namespace 隔離、unsubscribe 與 dispose
         await tabA.page.evaluate(`(async () => {
@@ -814,15 +837,262 @@ async function runCoordinationTests(openTab, base) {
 
         await tabA.page.evaluate(`window.__rpcA.dispose()`);
 
+        // 2.6 Phase 3：真實雙分頁 PeerDiscovery（加入、能力宣告/更新、離開、過期且不影響 Web Lock 持鎖）
+        const pdTag = base.includes('/plainvanillaweb/') ? 'sub' : 'root';
+        await tabA.page.evaluate(`(async (tag) => {
+            const { createPeerDiscovery, createLeaderElection } = await import('./lib/coordination.js');
+            window.__pdLockA = createLeaderElection({ namespace: 'e2e-pd-' + tag, scope: 'res' });
+            await window.__pdLockA.start();
+            window.__pdEventsA = [];
+            window.__pdA = createPeerDiscovery({
+                namespace: 'e2e-pd-' + tag,
+                capabilities: ['sync', 'ws'],
+                meta: { tab: 'A' },
+                heartbeatIntervalMs: 4000,
+                peerTimeoutMs: 120,
+                sweepIntervalMs: 5000,
+            });
+            window.__pdA.on('peer-leave', (e) => window.__pdEventsA.push({ type: 'leave', id: e.peer.nodeId }));
+            window.__pdA.start();
+        })(${JSON.stringify(pdTag)})`);
+        await tabC.page.evaluate(`(async (tag) => {
+            const { createPeerDiscovery, createLeaderElection } = await import('./lib/coordination.js');
+            window.__pdLockC = createLeaderElection({ namespace: 'e2e-pd-' + tag, scope: 'res' });
+            await window.__pdLockC.start();
+            window.__pdEventsC = [];
+            window.__pdC = createPeerDiscovery({
+                namespace: 'e2e-pd-' + tag,
+                capabilities: ['cache'],
+                heartbeatIntervalMs: 4000,
+                peerTimeoutMs: 120,
+                sweepIntervalMs: 5000,
+            });
+            window.__pdC.on('peer-join', (e) => window.__pdEventsC.push({ type: 'join', id: e.peer.nodeId, rejoined: e.rejoined }));
+            window.__pdC.on('peer-update', (e) => window.__pdEventsC.push({ type: 'update', caps: e.peer.capabilities }));
+            window.__pdC.on('peer-expire', (e) => window.__pdEventsC.push({ type: 'expire', id: e.peer.nodeId }));
+            window.__pdC.start();
+            window.__pdAId = null;
+        })(${JSON.stringify(pdTag)})`);
+
+        check(await waitFor(tabC.page, "window.__pdC.getPeers().length === 1", 5000), 'PeerDiscovery 未於雙分頁彼此發現');
+        await tabA.page.evaluate(`window.__pdA.updateCapabilities(['sync', 'ws', 'rpc'])`);
+        check(await waitFor(tabC.page, "window.__pdEventsC.some((e) => e.type === 'update' && e.caps.includes('rpc'))", 5000),
+            'PeerDiscovery 能力更新未同步');
+        await sleep(160);
+        const pdExpiredCheck = await tabC.page.evaluate(`(() => {
+            window.__pdC.sweep();
+            return {
+                expiredCount: window.__pdEventsC.filter((e) => e.type === 'expire').length,
+                aliveCount: window.__pdC.getPeers().length,
+                lockCRole: window.__pdLockC.role,
+            };
+        })()`);
+        const lockARoleAfterExpire = await tabA.page.evaluate(`window.__pdLockA.role`);
+        check(pdExpiredCheck.expiredCount >= 1 && pdExpiredCheck.aliveCount === 0, 'PeerDiscovery 逾時後未標記 peer-expire');
+        check(lockARoleAfterExpire === 'leader' && pdExpiredCheck.lockCRole === 'follower',
+            'PeerDiscovery 過期後不應釋放或奪取 Web Lock');
+
+        await tabA.page.evaluate(`window.__pdA.announce()`);
+        check(await waitFor(tabC.page, "window.__pdEventsC.some((e) => e.type === 'join' && e.rejoined === true) && window.__pdC.getPeers().length === 1", 5000),
+            'PeerDiscovery 恢復送出心跳後未觸發 rejoined: true');
+
+        await tabC.page.evaluate(`window.__pdC.stop();`);
+        check(await waitFor(tabA.page, "window.__pdEventsA.some((e) => e.type === 'leave')", 5000), 'PeerDiscovery stop 未發出 peer-leave');
+        await Promise.all([
+            tabA.page.evaluate(`window.__pdA.dispose(); window.__pdLockA.dispose();`),
+            tabC.page.evaluate(`window.__pdC.dispose(); window.__pdLockC.dispose();`),
+        ]);
+
+        // 2.7 Phase 3：真實 Chrome 原生 WebSocket & EventSource 共享連線驗證
+        realtime.resetStats();
+        const wsRoomA = `ws-a-${pdTag}`;
+        const wsRoomB = `ws-b-${pdTag}`;
+        const wsUrlA = realtime.wsUrl(wsRoomA);
+        const wsUrlB = realtime.wsUrl(wsRoomB);
+
+        await tabA.page.evaluate(`(async (tag, wsUrlA) => {
+            const { createSharedConnection } = await import('./lib/coordination.js');
+            window.__scStateA = { msgs: [], resyncs: [] };
+            window.__scWsA = createSharedConnection({
+                transport: 'websocket',
+                url: wsUrlA,
+                identityKey: 'acct-1',
+                configKey: 'main',
+                namespace: 'e2e-sc-' + tag,
+                reconnect: { initialDelayMs: 40, maxDelayMs: 120, jitter: 0, maxAttempts: 5 },
+            });
+            window.__scWsA.subscribe('orders');
+            window.__scWsA.on('message', (m) => window.__scStateA.msgs.push(m));
+            window.__scWsA.on('resync', (r) => window.__scStateA.resyncs.push(r));
+            await window.__scWsA.start();
+        })(${JSON.stringify(pdTag)}, ${JSON.stringify(wsUrlA)})`);
+
+        await tabC.page.evaluate(`(async (tag, wsUrlA, wsUrlB) => {
+            const { createSharedConnection } = await import('./lib/coordination.js');
+            window.__scStateC = { msgs: [], resyncs: [], otherMsgs: [], diffEndpointMsgs: [] };
+            window.__scWsC = createSharedConnection({
+                transport: 'websocket',
+                url: wsUrlA,
+                identityKey: 'acct-1',
+                configKey: 'main',
+                namespace: 'e2e-sc-' + tag,
+                reconnect: { initialDelayMs: 40, maxDelayMs: 120, jitter: 0, maxAttempts: 5 },
+            });
+            window.__scWsC.subscribe('feed');
+            window.__scWsC.on('message', (m) => window.__scStateC.msgs.push(m));
+            window.__scWsC.on('resync', (r) => window.__scStateC.resyncs.push(r));
+
+            // 同 URL 不同帳號 (acct-2) 與不同端點 (wsUrlB) 必須完全隔離
+            window.__scWsOtherAcct = createSharedConnection({
+                transport: 'websocket',
+                url: wsUrlA,
+                identityKey: 'acct-2',
+                configKey: 'main',
+                namespace: 'e2e-sc-' + tag,
+                reconnect: { initialDelayMs: 40, maxDelayMs: 120, jitter: 0, maxAttempts: 5 },
+            });
+            window.__scWsOtherAcct.on('message', (m) => window.__scStateC.otherMsgs.push(m));
+
+            window.__scWsDiffUrl = createSharedConnection({
+                transport: 'websocket',
+                url: wsUrlB,
+                identityKey: 'acct-1',
+                configKey: 'main',
+                namespace: 'e2e-sc-' + tag,
+            });
+            window.__scWsDiffUrl.on('message', (m) => window.__scStateC.diffEndpointMsgs.push(m));
+
+            await window.__scWsC.start();
+            await window.__scWsOtherAcct.start();
+            await window.__scWsDiffUrl.start();
+        })(${JSON.stringify(pdTag)}, ${JSON.stringify(wsUrlA)}, ${JSON.stringify(wsUrlB)})`);
+
+        check(await waitFor(tabA.page, "window.__scWsA.state === 'open' && window.__scWsA.role === 'leader'", 5000),
+            'Chrome Tab A SharedConnection WebSocket 未成為開啟的 leader');
+        check(await waitFor(tabC.page, "window.__scWsC.state === 'open' && window.__scWsC.role === 'follower' && window.__scWsOtherAcct.state === 'open' && window.__scWsDiffUrl.state === 'open'", 5000),
+            'Chrome Tab C SharedConnection follower 或隔離連線未就緒');
+
+        const wsStatsAfterOpen = realtime.getStats(wsRoomA);
+        check(wsStatsAfterOpen.activeWsCount === 2 && realtime.getStats(wsRoomB).activeWsCount === 1,
+            `同 scope 應維持 1 條且異 scope 各自獨立，實際 roomA=${wsStatsAfterOpen.activeWsCount}, roomB=${realtime.getStats(wsRoomB).activeWsCount}`);
+
+        // 訂閱聯集、伺服器廣播轉發、follower send 轉發、與異端點隔離
+        check(await waitFor(tabA.page, "window.__scWsA.getSubscriptions().includes('orders') && window.__scWsA.getSubscriptions().includes('feed')", 5000),
+            '跨分頁訂閱集合未在 leader 彙總');
+        realtime.broadcastWs(wsRoomA, JSON.stringify({ event: 'ws-hi' }));
+        check(await waitFor(tabC.page, 'window.__scStateC.msgs.length === 1 && window.__scStateC.otherMsgs.length === 1', 5000),
+            'WebSocket 推播未轉發到 follower');
+        check(await tabC.page.evaluate('window.__scStateC.msgs[0].relayed === true && window.__scStateC.diffEndpointMsgs.length === 0'),
+            'follower 應標記 relayed=true 且不同 URL 不應收到推播');
+
+        const followerSendRes = await tabC.page.evaluate(`window.__scWsC.send('chrome-follower-msg')`);
+        check(followerSendRes.ok === true && followerSendRes.relayed === true, 'Chrome follower WS send 失敗');
+        await waitFor(tabA.page, 'true', 100);
+        const deadlineWsRecv = Date.now() + 3000;
+        while (realtime.getStats(wsRoomA).receivedWsMessages.length < 1 && Date.now() < deadlineWsRecv) await sleep(20);
+        check(realtime.getStats(wsRoomA).receivedWsMessages[0]?.data === 'chrome-follower-msg', '伺服器未收到 follower 轉發的 WebSocket 訊息');
+
+        // 伺服器斷線重連與 resync 事件
+        realtime.dropWs(wsRoomA);
+        check(await waitFor(tabA.page, "window.__scStateA.resyncs.some((r) => r.reason === 'reconnect') && window.__scWsA.state === 'open'", 6000),
+            'Chrome WebSocket 斷線後未重連與 resync');
+        check(await waitFor(tabC.page, "window.__scStateC.resyncs.some((r) => r.reason === 'reconnect') && window.__scWsOtherAcct.state === 'open'", 5000),
+            'Chrome follower 或隔離帳號未在 reconnect 後恢復開啟');
+
+        // 關閉真實 leader 分頁 Tab A：Tab C 應接管且 acct-1 仍僅 1 條連線
         failures.push(...trackerA.take().map((p) => `雙分頁 Tab A：${p}`));
+        await tabA.close();
+        tabA = null;
+        check(await waitFor(tabC.page, "window.__scWsC.role === 'leader' && window.__scWsC.state === 'open'", 8000),
+            '關閉 WebSocket leader 分頁後 follower (Tab C) 未接管連線');
+        const deadlineTakeoverStats = Date.now() + 2000;
+        while (realtime.getStats(wsRoomA).activeWsCount !== 2 && Date.now() < deadlineTakeoverStats) await sleep(20);
+        check(realtime.getStats(wsRoomA).activeWsCount === 2, `接管後 roomA 應維持 2 條連線，實際 ${realtime.getStats(wsRoomA).activeWsCount}`);
+        const postTakeoverSend = await tabC.page.evaluate(`window.__scWsC.send('after-takeover-msg')`);
+        check(postTakeoverSend.ok === true && postTakeoverSend.relayed === false, '接管後新 leader 直接 send 應成功且 relayed=false');
+
+        await tabC.page.evaluate(`window.__scWsC.dispose(); window.__scWsOtherAcct.dispose(); window.__scWsDiffUrl.dispose();`);
+
+        // 2.7b SSE（原生 EventSource 嚴格單向、lastEventId 追蹤與雙分頁共用 1 條連線）
+        tabD = await openTab();
+        trackerD = trackProblems(tabD.page);
+        await tabD.page.send('Page.navigate', { url: testPageUrl });
+        check(await waitFor(tabD.page, 'window.__COORD_READY__ === true', 10000), 'Tab D 測試頁未就緒');
+
+        const sseRoom = `sse-${pdTag}`;
+        const sseUrl = realtime.sseUrl(sseRoom);
+        await Promise.all([
+            tabC.page.evaluate(`(async (tag, sseUrl) => {
+                const { createSharedConnection } = await import('./lib/coordination.js');
+                window.__scSseMsgsC = [];
+                window.__scSseC = createSharedConnection({
+                    transport: 'sse',
+                    url: sseUrl,
+                    identityKey: 'sse-u1',
+                    withCredentials: true,
+                    eventTypes: ['tick'],
+                    namespace: 'e2e-sse-' + tag,
+                });
+                window.__scSseC.on('message', (m) => window.__scSseMsgsC.push(m));
+                await window.__scSseC.start();
+            })(${JSON.stringify(pdTag)}, ${JSON.stringify(sseUrl)})`),
+            tabD.page.evaluate(`(async (tag, sseUrl) => {
+                const { createSharedConnection } = await import('./lib/coordination.js');
+                window.__scSseMsgsD = [];
+                window.__scSseD = createSharedConnection({
+                    transport: 'sse',
+                    url: sseUrl,
+                    identityKey: 'sse-u1',
+                    withCredentials: true,
+                    eventTypes: ['tick'],
+                    namespace: 'e2e-sse-' + tag,
+                });
+                window.__scSseD.on('message', (m) => window.__scSseMsgsD.push(m));
+                await window.__scSseD.start();
+            })(${JSON.stringify(pdTag)}, ${JSON.stringify(sseUrl)})`),
+        ]);
+
+        check(await waitFor(tabC.page, "window.__scSseC.state === 'open'", 5000) && await waitFor(tabD.page, "window.__scSseD.state === 'open'", 5000),
+            'Chrome 雙分頁 SharedConnection SSE 未就緒');
+        check(realtime.getStats(sseRoom).activeSseCount === 1,
+            `SSE 穩定狀態同 scope 應只有 1 條連線，實際 ${realtime.getStats(sseRoom).activeSseCount}`);
+
+        // SSE 嚴格單向檢查
+        const sseSendErrs = await Promise.all([
+            tabC.page.evaluate(`window.__scSseC.send('nope').then(() => 'OK', (e) => e.code)`),
+            tabD.page.evaluate(`window.__scSseD.send('nope').then(() => 'OK', (e) => e.code)`),
+        ]);
+        check(sseSendErrs[0] === 'UNSUPPORTED_OPERATION' && sseSendErrs[1] === 'UNSUPPORTED_OPERATION',
+            `SSE send() 必須立即回報 UNSUPPORTED_OPERATION，實際 ${JSON.stringify(sseSendErrs)}`);
+
+        realtime.broadcastSse(sseRoom, { id: '900', event: 'tick', data: 'sse-live-data' });
+        check(await waitFor(tabC.page, 'window.__scSseMsgsC.length === 1', 5000) && await waitFor(tabD.page, 'window.__scSseMsgsD.length === 1', 5000),
+            'SSE 具名事件未轉發至雙方分頁');
+        check(await tabD.page.evaluate("window.__scSseMsgsD[0].event === 'tick' && window.__scSseMsgsD[0].lastEventId === '900' && window.__scSseMsgsD[0].data === 'sse-live-data'"),
+            'SSE 轉發事件內容或 lastEventId 不符');
+
+        await Promise.all([
+            tabC.page.evaluate(`window.__scSseC.dispose();`),
+            tabD.page.evaluate(`window.__scSseD.dispose();`),
+        ]);
+        const deadlineClose = Date.now() + 3000;
+        while ((realtime.getStats().activeWsCount > 0 || realtime.getStats().activeSseCount > 0) && Date.now() < deadlineClose) {
+            await sleep(20);
+        }
+        check(realtime.getStats().activeWsCount === 0 && realtime.getStats().activeSseCount === 0,
+            'dispose() 後仍有殘留即時連線未關閉');
+
+        if (trackerA && tabA) failures.push(...trackerA.take().map((p) => `雙分頁 Tab A：${p}`));
         if (trackerC) failures.push(...trackerC.take().map((p) => `雙分頁 Tab C：${p}`));
+        if (trackerD) failures.push(...trackerD.take().map((p) => `雙分頁 Tab D：${p}`));
     } finally {
         await tabA?.close();
         await tabB?.close();
         await tabC?.close();
+        await tabD?.close();
     }
 
-    console.log('  雙分頁協作測試：coordination-demo.html、無副作用載入、MessageBus、Store 隔離/並行、Web Locks 選舉接管、跨分頁 RPC');
+    console.log('  雙分頁協作測試：coordination-demo.html、無副作用載入、MessageBus、Store、Web Locks、RPC、PeerDiscovery、Shared WS/SSE');
     return failures;
 }
 
@@ -831,10 +1101,11 @@ async function main() {
         '根目錄': await startServer('/'),
         '子路徑': await startServer(SUBPATH),
     };
+    const realtime = await startRealtimeTestServer();
     const { page, openTab, close } = await launchChrome();
     // 被中斷（Ctrl+C、CI 逾時）時也要關掉 Chrome，避免留下孤兒程序
     for (const signal of ['SIGINT', 'SIGTERM']) {
-        process.once(signal, () => close().finally(() => process.exit(130)));
+        process.once(signal, () => close().finally(() => realtime.close().finally(() => process.exit(130))));
     }
     let failed = 0;
 
@@ -866,7 +1137,7 @@ async function main() {
                 ...tracker.take().map((p) => `tests/browser.html：${p}`),
                 ...(await runSmokeTests(page, base, tracker, network)),
                 ...(await runInteractionTests(page, base, tracker, network)),
-                ...(await runCoordinationTests(openTab, base)),
+                ...(await runCoordinationTests(openTab, base, realtime)),
             ];
             // 同一個問題常在多頁重複出現（例如背景預載失敗），只列一次並註明第一次出現的頁面與次數
             const grouped = new Map();
@@ -884,6 +1155,7 @@ async function main() {
         }
     } finally {
         await close();
+        await realtime.close();
         Object.values(servers).forEach((s) => s.close());
     }
 

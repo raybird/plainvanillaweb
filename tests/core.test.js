@@ -14,6 +14,7 @@ const CORE_FILES = [
     'lib/morph.js',
     'lib/base-service.js',
     'lib/store.js',
+    'lib/broadcast-channel.js',
     'lib/broadcast-service.js',
     'lib/i18n-service.js',
     'lib/meta-service.js',

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Coordination 雙分頁示範</title>
+    <link rel="icon" href="data:,">
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --muted: #475569;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --danger: #dc2626;
+            --code-bg: #f1f5f9;
+            --ok-bg: #dcfce7;
+            --ok-fg: #166534;
+            --warn-bg: #fef3c7;
+            --warn-fg: #92400e;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f172a;
+                --surface: #1e293b;
+                --border: #334155;
+                --text: #f1f5f9;
+                --muted: #94a3b8;
+                --accent: #3b82f6;
+                --accent-hover: #60a5fa;
+                --danger: #ef4444;
+                --code-bg: #0b1220;
+                --ok-bg: #14532d;
+                --ok-fg: #bbf7d0;
+                --warn-bg: #78350f;
+                --warn-fg: #fde68a;
+            }
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 960px;
+            margin: 1.5rem auto;
+            padding: 0 1rem;
+            line-height: 1.5;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; }
+        .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.6rem 0; }
+        label { font-size: 0.9rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.35rem; }
+        input[type="text"], select {
+            padding: 0.45rem 0.65rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+        button {
+            padding: 0.45rem 0.85rem;
+            border: none;
+            border-radius: 6px;
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 500;
+        }
+        button:hover { background: var(--accent-hover); }
+        button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        button.danger { background: var(--danger); }
+        code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code-bg); border-radius: 6px; }
+        code { padding: 0.1rem 0.35rem; font-size: 0.85rem; }
+        pre { padding: 0.75rem; overflow-x: auto; font-size: 0.82rem; margin: 0.5rem 0 0; max-height: 220px; }
+        .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
+        .badge.ok { background: var(--ok-bg); color: var(--ok-fg); }
+        .badge.warn { background: var(--warn-bg); color: var(--warn-fg); }
+        .log-list { list-style: none; padding: 0; margin: 0.5rem 0 0; max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+        .log-list li { padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border); font-family: ui-monospace, monospace; font-size: 0.8rem; }
+        .log-list li:last-child { border-bottom: none; }
+        .muted { color: var(--muted); font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1 style="margin: 0 0 0.25rem;">Browser Coordination 最小雙分頁示範</h1>
+            <p class="muted" style="margin: 0;">訊息匯流排只使用零匯入副作用的 <code>./lib/coordination.js</code>；右側狀態隔離區另外示範 <code>./lib/store.js</code>（匯入時會啟用預設跨分頁同步通道）。</p>
+        </div>
+        <button id="openTabBtn" type="button">開啟第二個分頁</button>
+    </div>
+
+    <div class="card" style="margin-bottom: 1rem;">
+        <div class="row" style="justify-content: space-between; margin: 0;">
+            <div>環境能力：<span id="capBadges"></span></div>
+            <div>Bus Context ID：<code id="busTabId">-</code></div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <section class="card">
+            <h2 style="margin-top: 0;">1. MessageBus (Namespace &amp; Local/Remote)</h2>
+            <div class="row">
+                <label>Namespace
+                    <select id="nsSelect">
+                        <option value="demo-alpha">demo-alpha</option>
+                        <option value="demo-beta">demo-beta</option>
+                    </select>
+                </label>
+                <span class="muted">目前訂閱數：<strong id="subCount">0</strong></span>
+            </div>
+            <div class="row">
+                <label>Topic <input id="topicInput" type="text" value="ping" size="12"></label>
+                <label>訊息 <input id="msgInput" type="text" value="hello from tab" size="18"></label>
+            </div>
+            <div class="row">
+                <label><input id="localCheck" type="checkbox"> local 投遞</label>
+                <label><input id="remoteCheck" type="checkbox" checked> remote 投遞</label>
+                <button id="publishBtn" type="button">Publish</button>
+                <button id="toggleSubBtn" type="button" class="secondary">取消訂閱</button>
+                <button id="disposeBusBtn" type="button" class="danger">Dispose Bus</button>
+            </div>
+            <ul id="busLogs" class="log-list"></ul>
+        </section>
+
+        <section class="card">
+            <h2 style="margin-top: 0;">2. Store 同步隔離 (依 storageKey)</h2>
+            <p class="muted" style="margin-top: 0;">兩個不同 <code>storageKey</code> 的 Store 共用同步通道，彼此與 <code>app_state</code> 互不干擾。</p>
+            <div class="row">
+                <strong>Store A (<code>coord_demo_a</code>)</strong>
+                <input id="keyA" type="text" value="note" size="8" aria-label="Store A key">
+                <input id="valA" type="text" value="alpha" size="10" aria-label="Store A value">
+                <button id="setABtn" type="button">寫入</button>
+                <button id="delABtn" type="button" class="secondary">刪除</button>
+                <button id="snapABtn" type="button" class="secondary">重置快照</button>
+            </div>
+            <pre id="stateA"></pre>
+
+            <div class="row" style="margin-top: 1rem;">
+                <strong>Store B (<code>coord_demo_b</code>)</strong>
+                <input id="keyB" type="text" value="note" size="8" aria-label="Store B key">
+                <input id="valB" type="text" value="beta" size="10" aria-label="Store B value">
+                <button id="setBBtn" type="button">寫入</button>
+                <button id="delBBtn" type="button" class="secondary">刪除</button>
+            </div>
+            <pre id="stateB"></pre>
+            <p id="storeMsg" class="muted" role="status" style="margin: 0.6rem 0 0; min-height: 1.2em;"></p>
+        </section>
+    </div>
+
+    <script type="module">
+        import {
+            createMessageBus,
+            getCoordinationCapabilities,
+        } from './lib/coordination.js';
+        import { Store } from './lib/store.js';
+
+        const caps = getCoordinationCapabilities();
+        const capBadges = document.getElementById('capBadges');
+        for (const [name, supported] of Object.entries(caps)) {
+            const badge = document.createElement('span');
+            badge.className = `badge ${supported ? 'ok' : 'warn'}`;
+            badge.style.marginRight = '0.35rem';
+            badge.textContent = `${name}: ${supported ? 'yes' : 'no'}`;
+            capBadges.appendChild(badge);
+        }
+
+        document.getElementById('openTabBtn').addEventListener('click', () => {
+            window.open(location.href, '_blank');
+        });
+
+        // --- MessageBus demo ---
+        const busLogs = document.getElementById('busLogs');
+        const subCountEl = document.getElementById('subCount');
+        const busTabIdEl = document.getElementById('busTabId');
+        const nsSelect = document.getElementById('nsSelect');
+        const toggleSubBtn = document.getElementById('toggleSubBtn');
+
+        let bus = null;
+        let unsubscribeAll = null;
+
+        function appendLog(text) {
+            const li = document.createElement('li');
+            li.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            busLogs.prepend(li);
+            while (busLogs.children.length > 30) busLogs.lastElementChild.remove();
+        }
+
+        function refreshBusUI() {
+            busTabIdEl.textContent = bus ? bus.tabId : 'closed';
+            subCountEl.textContent = bus ? String(bus.subscriberCount()) : '0';
+            toggleSubBtn.textContent = unsubscribeAll ? '取消訂閱' : '重新訂閱 (*)';
+        }
+
+        function subscribeWildcard() {
+            if (!bus || bus.closed || unsubscribeAll) return;
+            unsubscribeAll = bus.subscribe('*', (payload, meta) => {
+                appendLog(`${meta.origin} | ns=${meta.ns} | topic=${meta.topic} | from=${meta.sender.slice(0, 8)} | id=${String(meta.id).slice(0, 8)} | ${JSON.stringify(payload)}`);
+            });
+            refreshBusUI();
+        }
+
+        function initBus(namespace) {
+            if (bus) bus.dispose();
+            unsubscribeAll = null;
+            bus = createMessageBus({ namespace });
+            subscribeWildcard();
+            appendLog(`已建立 MessageBus (ns=${namespace}, supported=${bus.supported})`);
+            refreshBusUI();
+        }
+
+        nsSelect.addEventListener('change', () => initBus(nsSelect.value));
+
+        document.getElementById('publishBtn').addEventListener('click', () => {
+            if (!bus || bus.closed) {
+                appendLog('Bus 已關閉，請切換 namespace 或重新整理以建立新實例');
+                return;
+            }
+            const topic = document.getElementById('topicInput').value.trim() || 'ping';
+            const text = document.getElementById('msgInput').value;
+            const local = document.getElementById('localCheck').checked;
+            const remote = document.getElementById('remoteCheck').checked;
+            const result = bus.publish(topic, { text }, { local, remote });
+            appendLog(`publish -> id=${String(result.id).slice(0, 8)}, localCount=${result.localCount}, remoteSent=${result.remoteSent}`);
+        });
+
+        toggleSubBtn.addEventListener('click', () => {
+            if (!bus || bus.closed) return;
+            if (unsubscribeAll) {
+                unsubscribeAll();
+                unsubscribeAll = null;
+                refreshBusUI();
+            } else {
+                subscribeWildcard();
+            }
+        });
+
+        document.getElementById('disposeBusBtn').addEventListener('click', () => {
+            if (!bus) return;
+            bus.dispose();
+            unsubscribeAll = null;
+            appendLog('已釋放 MessageBus 資源');
+            refreshBusUI();
+        });
+
+        initBus(nsSelect.value);
+
+        // --- Store isolation demo ---
+        const storeA = new Store({ count: 0 }, 'coord_demo_a');
+        const storeB = new Store({ count: 0 }, 'coord_demo_b');
+        const stateAEl = document.getElementById('stateA');
+        const stateBEl = document.getElementById('stateB');
+        const storeMsgEl = document.getElementById('storeMsg');
+
+        const renderStores = () => {
+            stateAEl.textContent = JSON.stringify(storeA._baseState, null, 2);
+            stateBEl.textContent = JSON.stringify(storeB._baseState, null, 2);
+        };
+        const runStoreOp = (fn) => {
+            try {
+                storeMsgEl.textContent = '';
+                fn();
+            } catch (err) {
+                storeMsgEl.textContent = `操作已拒絕：${err.message}`;
+            }
+        };
+        storeA.on('change', renderStores);
+        storeB.on('change', renderStores);
+        renderStores();
+
+        document.getElementById('setABtn').addEventListener('click', () => {
+            const k = document.getElementById('keyA').value.trim();
+            if (k) runStoreOp(() => { storeA.state[k] = document.getElementById('valA').value; });
+        });
+        document.getElementById('delABtn').addEventListener('click', () => {
+            const k = document.getElementById('keyA').value.trim();
+            if (k) runStoreOp(() => { delete storeA.state[k]; });
+        });
+        document.getElementById('snapABtn').addEventListener('click', () => {
+            runStoreOp(() => { storeA.applySnapshot({ count: (storeA.state.count || 0) + 1 }); });
+        });
+
+        document.getElementById('setBBtn').addEventListener('click', () => {
+            const k = document.getElementById('keyB').value.trim();
+            if (k) runStoreOp(() => { storeB.state[k] = document.getElementById('valB').value; });
+        });
+        document.getElementById('delBBtn').addEventListener('click', () => {
+            const k = document.getElementById('keyB').value.trim();
+            if (k) runStoreOp(() => { delete storeB.state[k]; });
+        });
+
+        window.addEventListener('pagehide', () => {
+            bus?.dispose();
+            storeA.dispose();
+            storeB.dispose();
+        });
+    </script>
+</body>
+</html>

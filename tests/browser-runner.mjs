@@ -100,10 +100,40 @@ async function launchChrome() {
     });
 
     const { port } = new URL(wsUrl);
+    const browser = await connect(wsUrl);
     const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
     const page = await connect(targets.find((t) => t.type === 'page').webSocketDebuggerUrl);
+
+    const openTab = async () => {
+        const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank' });
+        let tabPage = null;
+        try {
+            const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
+            const target = list.find((t) => t.id === targetId);
+            if (!target) throw new Error(`找不到新建立的分頁 target：${targetId}`);
+            tabPage = await connect(target.webSocketDebuggerUrl);
+            await tabPage.send('Page.enable');
+            await tabPage.send('Runtime.enable');
+            await tabPage.send('Network.enable');
+            await tabPage.send('Network.setCacheDisabled', { cacheDisabled: true });
+            await tabPage.send('Network.setBypassServiceWorker', { bypass: true });
+            return {
+                page: tabPage,
+                close: async () => {
+                    tabPage.ws.close();
+                    await browser.send('Target.closeTarget', { targetId }).catch(() => {});
+                },
+            };
+        } catch (err) {
+            tabPage?.ws.close();
+            await browser.send('Target.closeTarget', { targetId }).catch(() => {});
+            throw err;
+        }
+    };
+
     const close = async () => {
         page.ws.close();
+        browser.ws.close();
         await killGroup(proc.pid);
         // 群組已清空，理論上不會再有人寫入；保險起見仍重試幾次，失敗只警告，不影響測試結果
         try {
@@ -112,7 +142,7 @@ async function launchChrome() {
             console.warn(`  ⚠️ 無法移除 Chrome 暫存目錄 ${userDataDir}：${err.code || err.message}`);
         }
     };
-    return { page, close };
+    return { page, openTab, close };
 }
 
 /** 結束整個程序群組並等它清空；子程序還在寫設定檔時刪不掉暫存目錄 */
@@ -364,7 +394,8 @@ async function interact(page, base, network, failures) {
     for (let i = 0; i < 3; i++) {
         const before = await theme();
         await page.evaluate("document.querySelector('#theme-toggle').click()");
-        await settle(100);
+        // 等待 App.js 400ms 主題切換 View Transition 動畫結束，避免轉場重疊卡住 rAF
+        await settle(450);
         const after = await theme();
         const expected = modes[(modes.indexOf(before) + 1) % modes.length];
         check(after === expected, `第 ${i + 1} 次切換主題後應為 ${expected}，實際為 ${after}`);
@@ -403,7 +434,8 @@ async function interact(page, base, network, failures) {
     check(await page.evaluate("document.querySelector('x-route[path=\"/profile\"][active]') !== null"), '登入後應能進入 /profile');
     // 從側欄切換主題：Profile 不會因 App 重繪而重建，主題選單要自己跟著更新
     await page.evaluate("document.querySelector('#theme-toggle').click()");
-    await settle(300);
+    // 等待 400ms 主題切換 View Transition 動畫結束，避免隨後的 #/lab/audio 路由轉場重疊中斷
+    await settle(450);
     check(await page.evaluate("document.querySelector('#theme-select')?.value") === await theme(),
         'Profile 的主題選單應反映側欄切換後的主題');
 
@@ -471,12 +503,182 @@ async function interact(page, base, network, failures) {
     check(await page.evaluate("localStorage.getItem('vanilla_auth_token') === null"), '登出後應清除登入狀態');
 }
 
+/** 雙分頁協作測試：coordination-demo.html 載入檢查 + 真實雙分頁 MessageBus 與 Store 隔離/刪除/快照/並行更新 */
+async function runCoordinationTests(openTab, base) {
+    const failures = [];
+    const check = (ok, message) => { if (!ok) failures.push(`雙分頁協作：${message}`); };
+
+    // 1. 驗證 coordination-demo.html 可正常載入、可互動且無 console.error / 例外 / 4xx-5xx
+    const demoTab = await openTab();
+    const demoTracker = trackProblems(demoTab.page);
+    try {
+        await demoTab.page.send('Page.navigate', { url: new URL('coordination-demo.html', base).href });
+        const ready = await waitFor(demoTab.page, "document.querySelector('#busTabId')?.textContent !== '-' && document.querySelector('#stateA')?.textContent?.includes('count')", 10000);
+        check(ready, 'coordination-demo.html 未正常初始化');
+        if (ready) {
+            await demoTab.page.evaluate(`(() => {
+                document.querySelector('#localCheck').checked = true;
+                document.querySelector('#publishBtn').click();
+                document.querySelector('#setABtn').click();
+            })()`);
+            const interacted = await waitFor(demoTab.page, "document.querySelector('#busLogs')?.textContent?.includes('local | ns=') && document.querySelector('#stateA')?.textContent?.includes('alpha')", 5000);
+            check(interacted, 'coordination-demo.html 點擊 Publish / 寫入 Store 未反映於畫面');
+        }
+        failures.push(...demoTracker.take().map((p) => `coordination-demo.html：${p}`));
+    } finally {
+        await demoTab.close();
+    }
+
+    // 2. 開啟兩個真實 Chrome 分頁測試跨上下文協作
+    let tabA = null;
+    let tabB = null;
+    try {
+        tabA = await openTab();
+        tabB = await openTab();
+        const trackerA = trackProblems(tabA.page);
+        const trackerB = trackProblems(tabB.page);
+        const testPageUrl = new URL('tests/coordination-browser.html', base).href;
+        await Promise.all([
+            tabA.page.send('Page.navigate', { url: testPageUrl }),
+            tabB.page.send('Page.navigate', { url: testPageUrl }),
+        ]);
+        const readyA = await waitFor(tabA.page, 'window.__COORD_READY__ === true', 10000);
+        const readyB = await waitFor(tabB.page, 'window.__COORD_READY__ === true', 10000);
+        check(readyA && readyB, 'tests/coordination-browser.html 未就緒');
+
+        // 2.1 在真實瀏覽器驗證 import lib/coordination.js 不建立 BroadcastChannel
+        const bcCount = await tabA.page.evaluate(`(async () => {
+            const OrigBC = window.BroadcastChannel;
+            let count = 0;
+            window.BroadcastChannel = class extends OrigBC {
+                constructor(...args) { count++; super(...args); }
+            };
+            try {
+                await import('./lib/coordination.js?e2e_side_effect=1');
+                return count;
+            } finally {
+                window.BroadcastChannel = OrigBC;
+            }
+        })()`);
+        check(bcCount === 0, `import lib/coordination.js 應零副作用，實際建立 ${bcCount} 個 BroadcastChannel`);
+
+        // 2.2 MessageBus 雙分頁投遞、local/remote、namespace 隔離、unsubscribe 與 dispose
+        await tabA.page.evaluate(`(async () => {
+            const { createMessageBus } = await import('./lib/coordination.js');
+            window.__state = { aReceived: [], otherNsReceived: [] };
+            window.__busA = createMessageBus({ namespace: 'e2e-ns' });
+            window.__busOther = createMessageBus({ namespace: 'other-ns' });
+            window.__busA.subscribe('chat', (p, meta) => window.__state.aReceived.push({ p, meta }));
+            window.__busOther.subscribe('*', (p, meta) => window.__state.otherNsReceived.push({ p, meta }));
+        })()`);
+        await tabB.page.evaluate(`(async () => {
+            const { createMessageBus } = await import('./lib/coordination.js');
+            window.__state = { bAll: [], bRemote: [], bLocal: [], bUnsub: [] };
+            window.__busB = createMessageBus({ namespace: 'e2e-ns' });
+            window.__busB.subscribe('chat', (p, meta) => window.__state.bAll.push({ p, meta }), { receive: 'all' });
+            window.__busB.subscribe('chat', (p, meta) => window.__state.bRemote.push({ p, meta }), { receive: 'remote' });
+            window.__busB.subscribe('chat', (p, meta) => window.__state.bLocal.push({ p, meta }), { receive: 'local' });
+            const unsub = window.__busB.subscribe('chat', (p, meta) => window.__state.bUnsub.push({ p, meta }));
+            unsub();
+        })()`);
+
+        const pub1 = await tabA.page.evaluate(`window.__busA.publish('chat', { msg: 'hi-from-A' })`);
+        check(pub1.localCount === 0 && pub1.remoteSent === true, '預設 publish 應僅遠端投遞');
+        check(await waitFor(tabB.page, 'window.__state.bAll.length === 1', 5000), 'Tab B 未收到 Tab A 遠端訊息');
+        const bRecv = await tabB.page.evaluate('window.__state');
+        check(bRecv.bAll[0].p.msg === 'hi-from-A' && bRecv.bAll[0].meta.origin === 'remote', 'Tab B 收到的 meta/payload 不正確');
+        check(bRecv.bRemote.length === 1 && bRecv.bLocal.length === 0 && bRecv.bUnsub.length === 0, 'Tab B receive 過濾或 unsubscribe 失效');
+
+        const aAfterDefault = await tabA.page.evaluate('window.__state');
+        check(aAfterDefault.aReceived.length === 0 && aAfterDefault.otherNsReceived.length === 0, '預設不應本地回聲也不應跨 namespace 收到');
+
+        const pub2 = await tabB.page.evaluate(`window.__busB.publish('chat', { msg: 'local-only-B' }, { local: true, remote: false })`);
+        check(pub2.localCount === 2 && pub2.remoteSent === false, 'local-only publish 回傳計數不符');
+        await sleep(80);
+        check(await tabA.page.evaluate('window.__state.aReceived.length === 0'), 'local-only 不應傳送到 Tab A');
+        check(await tabB.page.evaluate('window.__state.bLocal.length === 1 && window.__state.bRemote.length === 1'), 'Tab B local 投遞過濾不正確');
+
+        await tabA.page.evaluate('window.__busA.dispose()');
+        await tabB.page.evaluate(`window.__busB.publish('chat', { msg: 'after-dispose' })`);
+        await sleep(80);
+        check(await tabA.page.evaluate('window.__state.aReceived.length === 0'), 'busA dispose 後不應再收到訊息');
+        await tabA.page.evaluate('window.__busOther.dispose()');
+        await tabB.page.evaluate('window.__busB.dispose()');
+
+        // 2.3 Store 雙分頁隔離、刪除語意、快照、並行更新與 dispose
+        await tabA.page.evaluate(`(async () => {
+            localStorage.clear();
+            const { Store } = await import('./lib/store.js');
+            window.__sA1 = new Store({ alpha: 0, keep: 'yes' }, 'e2e_store_1');
+            window.__sA2 = new Store({ alpha: 100 }, 'e2e_store_2');
+        })()`);
+        await tabB.page.evaluate(`(async () => {
+            const { Store } = await import('./lib/store.js');
+            window.__sB1 = new Store({ alpha: 0, keep: 'yes' }, 'e2e_store_1');
+            window.__sB2 = new Store({ alpha: 100 }, 'e2e_store_2');
+        })()`);
+
+        await tabA.page.evaluate(`window.__sA1.state.alpha = 42;`);
+        check(await waitFor(tabB.page, 'window.__sB1.state.alpha === 42', 5000), 'Store 跨分頁更新未同步');
+        check(await tabB.page.evaluate('window.__sB2.state.alpha === 100'), '不同 storageKey 的 Store 被互相污染');
+
+        await tabA.page.evaluate(`delete window.__sA1.state.keep;`);
+        check(await waitFor(tabB.page, "!('keep' in window.__sB1._baseState)", 5000), '遠端刪除頂層屬性未實際 delete');
+        check(await tabB.page.evaluate("!('keep' in JSON.parse(localStorage.getItem('e2e_store_1') || '{}'))"), '刪除後 localStorage 仍殘留該鍵');
+
+        await tabA.page.evaluate(`window.__sA1.applySnapshot({ fresh: 99 });`);
+        check(await waitFor(tabB.page, "window.__sB1.state.fresh === 99 && !('alpha' in window.__sB1._baseState)", 5000), 'applySnapshot 未移除舊鍵');
+
+        // 並行更新不同鍵與同一鍵 LWW 收斂
+        await Promise.all([
+            tabA.page.evaluate(`window.__sA1.state.kA = 'fromA'; window.__sA1.state.race = 'A';`),
+            tabB.page.evaluate(`window.__sB1.state.kB = 'fromB'; window.__sB1.state.race = 'B';`),
+        ]);
+        const converged = await waitFor(tabA.page, `window.__sA1.state.kA === 'fromA' && window.__sA1.state.kB === 'fromB'`, 5000)
+            && await waitFor(tabB.page, `window.__sB1.state.kA === 'fromA' && window.__sB1.state.kB === 'fromB'`, 5000);
+        check(converged, '並行更新不同鍵時有鍵遺失');
+        await sleep(100);
+        const raceA = await tabA.page.evaluate(`window.__sA1.state.race`);
+        const raceB = await tabB.page.evaluate(`window.__sB1.state.race`);
+        const raceLS = await tabA.page.evaluate(`JSON.parse(localStorage.getItem('e2e_store_1') || '{}').race`);
+        check(raceA === raceB && raceA === raceLS, `同鍵並行衝突未收斂一致（A=${raceA}, B=${raceB}, LS=${raceLS}）`);
+
+        // dispose 清理後不再同步
+        await tabB.page.evaluate(`window.__sB1.dispose();`);
+        await tabA.page.evaluate(`window.__sA1.state.afterDispose = 'should-not-sync';`);
+        await sleep(100);
+        check(await tabB.page.evaluate(`window.__sB1.state.afterDispose === undefined`), 'Store.dispose() 後仍收到遠端更新');
+
+        // 晚加入／重整分頁寫入既有鍵時，既有分頁必須接受更新（HLC 持久化基線）
+        await tabB.page.evaluate(`(async () => {
+            const { Store } = await import('./lib/store.js');
+            window.__sBLate = new Store({ fresh: 0 }, 'e2e_store_1');
+            window.__sBLate.state.fresh = 777;
+        })()`);
+        check(await waitFor(tabA.page, 'window.__sA1.state.fresh === 777', 5000), '晚加入分頁更新既有鍵時，既有分頁未接受');
+
+        await Promise.all([
+            tabA.page.evaluate(`window.__sA1.dispose(); window.__sA2.dispose();`),
+            tabB.page.evaluate(`window.__sB2.dispose(); window.__sBLate.dispose();`),
+        ]);
+
+        failures.push(...trackerA.take().map((p) => `雙分頁 Tab A：${p}`));
+        failures.push(...trackerB.take().map((p) => `雙分頁 Tab B：${p}`));
+    } finally {
+        await tabA?.close();
+        await tabB?.close();
+    }
+
+    console.log('  雙分頁協作測試：coordination-demo.html、無副作用載入、MessageBus、Store 隔離/刪除/快照/並行更新');
+    return failures;
+}
+
 async function main() {
     const servers = {
         '根目錄': await startServer('/'),
         '子路徑': await startServer(SUBPATH),
     };
-    const { page, close } = await launchChrome();
+    const { page, openTab, close } = await launchChrome();
     // 被中斷（Ctrl+C、CI 逾時）時也要關掉 Chrome，避免留下孤兒程序
     for (const signal of ['SIGINT', 'SIGTERM']) {
         process.once(signal, () => close().finally(() => process.exit(130)));
@@ -511,6 +713,7 @@ async function main() {
                 ...tracker.take().map((p) => `tests/browser.html：${p}`),
                 ...(await runSmokeTests(page, base, tracker, network)),
                 ...(await runInteractionTests(page, base, tracker, network)),
+                ...(await runCoordinationTests(openTab, base)),
             ];
             // 同一個問題常在多頁重複出現（例如背景預載失敗），只列一次並註明第一次出現的頁面與次數
             const grouped = new Map();

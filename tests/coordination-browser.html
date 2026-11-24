@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Browser Coordination 雙分頁瀏覽器測試頁</title>
+    <link rel="icon" href="data:,">
+    <!-- 依實際部署路徑設定 <base> 為 tests/ 的上一層（應用根目錄） -->
+    <script>
+        (function () {
+            var base = document.createElement('base');
+            base.href = location.pathname.replace(/tests\/[^/]*$/, '');
+            document.head.appendChild(base);
+            window.__COORD_READY__ = true;
+        })();
+    </script>
+</head>
+<body>
+    <p>Browser Coordination E2E Test Context</p>
+</body>
+</html>

@@ -18,10 +18,16 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 
 ### 新增
 
+- `lib/coordination.js`：獨立、零副作用的跨執行環境協作入口，統一匯出 `BroadcastService`、`MessageBus`、`createMessageBus`、`getCoordinationCapabilities`、`ENVELOPE_VERSION`、`createEnvelope` 與 `validateEnvelope`（[ADR 0103](./docs/decisions/0103-browser-coordination-foundation.md)）；`lib/vanilla-sdk.js` 同步重新匯出上述協作類別與工廠函式。
+- `BroadcastService`（拆分為無副作用類別模組 `lib/broadcast-channel.js`）：支援 `namespace`、v1 版本化信封、輸入驗證、capability detection（不支援 `BroadcastChannel` 時不拋錯）、可注入 `transport` 與 `close()`/`dispose()` 資源清理；`lib/broadcast-service.js` 保留預設單例維持向下相容。
+- `MessageBus`（`lib/message-bus.js`）：提供 `publish`／`subscribe`／`unsubscribe`、本地與遠端投遞控制（預設 `local: false, remote: true`）、萬用主題 `'*'`、`receive` 篩選與錯誤隔離。
+- `Store.prototype.dispose()` 與實例隔離選項（`options.broadcast`、`options.sync`、`options.acceptLegacy`）；`applySnapshot(snapshot, { replace })` 支援完整快照替換語意。
+- 最小雙分頁示範頁面 `coordination-demo.html`、指南 [coordination.md](./docs/coordination.md)，以及 `tests/browser-runner.mjs` 的多頁籤真實瀏覽器協作測試。
 - 文件頁支援子目錄的文件，ADR 可在站內閱讀（`#/docs/decisions/README`、`#/docs/decisions/<編號>-…`）；以 `/` 結尾的網址視為該目錄的 README。文件內指向 `docs/` 底下 `.md` 的相對連結，依目前文件所在的目錄轉成站內連結。
 
 ### 修正
 
+- `Store` 跨分頁同步改以 `storageKey` 隔離，修復多個不同 `storageKey` 的 `Store` 互相污染；頂層 `delete` 改為在遠端真正執行刪除而非寫入 `undefined`；不同鍵並行更新以增量合併寫回 `localStorage`，同鍵衝突採 Lamport clock + sender LWW 收斂，並阻擋 `__proto__` 等不安全鍵名。
 - 頁尾「架構決策 (ADR)」連結指向不存在的 `docs/decisions/` 目錄頁，開啟後顯示「無法載入文件: decisions」。
 - `docService.getDoc()` 拒絕不是文件 id 的名稱（例如含 `..`），不發出請求。
 

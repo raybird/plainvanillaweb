@@ -13,6 +13,7 @@
 | 層級 | 是什麼 | 入口 | 適合什麼時候用 |
 | :--- | :--- | :--- | :--- |
 | **① 核心** | 約 1,100 行可重用的基礎建設：安全模板、具 DOM morphing 的反應式元件、服務基底、跨分頁 Store 與 hash 路由 | [`lib/core.js`](./lib/core.js) | 想用原生方式打造自己的應用 |
+| **①+ 跨分頁協作** | 可選載入、零匯入副作用的跨執行環境訊息匯流排（`BroadcastService`、`MessageBus`） | [`lib/coordination.js`](./lib/coordination.js) | 需要具命名空間隔離的多分頁／Worker 通訊 |
 | **② 展示站** | 以核心打造的完整網站：37 個前沿 Web API 互動實驗室、執行期渲染的文件、儀表板與遊樂場 | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | 想學某個 Web API，或直接借用寫好的 service |
 
 核心不會 import 任何展示站的程式，並由測試守住這條邊界（[ADR 0101](./docs/decisions/0101-core-entry-point.md)）。版本依語意化版本編號，見 [CHANGELOG](./CHANGELOG.md)（目前為 **v3.1.0**）。
@@ -70,7 +71,7 @@ router.authGuard = () => Boolean(localStorage.token); // 選用：auth-required 
 - [這不是框架！組件開發指南](./docs/component-architecture.md)：反應式 Custom Elements、morphing 與事件綁定方式
 - [SafeHTML：防護 XSS 的安全渲染機制](./docs/safe-html-rendering.md)：`html`／`unsafe` 的跳脫規則
 - [服務模式規範](./docs/service-patterns.md)：單例服務與事件驅動架構
-- [狀態管理](./docs/state-management.md) · [路由](./docs/router.md) · [國際化](./docs/i18n.md)
+- [狀態管理](./docs/state-management.md) · [跨分頁協作基礎](./docs/coordination.md) · [路由](./docs/router.md) · [國際化](./docs/i18n.md)
 - [專案架構全貌深度解析](./docs/project-architecture-overview.md)：各部分如何組合
 
 ---
@@ -127,9 +128,11 @@ import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdel
 .
 ├── lib/                  # ① 核心模組 + ② 展示用 service
 │   ├── core.js           # ① 只含核心的入口
+│   ├── coordination.js   # ①+ 跨分頁協作獨立入口
 │   ├── html.js, base-component.js, morph.js, base-service.js,
-│   │   store.js, broadcast-service.js, router.js,
-│   │   i18n-service.js, meta-service.js        # ① 核心
+│   │   store.js, broadcast-channel.js, broadcast-service.js,
+│   │   message-bus.js, router.js,
+│   │   i18n-service.js, meta-service.js  # ① 核心 / 協作基礎
 │   ├── vanilla-sdk.js    # ② 一次全部引入的入口
 │   └── *-service.js      # ② WebGPU、WebRTC、Bluetooth、Crypto…
 ├── components/

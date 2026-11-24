@@ -13,6 +13,7 @@ This repository is two things, in two layers:
 | Layer | What it is | Entry point | Use it when |
 | :--- | :--- | :--- | :--- |
 | **① Core** | ~1,100 lines of reusable foundation: safe templates, reactive components with DOM morphing, services, a cross-tab store and a hash router | [`lib/core.js`](./lib/core.js) | You want to build your own app the vanilla way |
+| **①+ Coordination** | Opt-in cross-context messaging (`BroadcastService`, `MessageBus`) with zero import side effects | [`lib/coordination.js`](./lib/coordination.js) | You need isolated multi-tab/worker messaging |
 | **② Showcase** | A full site built on the core: 37 interactive labs of cutting-edge Web APIs, runtime-rendered docs, a dashboard and a playground | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | You want to learn a Web API or borrow a ready-made service |
 
 The core never imports anything from the showcase; a test enforces that boundary ([ADR 0101](./docs/decisions/0101-core-entry-point.md)). Releases follow semantic versioning — see the [CHANGELOG](./CHANGELOG.md) (current: **v3.1.0**).
@@ -70,7 +71,7 @@ Content inside `<template>` is created when its route becomes active and removed
 - [Component Architecture](./docs/component-architecture.md) — reactive Custom Elements, morphing and how to bind events
 - [SafeHTML & XSS Defense](./docs/safe-html-rendering.md) — the escaping rules of `html` / `unsafe`
 - [Service Patterns](./docs/service-patterns.md) — singleton services and event-driven architecture
-- [State Management](./docs/state-management.md) · [Router](./docs/router.md) · [i18n](./docs/i18n.md)
+- [State Management](./docs/state-management.md) · [Browser Coordination](./docs/coordination.md) · [Router](./docs/router.md) · [i18n](./docs/i18n.md)
 - [Architecture Overview](./docs/project-architecture-overview.md) — how the pieces fit together
 
 ---
@@ -127,9 +128,11 @@ import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdel
 .
 ├── lib/                  # ① core modules + ② showcase services
 │   ├── core.js           # ① core-only entry point
+│   ├── coordination.js   # ①+ opt-in cross-context coordination entry point
 │   ├── html.js, base-component.js, morph.js, base-service.js,
-│   │   store.js, broadcast-service.js, router.js,
-│   │   i18n-service.js, meta-service.js        # ① core
+│   │   store.js, broadcast-channel.js, broadcast-service.js,
+│   │   message-bus.js, router.js,
+│   │   i18n-service.js, meta-service.js  # ① core / coordination
 │   ├── vanilla-sdk.js    # ② everything-in-one entry point
 │   └── *-service.js      # ② WebGPU, WebRTC, Bluetooth, Crypto…
 ├── components/

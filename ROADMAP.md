@@ -53,9 +53,19 @@
 - [x] **原生數據壓縮 (Gzip/Deflate)**：實作儲存與傳輸的流式壓縮優化。
 - [x] **WebRTC P2P 通訊**：實作無伺服器的去中心化數據交換。
 
+## 🌐 跨執行環境協作演進 (Browser Coordination SDK)
+
+**重心：將原生跨分頁／Worker 能力收斂為可獨立選用的基礎建設（Epic #2）。**
+
+- [x] **Phase 1 — Messaging Foundation & Store Isolation (#3)**：建立 [ADR 0103](./docs/decisions/0103-browser-coordination-foundation.md)、無副作用獨立入口 `lib/coordination.js`、版本化信封與 namespace 隔離的 `BroadcastService`、具 local/remote 語意的 `MessageBus`，以及按 `storageKey` 隔離與具備 LWW／刪除語意的 `Store`。
+- [ ] **Phase 2 — Web Locks Leader Election & Cross-Tab RPC (#4)**：基於 Web Locks 的互斥領導者選舉與跨分頁 RPC。
+- [ ] **Phase 3 — Peer Discovery & Shared WebSocket/SSE Connection (#5)**：節點能力探索與同 scope 共享即時連線。
+- [ ] **Phase 4 — IndexedDB Durable Task Queue & Browser Coordination Lab (#6)**：持久任務佇列與多分頁協作整合實驗室。
+- [ ] **Phase 5 — Optional Extensions (#7)**：評估 SharedWorker 與跨裝置 transport adapter（僅評估）。
+
 ---
 
-_最後更新：2026-02-21 (By TeleNexus Orchestrator)_
+_最後更新：2026-11-24_
 
 ## 🎉 專案里程碑達成 (2026/02/19)
 

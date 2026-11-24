@@ -1,8 +1,8 @@
 # 跨執行環境協作基礎 (Browser Coordination Foundation)
 
-> **更新日期**：2026-11-24（Phase 1 + Phase 2 + Phase 3 + Phase 4）  
+> **更新日期**：2026-11-24（Phase 1–4 實作 + Phase 5 評估）  
 > **獨立入口**：`./lib/coordination.js`  
-> **架構決策**：[ADR 0103](./decisions/0103-browser-coordination-foundation.md) · [ADR 0104](./decisions/0104-leader-election-and-rpc.md) · [ADR 0105](./decisions/0105-peer-discovery-and-shared-connection.md) · [ADR 0106](./decisions/0106-durable-task-queue-and-cluster-lab.md) · [ADR 0101](./decisions/0101-core-entry-point.md)
+> **架構決策**：[ADR 0103](./decisions/0103-browser-coordination-foundation.md) · [ADR 0104](./decisions/0104-leader-election-and-rpc.md) · [ADR 0105](./decisions/0105-peer-discovery-and-shared-connection.md) · [ADR 0106](./decisions/0106-durable-task-queue-and-cluster-lab.md) · [ADR 0107](./decisions/0107-sharedworker-and-cross-device-transport-evaluation.md) · [ADR 0101](./decisions/0101-core-entry-point.md)
 
 `lib/coordination.js` 提供**可獨立選用（opt-in）、零依賴、零建置**的同源跨執行環境（多分頁、視窗及適用的 Worker）訊息傳遞、領導者選舉、跨分頁 RPC、節點探索、共享即時連線與 IndexedDB 持久工作佇列基礎設施。僅匯入此模組不會建立 `BroadcastChannel`、開啟 `IndexedDB`、申請 Web Lock、建立 `WebSocket`／`EventSource` 或啟動背景任務。
 
@@ -310,3 +310,12 @@ await queue.enqueue({
 3. **At-least-once 佇列語義與無背景執行保證**：`DurableTaskQueue` 提供 **at-least-once** 投遞語義，不保證 exactly-once，亦**不保證**在所有分頁皆關閉後仍能在背景執行；任務會持久化保留至下一次開啟分頁時復原。不支援 `indexedDB` 時明確回報 `supported: false`。
 4. **背景凍結（Background Freeze）與 `releaseOnFreeze`**：背景分頁被凍結後計時器與心跳會暫停，可能觸發 `PeerDiscovery` `peer-expire`，但瀏覽器通常會維持其持有的 Web Lock 直到恢復或關閉；需主動交接上游連線時請設定 `releaseOnFreeze: true`。
 5. **純同源、非持久廣播與能力降級**：`BroadcastChannel` 受同源與 Storage Partitioning 限制、不保證歷史重播（持久狀態請交給 `Store`）；不支援原生 API 時明確以 `supported: false` 降級而不拋錯或偽裝成功。
+
+---
+
+## 12. Phase 5 延伸評估（SharedWorker 與跨裝置 Transport Adapters）
+
+針對 SharedWorker hub 與跨裝置（WebRTC DataChannel／Backend WebSocket Relay）延伸能力之比較與小型 PoC 結論，詳見 [Phase 5 延伸評估報告](./coordination-phase5-evaluation.md) 與 [ADR 0107](./decisions/0107-sharedworker-and-cross-device-transport-evaluation.md)：
+
+- **`SharedWorker` 與改造 `lib/webrtc-service.js`：No-Go（現階段不納入預設核心）**：受限於 Android Chrome 不支援 `SharedWorker` 與 jsDelivr 跨網域引入同源限制，維持 Web Locks + `BroadcastChannel` 作為預設架構。
+- **跨裝置 Transport Adapter：Conditional Go（未來另開獨立 issue）**：須由後端負責認證／授權／防 `sender` 偽造與重同步邊界，嚴禁將跨裝置連線偽裝為本機 Web Locks 互斥鎖。

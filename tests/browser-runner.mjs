@@ -1472,6 +1472,152 @@ async function runCoordinationTests(openTab, base, realtime) {
         if (trackerA && tabA) failures.push(...trackerA.take().map((p) => `雙分頁 Tab A：${p}`));
         if (trackerC) failures.push(...trackerC.take().map((p) => `雙分頁 Tab C：${p}`));
         if (trackerD) failures.push(...trackerD.take().map((p) => `雙分頁 Tab D：${p}`));
+
+        // 2.9 Phase 5 PoC：真實雙分頁 SharedWorker 與跨裝置 WebSocket Relay Transport Adapter 驗證
+        {
+            let swTab1 = await openTab();
+            const swTab2 = await openTab();
+            const swTrack1 = trackProblems(swTab1.page);
+            const swTrack2 = trackProblems(swTab2.page);
+            const p5Room = `p5-ws-${Date.now()}`;
+            const p5Ns = `p5-ns-${Date.now()}`;
+            const wsRelayUrl = realtime.wsUrl(p5Room, { relay: '1' });
+
+            try {
+                await Promise.all([
+                    swTab1.page.send('Page.navigate', { url: testPageUrl }),
+                    swTab2.page.send('Page.navigate', { url: testPageUrl }),
+                ]);
+                const swReady = await Promise.all([
+                    waitFor(swTab1.page, 'window.__COORD_READY__ === true', 10000),
+                    waitFor(swTab2.page, 'window.__COORD_READY__ === true', 10000),
+                ]);
+                check(swReady.every(Boolean), 'Phase 5 PoC 測試分頁未就緒');
+
+                const hasSwSupport = await swTab1.page.evaluate('typeof SharedWorker === "function"');
+                if (hasSwSupport) {
+                    // 2.9.1 真實瀏覽器 SharedWorker + v1 Envelope / RpcChannel 與分頁關閉狀態延續驗證
+                    await Promise.all([
+                        swTab1.page.evaluate(`(async () => {
+                            const { createMessageBus, createRpcChannel } = await import('./lib/coordination.js');
+                            const { createSharedWorkerPortTransport } = await import('./tests/helpers/phase5-poc-transports.js');
+                            const swUrl = new URL('./tests/helpers/phase5-shared-worker.js', document.baseURI).href;
+                            const worker = new SharedWorker(swUrl);
+                            window.__swTransport1 = createSharedWorkerPortTransport(worker.port);
+                            window.__swBus1 = createMessageBus({ namespace: ${JSON.stringify(p5Ns)}, transport: window.__swTransport1, tabId: 'sw-tab-1' });
+                            window.__swRpc1 = createRpcChannel({ bus: window.__swBus1, timeoutMs: 3000 });
+                            window.__swRpc1.register('sw.echo', (params) => ({ ok: true, from: 'sw-tab-1', params }));
+                            await window.__swTransport1.queryHub('bump');
+                        })()`),
+                        swTab2.page.evaluate(`(async () => {
+                            const { createMessageBus, createRpcChannel } = await import('./lib/coordination.js');
+                            const { createSharedWorkerPortTransport } = await import('./tests/helpers/phase5-poc-transports.js');
+                            const swUrl = new URL('./tests/helpers/phase5-shared-worker.js', document.baseURI).href;
+                            const worker = new SharedWorker(swUrl);
+                            window.__swTransport2 = createSharedWorkerPortTransport(worker.port);
+                            window.__swBus2 = createMessageBus({ namespace: ${JSON.stringify(p5Ns)}, transport: window.__swTransport2, tabId: 'sw-tab-2' });
+                            window.__swRpc2 = createRpcChannel({ bus: window.__swBus2, timeoutMs: 3000 });
+                        })()`),
+                    ]);
+
+                    const swRpcRes = await swTab2.page.evaluate(`window.__swRpc2.call('sw.echo', { msg: 'via-shared-worker' }, { target: 'sw-tab-1' })`);
+                    check(swRpcRes?.ok === true && swRpcRes?.from === 'sw-tab-1',
+                        `SharedWorker RPC 回應異常：${JSON.stringify(swRpcRes)}`);
+
+                    // Tab 1 離開並真實關閉分頁，驗證 Tab 2 仍能讀取 SharedWorker 記憶體計數與已回收 port 數
+                    await swTab1.page.evaluate(`(async () => {
+                        await window.__swRpc1.dispose();
+                        window.__swBus1.close();
+                    })()`);
+                    failures.push(...swTrack1.take().map((p) => `Phase 5 SharedWorker Tab 1：${p}`));
+                    await swTab1.close();
+                    swTab1 = null;
+
+                    const statsSettled = await waitFor(swTab2.page, `(async () => {
+                        const s = await window.__swTransport2.queryHub('stats');
+                        window.__p5LastStats = s;
+                        return Boolean(s && s.persistedCounter >= 1 && s.activePorts === 1);
+                    })()`, 3000);
+                    const afterCloseStats = await swTab2.page.evaluate('window.__p5LastStats');
+                    check(statsSettled && afterCloseStats?.persistedCounter >= 1 && afterCloseStats?.activePorts === 1,
+                        `關閉 Tab 1 後 SharedWorker 狀態應保留且 port 數降為 1，實際：${JSON.stringify(afterCloseStats)}`);
+
+                    await swTab2.page.evaluate(`(async () => {
+                        await window.__swRpc2.dispose();
+                        window.__swBus2.close();
+                    })()`);
+                } else {
+                    check(false, 'Chromium 環境應支援 SharedWorker');
+                }
+
+                // 2.9.2 跨裝置 JSON Wire Adapter（真實 WebSocket Relay，透過現有 RpcChannel 互通並驗證能力邊界）
+                const wsTab1 = await openTab();
+                const wsTab2 = swTab2;
+                const wsTrack1 = trackProblems(wsTab1.page);
+                try {
+                    await wsTab1.page.send('Page.navigate', { url: testPageUrl });
+                    check(await waitFor(wsTab1.page, 'window.__COORD_READY__ === true', 10000), 'Phase 5 WS Relay Tab 未就緒');
+
+                    await Promise.all([
+                        wsTab1.page.evaluate(`(async () => {
+                            const { createMessageBus, createRpcChannel } = await import('./lib/coordination.js');
+                            const { createJsonWireTransportAdapter } = await import('./tests/helpers/phase5-poc-transports.js');
+                            const ws = new WebSocket(${JSON.stringify(wsRelayUrl)});
+                            await new Promise((resolve, reject) => {
+                                ws.addEventListener('open', resolve, { once: true });
+                                ws.addEventListener('error', reject, { once: true });
+                            });
+                            window.__wsAdapter1 = createJsonWireTransportAdapter(ws, { kind: 'websocket-relay' });
+                            window.__wsBus1 = createMessageBus({ namespace: ${JSON.stringify(p5Ns)}, transport: window.__wsAdapter1, tabId: 'dev-tab-1' });
+                            window.__wsRpc1 = createRpcChannel({ bus: window.__wsBus1, timeoutMs: 3000 });
+                            window.__wsRpc1.register('relay.ping', (p) => ({ pong: true, device: 'dev-tab-1', p }));
+                        })()`),
+                        wsTab2.page.evaluate(`(async () => {
+                            const { createMessageBus, createRpcChannel } = await import('./lib/coordination.js');
+                            const { createJsonWireTransportAdapter } = await import('./tests/helpers/phase5-poc-transports.js');
+                            const ws = new WebSocket(${JSON.stringify(wsRelayUrl)});
+                            await new Promise((resolve, reject) => {
+                                ws.addEventListener('open', resolve, { once: true });
+                                ws.addEventListener('error', reject, { once: true });
+                            });
+                            window.__wsAdapter2 = createJsonWireTransportAdapter(ws, { kind: 'websocket-relay' });
+                            window.__wsBus2 = createMessageBus({ namespace: ${JSON.stringify(p5Ns)}, transport: window.__wsAdapter2, tabId: 'dev-tab-2' });
+                            window.__wsRpc2 = createRpcChannel({ bus: window.__wsBus2, timeoutMs: 3000 });
+                        })()`),
+                    ]);
+
+                    const relayRpc = await wsTab2.page.evaluate(`(async () => ({
+                        res: await window.__wsRpc2.call('relay.ping', { v: 5 }, { target: 'dev-tab-1' }),
+                        caps: window.__wsAdapter2.capabilities,
+                    }))()`);
+                    check(
+                        relayRpc?.res?.pong === true &&
+                        relayRpc?.res?.device === 'dev-tab-1' &&
+                        relayRpc?.caps?.supportsWebLocks === false &&
+                        relayRpc?.caps?.scope === 'cross-device',
+                        `跨裝置 WS Relay PoC 結果異常：${JSON.stringify(relayRpc)}`
+                    );
+
+                    await Promise.all([
+                        wsTab1.page.evaluate(`(async () => { await window.__wsRpc1.dispose(); window.__wsBus1.close(); })()`),
+                        wsTab2.page.evaluate(`(async () => { await window.__wsRpc2.dispose(); window.__wsBus2.close(); })()`),
+                    ]);
+                    const wsDeadline = Date.now() + 3000;
+                    while (realtime.getStats(p5Room).activeWsCount > 0 && Date.now() < wsDeadline) {
+                        await sleep(20);
+                    }
+                    check(realtime.getStats(p5Room).activeWsCount === 0, 'Phase 5 WS Relay 關閉後仍有殘留連線');
+                    failures.push(...wsTrack1.take().map((p) => `Phase 5 WS Tab 1：${p}`));
+                } finally {
+                    await wsTab1.close();
+                }
+
+                failures.push(...swTrack2.take().map((p) => `Phase 5 Tab 2：${p}`));
+            } finally {
+                await swTab1?.close();
+                await swTab2.close();
+            }
+        }
     } finally {
         await tabA?.close();
         await tabB?.close();
@@ -1479,7 +1625,7 @@ async function runCoordinationTests(openTab, base, realtime) {
         await tabD?.close();
     }
 
-    console.log('  雙分頁協作測試：coordination-demo.html、無副作用載入、MessageBus、Store、Web Locks、RPC、PeerDiscovery、Shared WS/SSE、DurableTaskQueue、Browser Cluster Lab');
+    console.log('  雙分頁協作測試：coordination-demo.html、無副作用載入、MessageBus、Store、Web Locks、RPC、PeerDiscovery、Shared WS/SSE、DurableTaskQueue、Browser Cluster Lab、Phase 5 PoC (SharedWorker / WS Relay)');
     return failures;
 }
 

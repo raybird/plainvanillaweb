@@ -166,13 +166,15 @@ export async function startRealtimeTestServer() {
         socket.write(headers.join('\r\n'));
 
         const room = url.searchParams.get('room') || 'default';
+        const relay = url.searchParams.get('relay') === '1';
         const id = ++nextClientId;
         stats.totalWsOpened += 1;
-        stats.openedWsUrls.push({ id, room, url: req.url, protocol: chosenProtocol });
+        stats.openedWsUrls.push({ id, room, relay, url: req.url, protocol: chosenProtocol });
 
         const client = {
             id,
             room,
+            relay,
             url: req.url,
             protocol: chosenProtocol,
             socket,
@@ -288,6 +290,13 @@ export async function startRealtimeTestServer() {
                         data: text,
                         url: req.url,
                     });
+                    if (client.relay) {
+                        for (const peer of wsClients) {
+                            if (peer !== client && peer.room === room && peer.relay) {
+                                peer.sendText(text);
+                            }
+                        }
+                    }
                 }
             }
         });

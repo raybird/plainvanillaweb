@@ -71,7 +71,7 @@ Content inside `<template>` is created when its route becomes active and removed
 - [Component Architecture](./docs/component-architecture.md) — reactive Custom Elements, morphing and how to bind events
 - [SafeHTML & XSS Defense](./docs/safe-html-rendering.md) — the escaping rules of `html` / `unsafe`
 - [Service Patterns](./docs/service-patterns.md) — singleton services and event-driven architecture
-- [State Management](./docs/state-management.md) · [Browser Coordination](./docs/coordination.md) · [Router](./docs/router.md) · [i18n](./docs/i18n.md)
+- [State Management](./docs/state-management.md) · [Browser Coordination](./docs/coordination.md)（[Phase 5 Evaluation](./docs/coordination-phase5-evaluation.md)）· [Router](./docs/router.md) · [i18n](./docs/i18n.md)
 - [Architecture Overview](./docs/project-architecture-overview.md) — how the pieces fit together
 
 ---

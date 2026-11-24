@@ -61,7 +61,7 @@
 - [x] **Phase 2 — Web Locks Leader Election & Cross-Tab RPC (#4)**：建立 [ADR 0104](./docs/decisions/0104-leader-election-and-rpc.md)、基於 Web Locks `exclusive` 的互斥領導者選舉（`LeaderElection`）與白名單／可取消／不自動重試具副作用操作的跨分頁 RPC（`RpcChannel`）。
 - [x] **Phase 3 — Peer Discovery & Shared WebSocket/SSE Connection (#5)**：建立 [ADR 0105](./docs/decisions/0105-peer-discovery-and-shared-connection.md)、具能力宣告與過期不釋鎖語意的 `PeerDiscovery`，以及嚴格以 `scopeKey` 隔離帳號／端點、支援 WebSocket 轉發與 SSE 嚴格單向的 `SharedConnection`。
 - [x] **Phase 4 — IndexedDB Durable Task Queue & Browser Coordination Lab (#6)**：建立 [ADR 0106](./docs/decisions/0106-durable-task-queue-and-cluster-lab.md)、具 IndexedDB 單 transaction 原子認領／`leaseId` 防護／Web Locks 孤兒快收／版本化處理器／指數退避重試上限的 `DurableTaskQueue`（`lib/task-queue.js`），以及真實多分頁整合實驗室 [Browser Cluster Lab](#/lab/browser-cluster)。
-- [ ] **Phase 5 — Optional Extensions (#7)**：評估 SharedWorker 與跨裝置 transport adapter（僅評估）。
+- [x] **Phase 5 — Optional Extensions (#7)**：完成 [ADR 0107](./docs/decisions/0107-sharedworker-and-cross-device-transport-evaluation.md)、[Phase 5 延伸評估報告](./docs/coordination-phase5-evaluation.md) 與 `tests/phase5-poc.test.js` 可重現 PoC；結論為 `SharedWorker` 及直接改造 `lib/webrtc-service.js` 採 **No-Go**，跨裝置 Transport Adapter（Backend WebSocket Relay 優先）採 **Conditional Go**（未來另開 issue，不納入預設核心或預先承諾實作）。
 
 ---
 

@@ -18,6 +18,7 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 
 ### 新增
 
+- Phase 5（#7）延伸架構評估（[ADR 0107](./docs/decisions/0107-sharedworker-and-cross-device-transport-evaluation.md)、[評估報告](./docs/coordination-phase5-evaluation.md)）：完成 `SharedWorker` vs Web Locks Leader 比較、`lib/webrtc-service.js` 檢核、跨裝置 Transport Adapter（信令／認證／授權／防偽／一致性）邊界定義與位於 `tests/` 的可重現 PoC（未更動 `lib/core.js` 與 `lib/coordination.js` 生產程式碼，決策為 `SharedWorker` 與改造 `WebRTCService` No-Go、跨裝置 Relay Adapter Conditional Go）。
 - `DurableTaskQueue`、`TaskQueueError` 與儲存配接器（`lib/task-queue.js`，[ADR 0106](./docs/decisions/0106-durable-task-queue-and-cluster-lab.md)）：基於 `vanilla_coordination_tasks` IndexedDB 實作單一 `readwrite` transaction 原子認領、`(namespace, idempotencyKey)` 去重與命名空間隔離、`leaseId` 寫入防護、可選非搶奪式 Web Locks 孤兒快收、`registerHandler(type, fn, { version })` 版本檢查、指數退避重試與 `maxAttempts` 上限、`purge`／`clearNamespace` 清理，以及不支援 IndexedDB 時明確回報 `supported: false`。
 - `BrowserClusterPage`（`components/pages/lab/BrowserClusterPage.js`，`#/lab/browser-cluster`）：opt-in 啟動的真實多分頁叢集整合實驗室，串接 `MessageBus`、`LeaderElection`、`PeerDiscovery`、`RpcChannel`（`cluster.ping`／`cluster.stats`）、`DurableTaskQueue`（`chunk.checksum`／`transform.normalize`）、明確標註為靜態展示模擬的 `MockSharedConnection`，以及無障礙與響應式表格佈局。
 - `PeerDiscovery`（`lib/peer-discovery.js`，[ADR 0105](./docs/decisions/0105-peer-discovery-and-shared-connection.md)）：提供跨執行環境節點探索、能力宣告與更新、`__peer:hello`/`heartbeat`/`leave` 生命週期、過期掃描（`peer-expire`）與凍結恢復重連（`rejoined`），嚴格限定心跳過期僅供觀測且絕不代表 Web Lock 已釋放。

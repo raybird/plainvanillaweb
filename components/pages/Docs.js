@@ -145,6 +145,7 @@ export class Documentation extends BaseComponent {
       { id: "layout-guide", title: "🎨 原生佈局範式" },
       { id: "state-management", title: "狀態管理與 IDB" },
       { id: "coordination", title: "🔗 跨分頁協作基礎 (Coordination)" },
+      { id: "coordination-phase5-evaluation", title: "🧭 協作延伸評估 (SharedWorker / 跨裝置)" },
       { id: "pwa", title: "PWA 離線技術" },
       { id: "i18n", title: "原生國際化實作" },
       { id: "native-speech", title: "原生語音服務" },

@@ -71,7 +71,7 @@ router.authGuard = () => Boolean(localStorage.token); // 選用：auth-required 
 - [這不是框架！組件開發指南](./docs/component-architecture.md)：反應式 Custom Elements、morphing 與事件綁定方式
 - [SafeHTML：防護 XSS 的安全渲染機制](./docs/safe-html-rendering.md)：`html`／`unsafe` 的跳脫規則
 - [服務模式規範](./docs/service-patterns.md)：單例服務與事件驅動架構
-- [狀態管理](./docs/state-management.md) · [跨分頁協作基礎](./docs/coordination.md) · [路由](./docs/router.md) · [國際化](./docs/i18n.md)
+- [狀態管理](./docs/state-management.md) · [跨分頁協作基礎](./docs/coordination.md)（[Phase 5 延伸評估](./docs/coordination-phase5-evaluation.md)）· [路由](./docs/router.md) · [國際化](./docs/i18n.md)
 - [專案架構全貌深度解析](./docs/project-architecture-overview.md)：各部分如何組合
 
 ---

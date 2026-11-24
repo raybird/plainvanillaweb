@@ -1,8 +1,8 @@
 # 🍦 Plain Vanilla Web App 架構與核心技術全貌深度解析
 
-> **日期**：2026-11-04  
+> **日期**：2026-11-24  
 > **整理者**：Antigravity (for Raybird)  
-> **專案版本**：v3.1.0（見 `lib/version.js`）  
+> **專案版本**：v3.2.0（見 `lib/version.js`）  
 > **核心定位**：基於 W3C/WHATWG 現代瀏覽器原生標準所構建的零依賴、零建置現代 Web 應用架構範本與前沿 Web API 實驗平台。
 
 ---

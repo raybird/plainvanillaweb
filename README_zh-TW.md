@@ -16,7 +16,7 @@
 | **①+ 跨分頁協作** | 可選載入、零匯入副作用的跨執行環境協作（`BroadcastService`、`MessageBus`、Web Locks `LeaderElection`、跨分頁 `RpcChannel`、`PeerDiscovery`、WS／SSE `SharedConnection` 與 IndexedDB `DurableTaskQueue`） | [`lib/coordination.js`](./lib/coordination.js) | 需要具命名空間隔離的多分頁／Worker 協作 |
 | **② 展示站** | 以核心打造的完整網站：39 個前沿 Web API 互動實驗室、執行期渲染的文件、儀表板與遊樂場 | [`index.html`](./index.html) · [`lib/vanilla-sdk.js`](./lib/vanilla-sdk.js) | 想學某個 Web API，或直接借用寫好的 service |
 
-核心不會 import 任何展示站的程式，並由測試守住這條邊界（[ADR 0101](./docs/decisions/0101-core-entry-point.md)）。版本依語意化版本編號，見 [CHANGELOG](./CHANGELOG.md)（目前為 **v3.1.0**）。
+核心不會 import 任何展示站的程式，並由測試守住這條邊界（[ADR 0101](./docs/decisions/0101-core-entry-point.md)）。版本依語意化版本編號，見 [CHANGELOG](./CHANGELOG.md)（目前為 **v3.2.0**）。
 
 > 💡 **為何堅持「標準優於框架、零建置成本、安全且透明」？** 閱讀 **[Vanilla Manifesto (原生網頁開發宣言)](./docs/manifesto.md)**。
 
@@ -42,7 +42,7 @@
 
 ```javascript
 import { BaseComponent, html, router, registerRoute } from './lib/core.js';
-// 或引用固定版本：import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.1.0/lib/core.js';
+// 或引用固定版本：import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/core.js';
 
 class HelloCard extends BaseComponent {
     constructor() { super(); this.initReactiveState({ count: 0 }); }
@@ -107,7 +107,7 @@ python3 -m http.server   # 或：npx serve .
 SDK 匯出核心，以及 40 多個展示用 service（加密、IndexedDB、WebRTC、WebGPU、通知…）、響應式表單引擎與 `CanvasChart`。詳見 [SDK 使用指南](./docs/sdk-usage.md)。
 
 ```javascript
-import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.1.0/lib/vanilla-sdk.js';
+import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/vanilla-sdk.js';
 ```
 
 ### 建立在核心之上的應用層功能

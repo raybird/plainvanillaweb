@@ -1664,6 +1664,99 @@ async function runCoordinationTests(openTab, base, realtime) {
 }
 
 /** A fresh origin installs the worker before any prior fetch can warm its runtime cache. */
+/** Solutions（#9）：首頁與側欄入口、深連結、kiosk 版面切換、巢狀路由生命週期與雙語文件 */
+async function runSolutionsTests(openTab, base) {
+    const failures = [];
+    const check = (ok, message) => { if (!ok) failures.push(`Solutions：${message}`); };
+    let tab = null;
+    try {
+        tab = await openTab();
+        const { page } = tab;
+        const tracker = trackProblems(page);
+        const network = trackNetwork(page);
+        const settle = async () => {
+            await waitForNetworkIdle(network);
+            await page.evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))', 3000);
+        };
+
+        // 深連結：新分頁直接開 #/solutions
+        await page.send('Page.navigate', { url: `${base}#/solutions` });
+        check(await waitFor(page, "document.querySelector('page-solutions-index .solution-card') !== null", 15000),
+            '直接開啟 #/solutions 應顯示目錄');
+        await settle();
+        const catalog = await page.evaluate(`(() => {
+            const cards = [...document.querySelectorAll('page-solutions-index .solution-card')];
+            const open = (id) => document.querySelector('.solution-card[data-solution="' + id + '"] a.btn-primary')?.getAttribute('href') ?? null;
+            return { ids: cards.map((c) => c.dataset.solution), pos: open('pos'), farm: open('farm'), cluster: open('browser-cluster') };
+        })()`);
+        check(JSON.stringify(catalog.ids) === JSON.stringify(['pos', 'farm', 'browser-cluster']), `目錄項目不符：${catalog.ids.join(', ')}`);
+        check(catalog.cluster === '#/lab/browser-cluster', 'Browser Cluster 應連回 #/lab/browser-cluster，不在 Solutions 重做');
+        check(catalog.pos === null && catalog.farm === null, '規劃中的範例不應有開啟連結');
+        check(await page.evaluate("document.querySelector('#app-nav a.nav-link[href=\"#/solutions\"]') !== null"), '側欄應有 Solutions 入口');
+
+        // kiosk 版面：不渲染側欄、漢堡按鈕、頁尾與 Solutions 標頭；切換時目錄頁不重建
+        await page.evaluate("document.querySelector('page-solutions-index').__marker = true");
+        await page.evaluate("location.hash = '#/solutions?kiosk=1'");
+        await waitFor(page, "document.querySelector('.kiosk-exit') !== null", 5000);
+        await settle();
+        const kiosk = await page.evaluate(`(() => ({
+            nav: !!document.querySelector('#app-nav'),
+            hamburger: !!document.querySelector('.hamburger-btn'),
+            footer: !!document.querySelector('app-footer'),
+            header: !!document.querySelector('.solutions-header'),
+            exit: document.querySelector('.kiosk-exit')?.getAttribute('href'),
+            marginLeft: getComputedStyle(document.querySelector('main#main-content')).marginLeft,
+            sameIndex: document.querySelector('page-solutions-index')?.__marker === true,
+        }))()`);
+        check(!kiosk.nav && !kiosk.hamburger && !kiosk.footer, 'kiosk 版面不應渲染側欄、漢堡按鈕與頁尾');
+        check(!kiosk.header, 'kiosk 版面不應顯示 Solutions 標頭');
+        check(kiosk.exit === '#/solutions', `離開 kiosk 連結應回到 #/solutions，實際為 ${kiosk.exit}`);
+        check(kiosk.marginLeft === '0px', `kiosk 版面主內容不應保留側欄寬度（margin-left: ${kiosk.marginLeft}）`);
+        check(kiosk.sameIndex, '切換 kiosk 版面不應重建同一路由的頁面');
+
+        await page.evaluate("document.querySelector('.kiosk-exit').click()");
+        await waitFor(page, "document.querySelector('#app-nav') !== null", 5000);
+        await settle();
+        check(await page.evaluate("location.hash === '#/solutions' && !!document.querySelector('.solutions-header') && !!document.querySelector('app-footer')"),
+            '離開 kiosk 後應恢復側欄、頁尾與標頭');
+
+        // 巢狀 404 與離開 Solutions 時移除頁面（ADR 0102）
+        await page.evaluate("location.hash = '#/solutions/not-a-solution'");
+        await waitFor(page, "document.querySelector('x-route[path=\"/solutions/*\"][active]') !== null", 5000);
+        check(await page.evaluate("document.querySelector('x-route[path=\"/solutions/*\"][active]')?.textContent.includes('找不到這個 Solution')"),
+            '未知的 /solutions/* 應顯示 Solutions 的 404');
+        await page.evaluate("location.hash = '#/'");
+        await waitFor(page, "document.querySelector('page-home') !== null", 5000);
+        await settle();
+        check(await page.evaluate("document.querySelector('page-solutions') === null"), '離開 /solutions 後應移除 <page-solutions>');
+        check(await page.evaluate("document.querySelector('page-home a[href=\"#/solutions\"]') !== null"), '首頁應有 Solutions 入口');
+
+        // 雙語文件互相連結
+        for (const [id, heading, counterpart] of [
+            ['solutions/conventions', 'Solutions Reference App 慣例', 'solutions/conventions.en'],
+            ['solutions/conventions.en', 'Solutions Reference App Conventions', 'solutions/conventions'],
+            ['solutions/reference-app-template', 'Solutions 文件範本', 'solutions/reference-app-template.en'],
+            ['solutions/reference-app-template.en', 'Solutions Doc Template', 'solutions/reference-app-template'],
+        ]) {
+            await page.evaluate(`location.hash = ${JSON.stringify(`#/docs/${id}`)}`);
+            const ok = await waitFor(page, `document.querySelector('page-docs h1')?.textContent.includes(${JSON.stringify(heading)})`, 5000);
+            check(ok, `#/docs/${id} 未顯示標題「${heading}」`);
+            if (ok) {
+                check(await page.evaluate(`document.querySelector('page-docs a[href="#/docs/${counterpart}"]') !== null`),
+                    `#/docs/${id} 應連到另一語言版本 #/docs/${counterpart}`);
+            }
+        }
+        await settle();
+        failures.push(...tracker.take().map((p) => `Solutions：${p}`));
+    } catch (err) {
+        failures.push(`Solutions：測試中斷：${err.message.split('\n')[0]}`);
+    } finally {
+        await tab?.close();
+    }
+    console.log('  Solutions 測試：入口、深連結、kiosk 版面、巢狀路由生命週期、雙語文件');
+    return failures;
+}
+
 async function checkOfflineShell(page, base, server) {
     await page.send('Network.setBypassServiceWorker', { bypass: false });
     try {
@@ -1671,12 +1764,22 @@ async function checkOfflineShell(page, base, server) {
         if (!await waitFor(page, '!!navigator.serviceWorker.controller && !!document.querySelector("page-home")')) {
             return 'Service Worker 未接管首頁';
         }
+        // 先在線上開一次 Solutions，讓延遲載入的模組進入執行期快取
+        await page.evaluate("location.hash = '#/solutions'");
+        if (!await waitFor(page, '!!document.querySelector("page-solutions-index .solution-card")')) {
+            return '線上開啟 #/solutions 失敗';
+        }
+        await sleep(300);
+        await page.evaluate("location.hash = '#/'");
         await page.send('Network.clearBrowserCache');
         server.testOffline = true;
         await page.evaluate('window.__offlineBeforeReload = true');
         await page.send('Page.reload');
         const loaded = await waitFor(page, '!window.__offlineBeforeReload && !!navigator.serviceWorker.controller && !!document.querySelector("page-home")');
-        return loaded ? null : '原始伺服器離線後，首頁未能從快取重啟';
+        if (!loaded) return '原始伺服器離線後，首頁未能從快取重啟';
+        await page.evaluate("location.hash = '#/solutions'");
+        const solutions = await waitFor(page, '!!document.querySelector("page-solutions-index .solution-card")');
+        return solutions ? null : '離線時無法開啟已造訪過的 #/solutions';
     } finally {
         server.testOffline = false;
         await page.send('Network.setBypassServiceWorker', { bypass: true });
@@ -1725,13 +1828,14 @@ async function main() {
                 ...(await runSmokeTests(page, base, tracker, network)),
                 ...(await runInteractionTests(page, base, tracker, network)),
                 ...(await runCoordinationTests(openTab, base, realtime)),
+                ...(await runSolutionsTests(openTab, base)),
             ];
             const offlineServer = await startServer(prefix);
             try {
                 const offlineBase = `http://127.0.0.1:${offlineServer.address().port}${prefix}`;
                 const offlineFailure = await checkOfflineShell(page, offlineBase, offlineServer);
                 if (offlineFailure) failures.push(`離線：${offlineFailure}`);
-                else console.log('  離線冷重載：首頁完成渲染');
+                else console.log('  離線冷重載：首頁與已造訪的 Solutions 完成渲染');
             } finally {
                 offlineServer.close();
             }

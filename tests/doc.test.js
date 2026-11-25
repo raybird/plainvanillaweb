@@ -143,6 +143,29 @@ test('子目錄文件的相對連結以該文件所在目錄解析（ADR 索引�
     assert.match(parseMarkdown('[x](./0102-x.md)'), /<a href="#\/docs\/0102-x">x<\/a>/);
 });
 
+test('英文版文件 <name>.en.md 的連結轉成站內文件頁，其他含 . 的名稱不算文件 id', () => {
+    const opts = { docId: 'solutions/conventions' };
+    assert.match(parseMarkdown('[en](./conventions.en.md)', opts), /<a href="#\/docs\/solutions\/conventions\.en">en<\/a>/);
+    assert.match(parseMarkdown('[zh](./conventions.md)', { docId: 'solutions/conventions.en' }),
+        /<a href="#\/docs\/solutions\/conventions">zh<\/a>/);
+    assert.match(parseMarkdown('[x](./a.fr.md)', opts),
+        /<a href="https:\/\/github.com\/raybird\/plainvanillaweb\/blob\/master\/docs\/solutions\/a.fr.md">x<\/a>/);
+});
+
+test('getDoc 接受英文版 id 並讀取 <name>.en.md', async () => {
+    const { docService } = await import('../lib/doc-service.js');
+    const originalFetch = global.fetch;
+    const urls = [];
+    global.fetch = async (url) => { urls.push(String(url)); return { ok: true, text: async () => '# English' }; };
+    try {
+        const out = await docService.getDoc('solutions/conventions.en');
+        assert.match(out, /English/);
+        assert.ok(urls.some((u) => u.endsWith('solutions/conventions.en.md')), `應讀取 .en.md，實際：${urls.join(', ')}`);
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
+
 test('getDoc 拒絕不是文件 id 的名稱（例如含 ..），不發出請求', async () => {
     const { docService } = await import('../lib/doc-service.js');
     const originalFetch = global.fetch;
@@ -151,8 +174,10 @@ test('getDoc 拒絕不是文件 id 的名稱（例如含 ..），不發出請求
     global.fetch = async () => { fetched = true; return { ok: false }; };
     console.error = () => {};
     try {
-        const out = await docService.getDoc('../index');
-        assert.match(out, /無法載入文件/);
+        for (const name of ['../index', 'solutions/a.fr', 'x..en', 'solutions/.en']) {
+            const out = await docService.getDoc(name);
+            assert.match(out, /無法載入文件/, name);
+        }
         assert.equal(fetched, false);
     } finally {
         global.fetch = originalFetch;

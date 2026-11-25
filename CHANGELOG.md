@@ -14,6 +14,14 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 
 ---
 
+## [Unreleased]
+
+Epic #8（Native Web Solutions）的 #9–#11 合併為 v3.3.0 發布；核心與 `lib/coordination.js` 的匯出不變。
+
+### 新增
+
+- Solutions 分類（#9，[ADR 0108](./docs/decisions/0108-solutions-reference-app-conventions.md)）：`#/solutions` 目錄頁（首頁與側欄皆有入口，Browser Cluster 連回 `#/lab/browser-cluster`）、hash query `?kiosk=1` 的全視窗 kiosk 版面（`app/kiosk.js`）、`components/pages/solutions/solution-kit.js` 慣例工具（`resolveNamespace`、`solutionStorageName`、`buildSolutionHash`、`openSolutionWindow`、`detectFeatures`、`createTeardown`、`resetSolutionData`），以及中英雙語的 [Reference App 慣例](./docs/solutions/conventions.md) 與 [文件範本](./docs/solutions/reference-app-template.md)。
+
 ## [3.2.0] - 2026-11-24
 
 ### 新增

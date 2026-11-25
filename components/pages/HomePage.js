@@ -249,6 +249,9 @@ export class HomePage extends BaseComponent {
                     <a href="#/lab" class="btn-hero-primary">
                         <i data-lucide="flask-conical" style="width: 1.2em; height: 1.2em; stroke-width: 2.5;"></i> 進入實驗室
                     </a>
+                    <a href="#/solutions" class="btn-hero-ghost">
+                        <i data-lucide="layers" style="width: 1.2em; height: 1.2em; stroke-width: 2;"></i> Solutions 範例應用
+                    </a>
                     <a href="#/docs/manifesto" class="btn-hero-ghost">
                         <i data-lucide="scroll" style="width: 1.2em; height: 1.2em; stroke-width: 2;"></i> 閱讀宣言
                     </a>

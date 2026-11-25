@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vanilla-cache-c6ac6df2996d';
+const CACHE_NAME = 'vanilla-cache-ed6654bfd52e';
 // CacheStorage is shared by every application on this origin, including other Pages projects.
 const CACHE_PREFIX = `plainvanillaweb:${self.registration.scope}:`;
 const SCOPED_CACHE_NAME = `${CACHE_PREFIX}${CACHE_NAME}`;

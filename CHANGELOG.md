@@ -5,7 +5,7 @@
 固定版本的引用方式（jsDelivr 依 git tag 提供，內容不會再變）：
 
 ```javascript
-import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/core.js';
+import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.3.0/lib/core.js';
 ```
 
 `https://raybird.github.io/plainvanillaweb/lib/...` 永遠是最新的 master，適合試用，不適合正式專案。
@@ -14,7 +14,7 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 
 ---
 
-## [Unreleased]
+## [3.3.0] - 2026-11-25
 
 Epic #8（Native Web Solutions）的 #9–#11 合併為 v3.3.0 發布；核心與 `lib/coordination.js` 的匯出不變。
 

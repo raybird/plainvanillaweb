@@ -1,8 +1,8 @@
 # 🍦 Plain Vanilla Web App 架構與核心技術全貌深度解析
 
-> **日期**：2026-11-24  
+> **日期**：2026-11-25  
 > **整理者**：Antigravity (for Raybird)  
-> **專案版本**：v3.2.0（見 `lib/version.js`）  
+> **專案版本**：v3.3.0（見 `lib/version.js`）  
 > **核心定位**：基於 W3C/WHATWG 現代瀏覽器原生標準所構建的零依賴、零建置現代 Web 應用架構範本與前沿 Web API 實驗平台。
 
 ---
@@ -119,13 +119,14 @@ plainvanillaweb/
 ├── app/                  # 應用程式進入點 (App.js 負責佈局、側邊欄導覽與全域按鈕監聽)
 ├── components/           # UI 與視圖組件庫 (根目錄另有 VirtualList、Modal、Notification、AppFooter)
 │   ├── pages/            # 一級功能頁面 (HomePage, Docs, Dashboard, Analytics, Login 等)
-│   │   └── lab/          # 38+ 個獨立前沿 Web API 實驗室
+│   │   ├── lab/          # 38+ 個獨立前沿 Web API 實驗室
+│   │   └── solutions/    # Solutions reference app（Multi-Window POS、Browser Computing Farm；慣例見 docs/solutions/、ADR 0108）
 │   ├── route/            # 原生路由模組 (<x-switch>, <x-route>)
 │   └── ui/               # 共用輕量 UI 元件 (Card, IsolatedCard, NativeChart)
 ├── lib/                  # 核心服務層 (BaseComponent, BaseService, Store, 各類 Web API 服務)
 ├── docs/                 # 即時解析與展示的技術文件 (Markdown)
 │   └── decisions/        # 90+ 篇架構決策紀錄 (ADRs, 追蹤重大技術選型與演進)
-├── workers/              # 獨立 Web Worker 腳本 (compute.worker.js 計算任務；IndexedDB 備份 worker 位於 lib/backup-worker.js)
+├── workers/              # 獨立 Web Worker 腳本 (compute.worker.js 計算任務、image-farm.worker.js 圖片處理；IndexedDB 備份 worker 位於 lib/backup-worker.js)
 ├── tests/                # 測試集 (Node 內建測試 tests/*.test.js、browser.html DOM 測試與 browser-runner.mjs)
 ├── scripts/              # 維護與腳手架工具 (new-page.js、update-adr-index.js、update-sw-version.js、check.sh)
 ├── index.html            # SPA 單一入口 (<x-app> 掛載點、CSS 與字體引入)

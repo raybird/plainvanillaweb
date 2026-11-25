@@ -42,7 +42,7 @@
 
 ```javascript
 import { BaseComponent, html, router, registerRoute } from './lib/core.js';
-// 或引用固定版本：import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/core.js';
+// 或引用固定版本：import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.3.0/lib/core.js';
 
 class HelloCard extends BaseComponent {
     constructor() { super(); this.initReactiveState({ count: 0 }); }
@@ -108,7 +108,7 @@ python3 -m http.server   # 或：npx serve .
 SDK 匯出核心，以及 40 多個展示用 service（加密、IndexedDB、WebRTC、WebGPU、通知…）、響應式表單引擎與 `CanvasChart`。詳見 [SDK 使用指南](./docs/sdk-usage.md)。
 
 ```javascript
-import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/vanilla-sdk.js';
+import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.3.0/lib/vanilla-sdk.js';
 ```
 
 ### 建立在核心之上的應用層功能

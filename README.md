@@ -42,7 +42,7 @@ Copy `lib/` and `components/route/` (keeping the relative paths), or import a pi
 
 ```javascript
 import { BaseComponent, html, router, registerRoute } from './lib/core.js';
-// or a pinned release: import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/core.js';
+// or a pinned release: import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.3.0/lib/core.js';
 
 class HelloCard extends BaseComponent {
     constructor() { super(); this.initReactiveState({ count: 0 }); }
@@ -108,7 +108,7 @@ Open `http://localhost:8000/`. The sidebar is organized into:
 The SDK re-exports the core plus 40+ showcase services (crypto, IndexedDB, WebRTC, WebGPU, notifications…), the reactive form engine and `CanvasChart`. See the [SDK guide](./docs/sdk-usage.md).
 
 ```javascript
-import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/vanilla-sdk.js';
+import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.3.0/lib/vanilla-sdk.js';
 ```
 
 ### App-level features built on the core

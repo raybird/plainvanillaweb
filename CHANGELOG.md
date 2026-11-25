@@ -5,7 +5,7 @@
 固定版本的引用方式（jsDelivr 依 git tag 提供，內容不會再變）：
 
 ```javascript
-import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.1.0/lib/core.js';
+import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/core.js';
 ```
 
 `https://raybird.github.io/plainvanillaweb/lib/...` 永遠是最新的 master，適合試用，不適合正式專案。
@@ -14,7 +14,7 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 
 ---
 
-## [Unreleased]
+## [3.2.0] - 2026-11-24
 
 ### 新增
 
@@ -37,6 +37,7 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 - `Store` 跨分頁同步改以 `storageKey` 隔離，修復多個不同 `storageKey` 的 `Store` 互相污染；頂層 `delete` 改為在遠端真正執行刪除而非寫入 `undefined`；不同鍵並行更新以增量合併寫回 `localStorage`，同鍵衝突採 Lamport clock + sender LWW 收斂，並阻擋 `__proto__` 等不安全鍵名。
 - 頁尾「架構決策 (ADR)」連結指向不存在的 `docs/decisions/` 目錄頁，開啟後顯示「無法載入文件: decisions」。
 - `docService.getDoc()` 拒絕不是文件 id 的名稱（例如含 `..`），不發出請求。
+- 前端互動與離線快取：修復非同步表單／對話框輸入保留、導覽可及性與裝置資源釋放，補齊 Service Worker 離線快取隔離（含 `lib/broadcast-channel.js` 啟動相依）與內容雜湊同步。
 
 ---
 

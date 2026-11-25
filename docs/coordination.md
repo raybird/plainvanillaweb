@@ -1,6 +1,6 @@
 # 跨執行環境協作基礎 (Browser Coordination Foundation)
 
-> **更新日期**：2026-11-24（Phase 1–4 實作 + Phase 5 評估）  
+> **更新日期**：2026-11-25（Phase 1–4 實作 + Phase 5 評估）  
 > **獨立入口**：`./lib/coordination.js`  
 > **架構決策**：[ADR 0103](./decisions/0103-browser-coordination-foundation.md) · [ADR 0104](./decisions/0104-leader-election-and-rpc.md) · [ADR 0105](./decisions/0105-peer-discovery-and-shared-connection.md) · [ADR 0106](./decisions/0106-durable-task-queue-and-cluster-lab.md) · [ADR 0107](./decisions/0107-sharedworker-and-cross-device-transport-evaluation.md) · [ADR 0101](./decisions/0101-core-entry-point.md)
 
@@ -155,6 +155,7 @@ bus.dispose();
 ```
 
 - **兩段式取得與自動接管**：`start()` 先以 `{ mode: 'exclusive', ifAvailable: true }` 立即探測，無人持鎖時直接成為 `'leader'`；已被持有時切為 `'follower'` 並立即在背景排隊（`{ mode: 'exclusive', signal }`），不會阻塞 `start()`。原 leader 分頁關閉、重載或呼叫 `release()` 後，排隊中的 follower 會自動接管並推進 `epoch`。
+- **`start({ signal })` 取消契約**：`signal` 對齊 W3C Web Locks 規格，**僅作用於啟動前、探測中與 `follower` 排隊等待取鎖階段**；一旦取得 `leader` 鎖（含直接取得或接管）即解除外部 `signal` 監聽，後續呼叫 `controller.abort()` 不會釋放已持有的鎖。成為 `leader` 後請明確呼叫 `release()`、`stop()` 或 `dispose()` 退位（`SharedConnection.start({ signal })` 亦沿用相同契約）。
 - **Heartbeat 僅供觀測**：即使停發 heartbeat 或觀察到其他訊息，系統也不會改變自身互斥角色或搶鎖。
 - **背景凍結（Background Freeze）限制與 `releaseOnFreeze`**：當分頁進入背景凍結（Page Lifecycle `freeze`）時，瀏覽器會暫停 JS 計時器但**通常仍保留既有 Web Lock**。這代表互斥安全性不會被破壞（不會雙重 leader），但接管時間會延後到該分頁恢復或關閉。若應用場景可容忍主動讓出，可設定 `{ releaseOnFreeze: true }`，於 `freeze` 事件釋放鎖並在 `resume` 時重新參與競選。
 - **不支援 API 行為**：無 `navigator.locks` 時明確回報 `supported: false`、`role: 'unsupported'`、`start()` 回傳 `{ acquired: false, role: 'unsupported', supported: false }`，絕不以 `localStorage` 假裝互斥。
@@ -299,6 +300,7 @@ await queue.enqueue({
 - **單一 Transaction 原子認領與 `leaseId` 防護**：`claimAtomic` 在單一 IndexedDB `readwrite` transaction 內同時回收已逾時任務並挑選出最高優先的 `pending` 任務；`completeAtomic`、`failAtomic`、`renewLeaseAtomic`、`reclaimOrphanAtomic` 均比對 `ownerId` 與 `leaseId`，阻擋已逾時舊 Worker 覆寫新結果。
 - **Web Locks 孤兒偵測快收（絕不用 `steal: true`）**：執行期間可搭配非搶奪式 `ifAvailable: true` 鎖協助偵測異常關閉分頁所遺留的執行中任務，於租約屆期前即可安全回收。
 - **版本化處理器與重試上限**：`registerHandler(type, fn, { version })` 確保不同版本的分頁不會錯誤認領或破壞其他版本的工作結構；失敗時依指數退避重排並於達到 `maxAttempts`（含租約逾時達上限）時轉為 `failed`。
+- **Payload 型別限制與大型二進位資料整合模式**：佇列 payload 驗證僅允許純物件（plain object）、陣列、基本型別與有效 `Date`，刻意拒絕 `Blob`、`ArrayBuffer` 與 TypedArray（拋出 `SERIALIZATION_ERROR`），避免二進位大檔灌入 `vanilla_coordination_tasks` 拖慢單一 `readwrite` transaction 的 `claimAtomic` 掃描與讀寫。若應用需處理圖片或影音等大型二進位資料（例如批次影像處理），應將檔案存於獨立的 IndexedDB Blob store（或 OPFS），佇列 payload 僅保存 Blob ID、處理參數與輸出結果參考。
 - **Browser Cluster Lab（`#/lab/browser-cluster`）**：站內提供整合實驗室串接 `MessageBus`、`LeaderElection`、`PeerDiscovery`、`RpcChannel`、`DurableTaskQueue` 與清楚標註為靜態展示模擬的 `MockSharedConnection`，供開啟多個瀏覽器分頁實測認領、RPC 與接管復原。
 
 ---

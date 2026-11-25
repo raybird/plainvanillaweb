@@ -21,6 +21,8 @@ Epic #8（Native Web Solutions）的 #9–#11 合併為 v3.3.0 發布；核心�
 ### 新增
 
 - Solutions 分類（#9，[ADR 0108](./docs/decisions/0108-solutions-reference-app-conventions.md)）：`#/solutions` 目錄頁（首頁與側欄皆有入口，Browser Cluster 連回 `#/lab/browser-cluster`）、hash query `?kiosk=1` 的全視窗 kiosk 版面（`app/kiosk.js`）、`components/pages/solutions/solution-kit.js` 慣例工具（`resolveNamespace`、`solutionStorageName`、`buildSolutionHash`、`openSolutionWindow`、`detectFeatures`、`createTeardown`、`resetSolutionData`），以及中英雙語的 [Reference App 慣例](./docs/solutions/conventions.md) 與 [文件範本](./docs/solutions/reference-app-template.md)。
+- Multi-Window POS（#10，`#/solutions/pos`，[文件](./docs/solutions/pos.md)）：點餐、廚房、顧客叫號、管理統計四個視窗的 local-first 訂單流程。訂單存在範例自有的 IndexedDB，每次狀態轉移在單一 `readwrite` transaction 內判斷與寫入（並行認領只有一個站台成功、同一 `requestId` 重送不重複建單）；`MessageBus` 通知後各視窗重讀權威狀態，重新整理與晚加入的視窗狀態一致；廚房站台以 Web Lock 宣告存活，關閉後其他站台可接手；`PeerDiscovery` 顯示在線視窗；叫號畫面可選用 Screen Wake Lock。附 demo 示範訂單與重設、真實多視窗瀏覽器測試。
+- 瀏覽器測試的 `openTab({ newWindow: true })`：同一視窗內的背景分頁會暫停 `requestAnimationFrame`，需要同時觀察多個畫面的測試改在獨立視窗開啟。
 
 ## [3.2.0] - 2026-11-24
 

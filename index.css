@@ -526,8 +526,9 @@ main#main-content>* {
 }
 
 .kiosk-exit {
+  /* 右下角：右上角常是角色畫面標頭的操作區，固定連結會蓋住它 */
   position: fixed;
-  top: 0.5rem;
+  bottom: 0.5rem;
   right: 0.5rem;
   z-index: 1000;
   padding: 0.25rem 0.75rem;

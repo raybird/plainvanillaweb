@@ -93,6 +93,7 @@ export class Documentation extends BaseComponent {
       coordination: "/lab/browser-cluster",
       "solutions/conventions": "/solutions",
       "solutions/reference-app-template": "/solutions",
+      "solutions/pos": "/solutions/pos",
     };
     return map[docId] || null;
   }
@@ -150,6 +151,7 @@ export class Documentation extends BaseComponent {
       { id: "coordination-phase5-evaluation", title: "🧭 協作延伸評估 (SharedWorker / 跨裝置)" },
       { id: "solutions/conventions", title: "🧱 Solutions Reference App 慣例" },
       { id: "solutions/reference-app-template", title: "🧱 Solutions 文件範本" },
+      { id: "solutions/pos", title: "🧱 Multi-Window POS" },
       { id: "pwa", title: "PWA 離線技術" },
       { id: "i18n", title: "原生國際化實作" },
       { id: "native-speech", title: "原生語音服務" },

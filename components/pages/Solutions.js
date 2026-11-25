@@ -46,6 +46,11 @@ export class SolutionsPage extends BaseComponent {
         <x-switch data-persistent="solutions-routes">
           <x-route path="/solutions" exact module="./components/pages/solutions/SolutionsIndex.js"><template><page-solutions-index></page-solutions-index></template></x-route>
           <x-route path="/solutions/" exact module="./components/pages/solutions/SolutionsIndex.js"><template><page-solutions-index></page-solutions-index></template></x-route>
+          <x-route path="/solutions/pos" exact module="./components/pages/solutions/pos/PosHubPage.js"><template><page-pos-hub></page-pos-hub></template></x-route>
+          <x-route path="/solutions/pos/order" exact module="./components/pages/solutions/pos/PosOrderPage.js"><template><page-pos-order></page-pos-order></template></x-route>
+          <x-route path="/solutions/pos/kitchen" exact module="./components/pages/solutions/pos/PosKitchenPage.js"><template><page-pos-kitchen></page-pos-kitchen></template></x-route>
+          <x-route path="/solutions/pos/display" exact module="./components/pages/solutions/pos/PosDisplayPage.js"><template><page-pos-display></page-pos-display></template></x-route>
+          <x-route path="/solutions/pos/admin" exact module="./components/pages/solutions/pos/PosAdminPage.js"><template><page-pos-admin></page-pos-admin></template></x-route>
           <x-route path="/solutions/*"><template><h2>404</h2><p>找不到這個 Solution。<a href="#/solutions">回到 Solutions</a></p></template></x-route>
         </x-switch>
       </div>

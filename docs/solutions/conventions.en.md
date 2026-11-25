@@ -15,7 +15,7 @@ Entry point: [Solutions](#/solutions).
 
 | App | Route | Delivered by | Status |
 | --- | --- | --- | --- |
-| Multi-Window POS | `#/solutions/pos/*` | #10 | Planned |
+| Multi-Window POS | `#/solutions/pos/*` | #10 | Available ([doc](./pos.en.md)) |
 | Browser Computing Farm | `#/solutions/farm` | #11 | Planned |
 | Browser Cluster | `#/lab/browser-cluster` | #6 (Lab) | Done; Solutions only links to it |
 
@@ -33,7 +33,7 @@ Entry point: [Solutions](#/solutions).
 
 ## 3. Kiosk layout
 
-When the hash query carries `kiosk=1` (e.g. `#/solutions/pos/kitchen?kiosk=1`), `<x-app>` renders no sidebar, hamburger button or footer, the Solutions header is hidden too, and the main content fills the window. A fixed "Exit kiosk layout" link in the top-right corner returns to the normal layout.
+When the hash query carries `kiosk=1` (e.g. `#/solutions/pos/kitchen?kiosk=1`), `<x-app>` renders no sidebar, hamburger button or footer, the Solutions header is hidden too, and the main content fills the window. A fixed "Exit kiosk layout" link in the bottom-right corner returns to the normal layout.
 
 Open role windows with `openSolutionWindow(path, { name, ns })`:
 

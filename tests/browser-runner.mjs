@@ -106,8 +106,11 @@ async function launchChrome() {
     const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
     const page = await connect(targets.find((t) => t.type === 'page').webSocketDebuggerUrl);
 
-    const openTab = async () => {
-        const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank' });
+    // newWindow：每個分頁自成一個視窗。同一視窗內只有最前面的分頁是 visible，
+    // 背景分頁的 requestAnimationFrame 會暫停，BaseComponent 的重繪也跟著停住；
+    // 需要同時觀察多個分頁畫面的測試（例如 POS 多視窗）要開在不同視窗。
+    const openTab = async ({ newWindow = false } = {}) => {
+        const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank', newWindow });
         let tabPage = null;
         try {
             const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
@@ -1691,7 +1694,8 @@ async function runSolutionsTests(openTab, base) {
         })()`);
         check(JSON.stringify(catalog.ids) === JSON.stringify(['pos', 'farm', 'browser-cluster']), `目錄項目不符：${catalog.ids.join(', ')}`);
         check(catalog.cluster === '#/lab/browser-cluster', 'Browser Cluster 應連回 #/lab/browser-cluster，不在 Solutions 重做');
-        check(catalog.pos === null && catalog.farm === null, '規劃中的範例不應有開啟連結');
+        check(catalog.pos === '#/solutions/pos', `POS 應連到 #/solutions/pos，實際為 ${catalog.pos}`);
+        check(catalog.farm === null, '規劃中的範例不應有開啟連結');
         check(await page.evaluate("document.querySelector('#app-nav a.nav-link[href=\"#/solutions\"]') !== null"), '側欄應有 Solutions 入口');
 
         // kiosk 版面：不渲染側欄、漢堡按鈕、頁尾與 Solutions 標頭；切換時目錄頁不重建
@@ -1754,6 +1758,179 @@ async function runSolutionsTests(openTab, base) {
         await tab?.close();
     }
     console.log('  Solutions 測試：入口、深連結、kiosk 版面、巢狀路由生命週期、雙語文件');
+    return failures;
+}
+
+/**
+ * Multi-Window POS（#10）：真實同源分頁走完下單 → 認領 → 完成 → 取餐；並行認領只有一個成功；
+ * 同一 requestId 重送不產生第二張單；晚加入與重新整理看到一致狀態；關閉站台後其他站台可接手；重設後各視窗一致。
+ */
+async function runPosTests(openTab, base) {
+    const failures = [];
+    const check = (ok, message) => { if (!ok) failures.push(`POS：${message}`); };
+    const ns = `e2e-pos-${Date.now().toString(36)}`;
+    const url = (path) => `${base}#/solutions/pos${path}?ns=${ns}&kiosk=1`;
+    const tabs = [];
+    const open = async (path, ready) => {
+        const tab = await openTab({ newWindow: true });
+        tab.tracker = trackProblems(tab.page);
+        tabs.push(tab);
+        await tab.page.send('Page.navigate', { url: url(path) });
+        if (!(await waitFor(tab.page, ready, 15000))) throw new Error(`${path} 未就緒`);
+        return tab;
+    };
+    const click = (tab, selector) => tab.page.evaluate(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el || el.disabled) return false;
+        el.click();
+        return true;
+    })()`);
+    const text = (tab, selector) => tab.page.evaluate(`document.querySelector(${JSON.stringify(selector)})?.textContent.trim() ?? null`);
+    const repoCall = (tab, namespace, body) => tab.page.evaluate(`(async () => {
+        const { createPosRepository } = await import('./components/pages/solutions/pos/pos-repository.js');
+        const { solutionStorageName } = await import('./components/pages/solutions/solution-kit.js');
+        const repo = createPosRepository({ dbName: solutionStorageName(${JSON.stringify(namespace)}, 'orders') });
+        try { return await (${body})(repo); } finally { repo.close(); }
+    })()`, 15000);
+    try {
+        // 入口頁：角色連結帶著 namespace 與 kiosk
+        const admin = await open('', "document.querySelector('[data-role-link=\"kitchen\"]') !== null");
+        const kitchenLink = await admin.page.evaluate("document.querySelector('[data-role-link=\"kitchen\"]').getAttribute('href')");
+        check(kitchenLink === `#/solutions/pos/kitchen?ns=${ns}&kiosk=1`, `入口頁的廚房連結不正確：${kitchenLink}`);
+
+        const order = await open('/order', "document.querySelector('.pos-menu button[data-product=\"burger\"]') !== null");
+        const kitchenA = await open('/kitchen', "document.querySelector('[data-column=\"pending\"]') !== null && !!document.querySelector('[data-station]')");
+        const kitchenB = await open('/kitchen', "document.querySelector('[data-column=\"pending\"]') !== null && !!document.querySelector('[data-station]')");
+        const display = await open('/display', "document.querySelector('[data-column=\"ready\"]') !== null");
+        const stationOf = (tab) => tab.page.evaluate("document.querySelector('[data-station]')?.dataset.station ?? null");
+        const stationA = await stationOf(kitchenA);
+        const stationB = await stationOf(kitchenB);
+        check(stationA && stationB && stationA !== stationB, `兩個廚房視窗應是不同站台：${stationA}、${stationB}`);
+
+        // 同一個 requestId 同時送出兩次：只會有一張單
+        const dup = await repoCall(order, ns, `async (repo) => {
+            const items = [{ productId: 'burger', qty: 1 }];
+            const [a, b] = await Promise.all([repo.placeOrder({ items, requestId: 'dup-1' }), repo.placeOrder({ items, requestId: 'dup-1' })]);
+            const all = await repo.listOrders();
+            return { results: [a.result, b.result].sort(), same: a.order.id === b.order.id, count: all.filter((o) => o.requestId === 'dup-1').length };
+        }`);
+        check(dup.same && dup.count === 1 && dup.results.join() === 'applied,noop', `同一 requestId 重送應只建立一張單：${JSON.stringify(dup)}`);
+
+        // 點餐視窗下單
+        await click(order, '.pos-menu button[data-product="burger"]');
+        await click(order, '.pos-menu button[data-product="burger"]');
+        await click(order, '.pos-menu button[data-product="cola"]');
+        await waitFor(order.page, "document.querySelector('.pos-cart-total')?.textContent.includes('275')", 5000);
+        check((await text(order, '.pos-cart-total'))?.includes('275'), '購物車合計應為 275');
+        check(await click(order, '[data-action="submit"]'), '送出按鈕應可點擊');
+        check(await waitFor(order.page, "document.querySelector('[data-last-order]') !== null", 5000), '送出後應顯示取餐號碼');
+        const number = await order.page.evaluate("document.querySelector('[data-last-order]')?.dataset.lastOrder");
+        check(number === '002', `第二張單的取餐號碼應為 002，實際為 ${number}`);
+
+        // 其他視窗收到通知後重讀
+        const pendingTicket = `[data-column="pending"] [data-order-number="${number}"]`;
+        for (const [label, tab] of [['廚房 A', kitchenA], ['廚房 B', kitchenB]]) {
+            check(await waitFor(tab.page, `document.querySelector(${JSON.stringify(pendingTicket)}) !== null`, 5000), `${label} 應出現新訂單 ${number}`);
+        }
+        check(await waitFor(display.page, `document.querySelector('[data-column="preparing"] [data-order-number="${number}"]') !== null`, 5000),
+            `叫號畫面的備餐中應出現 ${number}`);
+
+        // 兩個廚房同時認領：只有一個成功
+        const claimButton = `${pendingTicket} [data-action="claim"]`;
+        await Promise.all([click(kitchenA, claimButton), click(kitchenB, claimButton)]);
+        const mine = `[data-column="mine"] [data-order-number="${number}"]`;
+        const others = `[data-column="others"] [data-order-number="${number}"]`;
+        await waitFor(kitchenA.page, `!!document.querySelector(${JSON.stringify(mine)}) || !!document.querySelector(${JSON.stringify(others)})`, 5000);
+        await waitFor(kitchenB.page, `!!document.querySelector(${JSON.stringify(mine)}) || !!document.querySelector(${JSON.stringify(others)})`, 5000);
+        const aMine = await kitchenA.page.evaluate(`!!document.querySelector(${JSON.stringify(mine)})`);
+        const bMine = await kitchenB.page.evaluate(`!!document.querySelector(${JSON.stringify(mine)})`);
+        check(aMine !== bMine, `並行認領應只有一個站台成功（A：${aMine}，B：${bMine}）`);
+        const [winner, loser] = aMine ? [kitchenA, kitchenB] : [kitchenB, kitchenA];
+        const winnerStation = aMine ? stationA : stationB;
+        check(await waitFor(loser.page, "document.querySelector('.pos-notice [data-code=\"CONFLICT\"]') !== null", 3000),
+            '認領失敗的站台應顯示「已由其他站台處理」');
+        const preparingCount = await repoCall(order, ns, `async (repo) => {
+            const all = await repo.listOrders();
+            const target = all.find((o) => o.number === ${JSON.stringify(number)});
+            return target.history.filter((h) => h.status === 'preparing').length;
+        }`);
+        check(preparingCount === 1, `訂單歷程應只有一次備餐，實際 ${preparingCount} 次`);
+
+        // 跨分頁原子性：兩個分頁各自對同一批訂單同時認領，每張單只成功一次
+        const raceNs = `${ns}-race`;
+        await repoCall(kitchenA, raceNs, `async (repo) => {
+            for (let i = 0; i < 6; i++) await repo.placeOrder({ items: [{ productId: 'tea', qty: 1 }], requestId: 'race-' + i });
+        }`);
+        const raceBody = (actor) => `async (repo) => {
+            const ids = (await repo.listOrders()).map((o) => o.id);
+            const outcomes = await Promise.all(ids.map((id) => repo.transition(id, { action: 'claim', actor: ${JSON.stringify(actor)} })
+                .then((r) => r.result, (err) => err.code)));
+            return outcomes;
+        }`;
+        const [raceA, raceB] = await Promise.all([repoCall(kitchenA, raceNs, raceBody('T-A')), repoCall(kitchenB, raceNs, raceBody('T-B'))]);
+        const applied = [...raceA, ...raceB].filter((r) => r === 'applied').length;
+        const conflicts = [...raceA, ...raceB].filter((r) => r === 'CONFLICT').length;
+        check(applied === 6 && conflicts === 6, `跨分頁並行認領 6 張單應各成功一次：applied=${applied}、CONFLICT=${conflicts}`);
+        await kitchenA.page.evaluate(`new Promise((resolve) => { const r = indexedDB.deleteDatabase(${JSON.stringify(`vanilla_solution:${raceNs}:orders`)}); r.onsuccess = r.onerror = () => resolve(); })`);
+
+        // 完成備餐 → 叫號 → 取餐
+        check(await click(winner, `${mine} [data-action="ready"]`), '認領成功的站台應能按「備餐完成」');
+        const readyTicket = `[data-column="ready"] [data-order-number="${number}"]`;
+        check(await waitFor(display.page, `document.querySelector(${JSON.stringify(readyTicket)}) !== null`, 5000), `叫號畫面應把 ${number} 移到請取餐`);
+        check(await click(display, `${readyTicket} [data-action="pickup"]`), '叫號畫面應能按「已取餐」');
+        check(await waitFor(display.page, `document.querySelector(${JSON.stringify(readyTicket)}) === null`, 5000), '取餐後號碼應從請取餐移除');
+        check(await waitFor(order.page, "document.querySelector('[data-last-status=\"picked_up\"]') !== null", 5000), '點餐視窗應看到訂單已取餐');
+
+        // 晚加入：入口頁換成管理視窗，看到一致的統計（ADR 0102：入口頁卸載、管理頁新建）
+        await admin.page.evaluate(`location.hash = ${JSON.stringify(`#/solutions/pos/admin?ns=${ns}&kiosk=1`)}`);
+        check(await waitFor(admin.page, "document.querySelector('page-pos-hub') === null && document.querySelector('[data-stat=\"picked_up\"] strong')?.textContent === '1'", 8000),
+            '晚加入的管理視窗應看到 1 張已取餐');
+        check(await text(admin, '[data-stat="pending"] strong') === '1', '管理視窗應看到 1 張待處理（重送測試的訂單）');
+
+        // 重新整理：站台身分沿用，狀態從 IndexedDB 恢復
+        await loser.page.send('Page.reload');
+        await waitFor(loser.page, "document.querySelector('[data-column=\"pending\"] [data-order-number=\"001\"]') !== null", 10000);
+        const loserStationBefore = aMine ? stationB : stationA;
+        check(await stationOf(loser) === loserStationBefore, '重新整理後應沿用同一個站台');
+        check(await loser.page.evaluate("document.querySelector('[data-column=\"pending\"] [data-order-number=\"001\"]') !== null"),
+            '重新整理後應看到待處理的 001');
+
+        // 站台關閉後接手：winner 認領 001 後關閉，loser 看到站台已關閉並接手
+        const ticket001 = '[data-column="pending"] [data-order-number="001"] [data-action="claim"]';
+        await waitFor(winner.page, `document.querySelector(${JSON.stringify(ticket001)}) !== null`, 5000);
+        check(await click(winner, ticket001), '站台應能認領 001');
+        await waitFor(loser.page, "document.querySelector('[data-column=\"others\"] [data-order-number=\"001\"]') !== null", 5000);
+        failures.push(...winner.tracker.take().map((p) => `POS（廚房 ${winnerStation}）：${p}`));
+        await winner.close();
+        tabs.splice(tabs.indexOf(winner), 1);
+        const takeover = `[data-column="others"] [data-order-number="001"] [data-action="takeover"][data-station="${winnerStation}"]`;
+        if (!(await waitFor(loser.page, `document.querySelector(${JSON.stringify(takeover)}) !== null`, 8000))) {
+            const diag = await loser.page.evaluate(`(async () => ({
+                held: (await navigator.locks.query()).held.map((l) => l.name),
+                state: document.querySelector('[data-column="others"] [data-order-number="001"] [data-station-state]')?.dataset.stationState ?? null,
+                visibility: document.visibilityState,
+            }))()`);
+            check(false, `站台關閉後應出現「接手」：${JSON.stringify(diag)}`);
+        }
+        check(await click(loser, takeover), '應能接手已關閉站台的訂單');
+        check(await waitFor(loser.page, "document.querySelector('[data-column=\"mine\"] [data-order-number=\"001\"]') !== null", 5000), '接手後訂單應移到本站');
+
+        // 重設：其他視窗的連線自動讓出，各視窗都回到空的訂單與完整菜單
+        check(await click(admin, '[data-action="reset"]'), '管理視窗應能重設');
+        check(await waitFor(admin.page, "document.querySelector('.pos-notice')?.textContent.includes('已重設')", 8000),
+            `重設應成功：${await text(admin, '.pos-notice')}`);
+        check(await waitFor(loser.page, "document.querySelectorAll('[data-order-number]').length === 0", 8000), '重設後廚房應沒有訂單');
+        check(await waitFor(display.page, "document.querySelectorAll('[data-order-number]').length === 0", 8000), '重設後叫號畫面應沒有訂單');
+        check(await waitFor(admin.page, "document.querySelector('[data-stat=\"picked_up\"] strong')?.textContent === '0'", 8000), '重設後統計應歸零');
+        check(await order.page.evaluate("document.querySelectorAll('.pos-menu button').length") === 8, '重設後菜單應自動重新載入');
+
+        for (const tab of tabs) failures.push(...tab.tracker.take().map((p) => `POS：${p}`));
+    } catch (err) {
+        failures.push(`POS：測試中斷：${err.message.split('\n')[0]}`);
+    } finally {
+        for (const tab of tabs) await tab.close();
+    }
+    console.log('  POS 多分頁測試：下單、並行認領、冪等重送、晚加入、重新整理、站台接手、重設');
     return failures;
 }
 
@@ -1829,6 +2006,7 @@ async function main() {
                 ...(await runInteractionTests(page, base, tracker, network)),
                 ...(await runCoordinationTests(openTab, base, realtime)),
                 ...(await runSolutionsTests(openTab, base)),
+                ...(await runPosTests(openTab, base)),
             ];
             const offlineServer = await startServer(prefix);
             try {

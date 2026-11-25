@@ -68,7 +68,7 @@
 **重心：在協作 SDK 之上建立可重複使用的 reference app。Labs 解釋 API，Solutions 展示組合架構與真實工作流程。三個子 issue 合併為 v3.3.0 發布。**
 
 - [x] **Solutions 導覽與共通規範 (#9)**：建立 [ADR 0108](./docs/decisions/0108-solutions-reference-app-conventions.md)、`#/solutions` 目錄（Browser Cluster 連回 Lab，不重做）、`?kiosk=1` 全視窗版面、`solution-kit.js` 慣例工具（namespace、儲存命名、角色視窗、能力偵測、teardown、reset），以及中英雙語的 [Reference App 慣例](./docs/solutions/conventions.md) 與 [文件範本](./docs/solutions/reference-app-template.md)。
-- [ ] **Multi-Window POS (#10)**：點餐、廚房、叫號、管理四個視窗的 local-first 訂單流程。
+- [x] **Multi-Window POS (#10)**：點餐、廚房、叫號、管理四個視窗的 local-first 訂單流程；IndexedDB 單一 transaction 狀態轉移、並行認領與重送冪等、Web Lock 站台存活與接手（[文件](./docs/solutions/pos.md)）。
 - [ ] **Browser Computing Farm (#11)**：多分頁分工、可中斷恢復的本機圖片批次處理。
 
 ---

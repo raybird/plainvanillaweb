@@ -1695,7 +1695,7 @@ async function runSolutionsTests(openTab, base) {
         check(JSON.stringify(catalog.ids) === JSON.stringify(['pos', 'farm', 'browser-cluster']), `目錄項目不符：${catalog.ids.join(', ')}`);
         check(catalog.cluster === '#/lab/browser-cluster', 'Browser Cluster 應連回 #/lab/browser-cluster，不在 Solutions 重做');
         check(catalog.pos === '#/solutions/pos', `POS 應連到 #/solutions/pos，實際為 ${catalog.pos}`);
-        check(catalog.farm === null, '規劃中的範例不應有開啟連結');
+        check(catalog.farm === '#/solutions/farm', `Farm 應連到 #/solutions/farm，實際為 ${catalog.farm}`);
         check(await page.evaluate("document.querySelector('#app-nav a.nav-link[href=\"#/solutions\"]') !== null"), '側欄應有 Solutions 入口');
 
         // kiosk 版面：不渲染側欄、漢堡按鈕、頁尾與 Solutions 標頭；切換時目錄頁不重建
@@ -1934,6 +1934,148 @@ async function runPosTests(openTab, base) {
     return failures;
 }
 
+/**
+ * Browser Computing Farm（#11）：多個真實分頁處理圖片；輸出符合設定；損壞圖片重試到上限後失敗；
+ * 處理中途關閉節點、所有分頁都關閉後重新開啟可恢復；沒有孤兒輸出；重設後清空。
+ */
+async function runFarmTests(openTab, base) {
+    const failures = [];
+    const check = (ok, message) => { if (!ok) failures.push(`Farm：${message}`); };
+    const ns = `e2e-farm-${Date.now().toString(36)}`;
+    const tabs = [];
+    const open = async () => {
+        const tab = await openTab({ newWindow: true });
+        tab.tracker = trackProblems(tab.page);
+        tabs.push(tab);
+        await tab.page.send('Page.navigate', { url: `${base}#/solutions/farm?ns=${ns}` });
+        if (!(await waitFor(tab.page, "document.querySelector('[data-action=\"samples\"]') !== null", 15000))) throw new Error('Farm 頁面未就緒');
+        return tab;
+    };
+    const close = async (tab) => {
+        failures.push(...tab.tracker.take().map((p) => `Farm：${p}`));
+        await tab.close();
+        tabs.splice(tabs.indexOf(tab), 1);
+    };
+    const click = (tab, selector) => tab.page.evaluate(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el || el.disabled) return false;
+        el.click();
+        return true;
+    })()`);
+    const join = async (tab) => {
+        check(await click(tab, '[data-action="join"]'), '應能加入處理');
+        check(await waitFor(tab.page, "document.querySelector('[data-joined=\"true\"]') !== null", 8000), '加入後應顯示處理中');
+    };
+    const runState = (tab) => tab.page.evaluate(`(() => {
+        const rows = [...document.querySelectorAll('[data-task-id]')];
+        return {
+            run: document.querySelector('[data-run]')?.dataset.run ?? null,
+            finished: document.querySelector('[data-run-finished]')?.dataset.runFinished === 'true',
+            statuses: rows.map((r) => r.dataset.status),
+            attempts: rows.map((r) => Number(r.dataset.attempts)),
+        };
+    })()`);
+    // 直接讀佇列與 Blob store，核對輸出是否符合設定、是否有孤兒
+    const inspect = (tab) => tab.page.evaluate(`(async () => {
+        const { createDurableTaskQueue } = await import('./lib/coordination.js');
+        const { FarmStore } = await import('./components/pages/solutions/farm/farm-store.js');
+        const queue = createDurableTaskQueue({ namespace: ${JSON.stringify(ns)} });
+        const store = new FarmStore(${JSON.stringify(`vanilla_solution:${ns}:blobs`)});
+        try {
+            const tasks = await queue.listTasks({ type: 'image.process' });
+            const outputs = await store.listOutputMeta();
+            const referenced = new Set(tasks.filter((t) => t.status === 'completed').map((t) => t.result.outputKey));
+            return {
+                completed: tasks.filter((t) => t.status === 'completed').length,
+                failed: tasks.filter((t) => t.status === 'failed').length,
+                total: tasks.length,
+                nodes: [...new Set(tasks.filter((t) => t.status === 'completed').map((t) => t.result.nodeId))].length,
+                outputs: outputs.length,
+                unreferenced: outputs.filter((o) => !referenced.has(o.key)).length,
+                missing: [...referenced].filter((key) => !outputs.some((o) => o.key === key)).length,
+                badSize: outputs.filter((o) => o.width !== 320 || o.height !== 240).length,
+                types: [...new Set(outputs.map((o) => o.type))],
+                inputs: (await store.listInputMeta()).length,
+            };
+        } finally {
+            store.close();
+            await queue.dispose();
+        }
+    })()`, 15000);
+    try {
+        // 兩個節點先加入，再匯入 8 張測試圖片與 1 張損壞圖片、以 320px WebP 建立批次
+        const a = await open();
+        const b = await open();
+        await join(a);
+        await join(b);
+        await a.page.evaluate(`(() => {
+            const broken = document.querySelector('#farm-broken');
+            broken.checked = true;
+            broken.dispatchEvent(new Event('change', { bubbles: true }));
+            const width = document.querySelector('#farm-max-width');
+            width.value = '320';
+            width.dispatchEvent(new Event('change', { bubbles: true }));
+        })()`);
+        check(await click(a, '[data-action="samples"]'), '應能產生測試圖片');
+        check(await waitFor(a.page, "document.querySelector('.farm-notice')?.textContent.includes('已匯入 9 張')", 15000), '應匯入 8 張測試圖片與 1 張損壞圖片');
+        await waitFor(a.page, "document.querySelector('[data-action=\"run\"]')?.disabled === false", 5000);
+        check(await click(a, '[data-action="run"]'), '應能建立批次');
+        check(await waitFor(a.page, "document.querySelector('[data-run-finished=\"true\"]') !== null", 45000), '第一個批次應在時限內處理完');
+        const first = await runState(a);
+        check(first.statuses.filter((s) => s === 'completed').length === 8, `應完成 8 張：${first.statuses.join(',')}`);
+        const brokenIndex = first.statuses.indexOf('failed');
+        check(brokenIndex !== -1 && first.attempts[brokenIndex] === 3, `損壞圖片應重試到 3 次後失敗：${JSON.stringify(first)}`);
+        check(await b.page.evaluate("document.querySelector('[data-run-finished=\"true\"]') !== null"), '另一個分頁應看到同樣的批次完成');
+        check(await waitFor(a.page, "document.querySelectorAll('.farm-gallery img').length === 8", 8000), '應顯示 8 張結果縮圖');
+        check(await a.page.evaluate("[...document.querySelectorAll('.farm-gallery a[download]')].every((link) => link.href.startsWith('blob:') && link.download.endsWith('-320w.webp'))"),
+            '每張結果應可個別下載，檔名帶寬度與 webp 副檔名');
+        const afterFirst = await inspect(a);
+        check(afterFirst.nodes === 2, `兩個分頁都應處理到圖片（實際 ${afterFirst.nodes} 個節點）`);
+        check(afterFirst.badSize === 0 && afterFirst.types.join() === 'image/webp', `輸出應為 320×240 WebP：${JSON.stringify(afterFirst)}`);
+        check(afterFirst.unreferenced === 0 && afterFirst.missing === 0 && afterFirst.outputs === 8, `輸出與任務結果應一一對應：${JSON.stringify(afterFirst)}`);
+
+        // 中斷與全部關閉：A 停止處理並建立第二批，B 處理到一半時關閉，A 也關閉
+        check(await click(a, '[data-action="leave"]'), '應能停止處理');
+        await waitFor(a.page, "document.querySelector('[data-joined=\"false\"]') !== null", 5000);
+        const firstRun = first.run;
+        check(await click(a, '[data-action="run"]'), '應能建立第二個批次');
+        await waitFor(a.page, `document.querySelector('[data-run]') && document.querySelector('[data-run]').dataset.run !== ${JSON.stringify(firstRun)}`, 5000);
+        check(await waitFor(b.page, `[...document.querySelectorAll('[data-task-id]')].some((r) => r.dataset.status === 'completed') && document.querySelector('[data-run]')?.dataset.run !== ${JSON.stringify(firstRun)}`, 15000),
+            '第二個批次應開始由 B 處理');
+        await close(b);
+        await close(a);
+
+        const c = await open();
+        const resumed = await runState(c);
+        check(!resumed.finished, `所有分頁關閉後重新開啟，第二個批次應仍未完成：${JSON.stringify(resumed)}`);
+        await join(c);
+        check(await waitFor(c.page, "document.querySelector('[data-run-finished=\"true\"]') !== null", 60000), '重新加入後第二個批次應處理完');
+        const second = await runState(c);
+        check(second.statuses.filter((s) => s === 'completed').length === 8 && second.statuses.filter((s) => s === 'failed').length === 1,
+            `恢復後應完成 8 張、失敗 1 張：${second.statuses.join(',')}`);
+        check(await c.page.evaluate("document.querySelectorAll('[data-history-run]').length") === 2, '批次紀錄應有兩筆可比較');
+        const afterSecond = await inspect(c);
+        check(afterSecond.completed === 16 && afterSecond.outputs === 16 && afterSecond.unreferenced === 0 && afterSecond.badSize === 0,
+            `恢復後輸出應符合設定且沒有孤兒：${JSON.stringify(afterSecond)}`);
+
+        // 重設
+        check(await click(c, '[data-action="leave"]'), '重設前停止處理');
+        check(await click(c, '[data-action="reset"]'), '應能重設');
+        check(await waitFor(c.page, "document.querySelector('.farm-notice')?.textContent.includes('已清除')", 10000), '重設應成功');
+        const cleared = await inspect(c);
+        check(cleared.total === 0 && cleared.outputs === 0 && cleared.inputs === 0, `重設後應清空任務、輸入與輸出：${JSON.stringify(cleared)}`);
+        check(await c.page.evaluate("document.querySelector('[data-run]') === null"), '重設後不應顯示批次');
+
+        for (const tab of tabs) failures.push(...tab.tracker.take().map((p) => `Farm：${p}`));
+    } catch (err) {
+        failures.push(`Farm：測試中斷：${err.message.split('\n')[0]}`);
+    } finally {
+        for (const tab of [...tabs]) await tab.close();
+    }
+    console.log('  Farm 多分頁測試：多節點處理、輸出設定、失敗重試、中斷與全部關閉後恢復、孤兒輸出、重設');
+    return failures;
+}
+
 async function checkOfflineShell(page, base, server) {
     await page.send('Network.setBypassServiceWorker', { bypass: false });
     try {
@@ -2007,6 +2149,7 @@ async function main() {
                 ...(await runCoordinationTests(openTab, base, realtime)),
                 ...(await runSolutionsTests(openTab, base)),
                 ...(await runPosTests(openTab, base)),
+                ...(await runFarmTests(openTab, base)),
             ];
             const offlineServer = await startServer(prefix);
             try {

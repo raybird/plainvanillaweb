@@ -88,7 +88,7 @@ python3 -m http.server   # 或：npx serve .
 
 - **📚 技術手冊 (Docs)**：`docs/*.md` 文件，於執行期載入並渲染。
 - **🧪 互動式實驗室 (Lab)**：39 個獨立的前沿原生 API 實驗室，多數附對應文件。
-- **🧱 解決方案 (Solutions)**：把多個原生 API 組成完整工作流程的 reference app（[Multi-Window POS](./docs/solutions/pos.md) 已完成，Browser Computing Farm 開發中）。每個範例有自己的路由、namespace 與儲存空間，可單獨重設，並支援以 `?kiosk=1` 開啟佔滿視窗的 kiosk 版面（[慣例](./docs/solutions/conventions.md)、[ADR 0108](./docs/decisions/0108-solutions-reference-app-conventions.md)）。
+- **🧱 解決方案 (Solutions)**：把多個原生 API 組成完整工作流程的 reference app（[Multi-Window POS](./docs/solutions/pos.md)、[Browser Computing Farm](./docs/solutions/farm.md)）。每個範例有自己的路由、namespace 與儲存空間，可單獨重設，並支援以 `?kiosk=1` 開啟佔滿視窗的 kiosk 版面（[慣例](./docs/solutions/conventions.md)、[ADR 0108](./docs/decisions/0108-solutions-reference-app-conventions.md)）。
 - **🎡 Vanilla 遊樂場 (Playground)**：以 `Blob` 與 object URL 實作的所見即所得程式碼編輯器。
 - **📊 開發者儀表板／📈 效能分析中心**：即時檢視 IndexedDB、網路請求與 Store 狀態；以原生 Canvas 圖表呈現 Web Vitals（LCP、CLS）。
 - **⚡ Web Worker 展示／🔍 開源碼搜尋**：主執行緒外的運算；串接 GitHub REST API、搭配虛擬清單的搜尋介面。

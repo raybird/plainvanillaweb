@@ -51,6 +51,7 @@ export class SolutionsPage extends BaseComponent {
           <x-route path="/solutions/pos/kitchen" exact module="./components/pages/solutions/pos/PosKitchenPage.js"><template><page-pos-kitchen></page-pos-kitchen></template></x-route>
           <x-route path="/solutions/pos/display" exact module="./components/pages/solutions/pos/PosDisplayPage.js"><template><page-pos-display></page-pos-display></template></x-route>
           <x-route path="/solutions/pos/admin" exact module="./components/pages/solutions/pos/PosAdminPage.js"><template><page-pos-admin></page-pos-admin></template></x-route>
+          <x-route path="/solutions/farm" exact module="./components/pages/solutions/farm/FarmPage.js"><template><page-solution-farm></page-solution-farm></template></x-route>
           <x-route path="/solutions/*"><template><h2>404</h2><p>找不到這個 Solution。<a href="#/solutions">回到 Solutions</a></p></template></x-route>
         </x-switch>
       </div>

@@ -16,7 +16,7 @@ Labs 解釋單一 API；Solutions 把多個原生能力組成完整的應用與�
 | 範例 | 路由 | 交付 | 狀態 |
 | --- | --- | --- | --- |
 | Multi-Window POS | `#/solutions/pos/*` | #10 | 可使用（[文件](./pos.md)） |
-| Browser Computing Farm | `#/solutions/farm` | #11 | 規劃中 |
+| Browser Computing Farm | `#/solutions/farm` | #11 | 可使用（[文件](./farm.md)） |
 | Browser Cluster | `#/lab/browser-cluster` | #6（Lab） | 已完成，Solutions 只放入口 |
 
 - 範例程式放在 `components/pages/solutions/<slug>/`，由 `components/pages/Solutions.js` 的巢狀 `<x-switch>` 以 `module` 延遲載入。

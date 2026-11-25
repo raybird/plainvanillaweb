@@ -16,7 +16,7 @@ Entry point: [Solutions](#/solutions).
 | App | Route | Delivered by | Status |
 | --- | --- | --- | --- |
 | Multi-Window POS | `#/solutions/pos/*` | #10 | Available ([doc](./pos.en.md)) |
-| Browser Computing Farm | `#/solutions/farm` | #11 | Planned |
+| Browser Computing Farm | `#/solutions/farm` | #11 | Available ([doc](./farm.en.md)) |
 | Browser Cluster | `#/lab/browser-cluster` | #6 (Lab) | Done; Solutions only links to it |
 
 - App code lives in `components/pages/solutions/<slug>/` and is lazily loaded through `module` by the nested `<x-switch>` in `components/pages/Solutions.js`.

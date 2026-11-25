@@ -69,7 +69,7 @@
 
 - [x] **Solutions 導覽與共通規範 (#9)**：建立 [ADR 0108](./docs/decisions/0108-solutions-reference-app-conventions.md)、`#/solutions` 目錄（Browser Cluster 連回 Lab，不重做）、`?kiosk=1` 全視窗版面、`solution-kit.js` 慣例工具（namespace、儲存命名、角色視窗、能力偵測、teardown、reset），以及中英雙語的 [Reference App 慣例](./docs/solutions/conventions.md) 與 [文件範本](./docs/solutions/reference-app-template.md)。
 - [x] **Multi-Window POS (#10)**：點餐、廚房、叫號、管理四個視窗的 local-first 訂單流程；IndexedDB 單一 transaction 狀態轉移、並行認領與重送冪等、Web Lock 站台存活與接手（[文件](./docs/solutions/pos.md)）。
-- [ ] **Browser Computing Farm (#11)**：多分頁分工、可中斷恢復的本機圖片批次處理。
+- [x] **Browser Computing Farm (#11)**：多分頁以 DurableTaskQueue 分工的本機圖片批次處理；Web Worker + OffscreenCanvas、Blob 存獨立 store 只把參考放進佇列、`taskId:leaseId` 輸出 key 與孤兒清理、中斷與全部關閉後恢復、批次實測比較（[文件](./docs/solutions/farm.md)）。
 
 ---
 

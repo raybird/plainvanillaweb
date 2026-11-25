@@ -476,3 +476,62 @@ test('LeaderElection：並發 release/dispose 不重複退位且等待釋放；�
 
     bus.dispose();
 });
+
+test('LeaderElection：start({ signal }) 僅取消競選／排隊階段，成為 leader（含直接取得與接管）後 abort 不釋放鎖', async () => {
+    const locks = new MockLockManager();
+
+    // 1. 直接取得路徑：取得 leader 後對啟動用的 signal 呼叫 abort()，不應釋放鎖或退位
+    const el1 = createLeaderElection({ namespace: 'signal-contract', scope: 'direct-and-takeover', locks, nodeId: 'n1' });
+    const ac1 = new AbortController();
+    const res1 = await el1.start({ signal: ac1.signal });
+    assert.equal(res1.acquired, true);
+    assert.equal(el1.role, 'leader');
+
+    let el1Resigned = 0;
+    let el1Cancelled = 0;
+    el1.on('resigned', () => { el1Resigned += 1; });
+    el1.on('cancelled', () => { el1Cancelled += 1; });
+
+    ac1.abort('post-elected-abort');
+    await sleep(15);
+    assert.equal(el1.role, 'leader');
+    assert.equal(el1.isLeader, true);
+    assert.equal(locks.isHeld(el1.lockName), true);
+    assert.equal(el1Resigned, 0);
+    assert.equal(el1Cancelled, 0);
+
+    // 2. follower 接管路徑：排隊取得鎖成為 leader 後對啟動用的 signal 呼叫 abort()，亦不應釋放鎖
+    const el2 = createLeaderElection({ namespace: 'signal-contract', scope: 'direct-and-takeover', locks, nodeId: 'n2' });
+    const ac2 = new AbortController();
+    const res2 = await el2.start({ signal: ac2.signal });
+    assert.equal(res2.acquired, false);
+    assert.equal(el2.role, 'follower');
+
+    await el1.release();
+    await sleep(15);
+    assert.equal(el1.role, 'idle');
+    assert.equal(el2.role, 'leader');
+    assert.equal(el2.isLeader, true);
+
+    let el2Resigned = 0;
+    let el2Cancelled = 0;
+    el2.on('resigned', () => { el2Resigned += 1; });
+    el2.on('cancelled', () => { el2Cancelled += 1; });
+
+    ac2.abort('post-takeover-abort');
+    await sleep(15);
+    assert.equal(el2.role, 'leader');
+    assert.equal(el2.isLeader, true);
+    assert.equal(locks.isHeld(el2.lockName), true);
+    assert.equal(el2Resigned, 0);
+    assert.equal(el2Cancelled, 0);
+
+    // 明確呼叫 release() 才會退位並釋放 Web Lock
+    await el2.release();
+    assert.equal(el2.role, 'idle');
+    assert.equal(el2.isLeader, false);
+    assert.equal(locks.isHeld(el2.lockName), false);
+
+    await el1.dispose();
+    await el2.dispose();
+});

@@ -105,6 +105,20 @@ disconnectedCallback() {
 ```
 
 - Resources are released in reverse order; one failure does not stop the others, and `run()` returns the list of errors.
+- **Asynchronous initialization**: initialization often waits (a Web Lock, a Worker becoming ready, a queue starting), and the route can be left in the middle of that wait. After `run()` the list counts as released (`disposed` and `signal.aborted` are true) and any dispose function registered later runs immediately; initialization checks `disposed` after every `await` and stops creating resources once it is set:
+
+```javascript
+async start() {
+    const bus = createMessageBus({ namespace });
+    this._teardown.add(() => bus.dispose());
+    await this._claimStationLock(); // registers this._teardown.add(release) when granted; released at once if already disposed
+    if (this._teardown.disposed) return; // the route was left while waiting: no PeerDiscovery, no listeners
+    // ...
+}
+```
+
+- Resources that can be switched on and off repeatedly (such as Farm's "Join processing" / "Stop processing") run those steps one after another, take effect only once everything was created, and roll back what was created when a step fails or the session is disposed.
+- A `createTeardown()` list cannot be reused after release; when something must be closed and reopened (such as resetting data), close that connection directly instead of calling `run()`.
 - Must be released: BroadcastChannel / MessageBus, Web Locks and leadership, Workers, object URLs, timers, IndexedDB connections, Wake Lock, media streams.
 - The smoke test visits and leaves every route; unreleased resources break later pages or slow the test down.
 
@@ -115,7 +129,7 @@ Every app offers an on-screen "Reset demo data" that can reload the seed data:
 ```javascript
 import { resetSolutionData, solutionStorageName } from './solution-kit.js';
 
-await this._teardown.run(); // close our own connections first
+this._repo.close(); // close our own connection first (reopened on the next read or write)
 bus.publish('solution:reset', {}); // tell other windows to close their connections or reload
 const report = await resetSolutionData({
     databases: [solutionStorageName(namespace, 'orders')],

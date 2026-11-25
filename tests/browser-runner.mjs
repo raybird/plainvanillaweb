@@ -1900,6 +1900,15 @@ async function runPosTests(openTab, base) {
         await waitFor(winner.page, `document.querySelector(${JSON.stringify(ticket001)}) !== null`, 5000);
         check(await click(winner, ticket001), '站台應能認領 001');
         await waitFor(loser.page, "document.querySelector('[data-column=\"others\"] [data-order-number=\"001\"]') !== null", 5000);
+        const order001 = await loser.page.evaluate("document.querySelector('[data-column=\"others\"] [data-order-number=\"001\"]')?.dataset.orderId ?? null");
+        const takeoverBy = (tab) => tab.page.evaluate(`document.querySelector('page-pos-kitchen').session
+            .act(${JSON.stringify(order001)}, 'takeover', { fromStation: ${JSON.stringify(winnerStation)} })
+            .then((r) => r.result, (err) => err.code ?? err.message)`, 10000);
+        // 原站台還在線（持有站台鎖）時，就算畫面是舊的、直接送出接手，也要被拒絕（PR #14 P2-03）
+        const early = await takeoverBy(loser);
+        check(early === 'CONFLICT', `原站台在線時接手應被拒絕，實際 ${early}`);
+        check(await loser.page.evaluate("document.querySelector('[data-column=\"others\"] [data-order-number=\"001\"]') !== null"), '被拒絕的接手不應改動訂單');
+        const kitchenC = await open('/kitchen', "document.querySelector('[data-column=\"pending\"]') !== null && !!document.querySelector('[data-station]')");
         failures.push(...winner.tracker.take().map((p) => `POS（廚房 ${winnerStation}）：${p}`));
         await winner.close();
         tabs.splice(tabs.indexOf(winner), 1);
@@ -1912,8 +1921,39 @@ async function runPosTests(openTab, base) {
             }))()`);
             check(false, `站台關閉後應出現「接手」：${JSON.stringify(diag)}`);
         }
-        check(await click(loser, takeover), '應能接手已關閉站台的訂單');
-        check(await waitFor(loser.page, "document.querySelector('[data-column=\"mine\"] [data-order-number=\"001\"]') !== null", 5000), '接手後訂單應移到本站');
+        // 兩個廚房同時接手已關閉站台的同一張單：只有一個成功
+        const [takeL, takeC] = await Promise.all([takeoverBy(loser), takeoverBy(kitchenC)]);
+        check([takeL, takeC].sort().join() === 'CONFLICT,applied', `兩個站台並行接手應只有一個成功：${takeL}、${takeC}`);
+        const taker = takeL === 'applied' ? loser : kitchenC;
+        check(await waitFor(taker.page, "document.querySelector('[data-column=\"mine\"] [data-order-number=\"001\"]') !== null", 5000), '接手後訂單應移到本站');
+        failures.push(...kitchenC.tracker.take().map((p) => `POS（廚房 C）：${p}`));
+        await kitchenC.close();
+        tabs.splice(tabs.indexOf(kitchenC), 1);
+
+        // 初始化中途離開（PR #14 P2-04）：站台鎖晚到也立即釋放，不建立 PeerDiscovery
+        const lifeNs = `${ns}-life`;
+        const life = await loser.page.evaluate(`(async () => {
+            const { PosSession } = await import('./components/pages/solutions/pos/pos-session.js');
+            const original = navigator.locks.request;
+            navigator.locks.request = function (...args) {
+                return new Promise((resolve) => setTimeout(resolve, 300)).then(() => original.apply(navigator.locks, args));
+            };
+            try {
+                const session = new PosSession({ role: 'kitchen', hash: '#/solutions/pos/kitchen?ns=${lifeNs}', onChange() {} });
+                const starting = session.start();
+                await new Promise((resolve) => setTimeout(resolve, 50));
+                await session.dispose();
+                await starting;
+                await new Promise((resolve) => setTimeout(resolve, 200));
+                const held = (await navigator.locks.query()).held.map((lock) => lock.name).filter((name) => name.includes('${lifeNs}'));
+                return { held, peers: session._peers ?? null, busClosed: session._bus.closed };
+            } finally {
+                navigator.locks.request = original;
+                sessionStorage.removeItem('vanilla_solution:${lifeNs}:station');
+                await new Promise((resolve) => { const r = indexedDB.deleteDatabase('vanilla_solution:${lifeNs}:orders'); r.onsuccess = r.onerror = r.onblocked = () => resolve(); });
+            }
+        })()`, 10000);
+        check(life.held.length === 0 && life.peers === null && life.busClosed, `初始化中途離開不應留下站台鎖或 PeerDiscovery：${JSON.stringify(life)}`);
 
         // 重設：其他視窗的連線自動讓出，各視窗都回到空的訂單與完整菜單
         check(await click(admin, '[data-action="reset"]'), '管理視窗應能重設');
@@ -1930,7 +1970,7 @@ async function runPosTests(openTab, base) {
     } finally {
         for (const tab of tabs) await tab.close();
     }
-    console.log('  POS 多分頁測試：下單、並行認領、冪等重送、晚加入、重新整理、站台接手、重設');
+    console.log('  POS 多分頁測試：下單、並行認領、冪等重送、晚加入、重新整理、站台接手（在線拒絕、並行只成功一次）、初始化中途離開、重設');
     return failures;
 }
 
@@ -2066,13 +2106,107 @@ async function runFarmTests(openTab, base) {
         check(cleared.total === 0 && cleared.outputs === 0 && cleared.inputs === 0, `重設後應清空任務、輸入與輸出：${JSON.stringify(cleared)}`);
         check(await c.page.evaluate("document.querySelector('[data-run]') === null"), '重設後不應顯示批次');
 
+        // 生命週期（PR #14 P2-01）：加入處理的初始化中途釋放，不留下 Worker、佇列與 lane
+        const lifeNs = `${ns}-life`;
+        const life = await c.page.evaluate(`(async () => {
+            const { FarmSession } = await import('./components/pages/solutions/farm/farm-session.js');
+            const { createDurableTaskQueue } = await import('./lib/coordination.js');
+            const OrigWorker = window.Worker;
+            const made = [];
+            window.Worker = class extends OrigWorker {
+                constructor(...args) { super(...args); made.push(this); this.__terminated = false; }
+                terminate() { this.__terminated = true; super.terminate(); }
+            };
+            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+            const rounds = [];
+            try {
+                for (const delay of [0, 30, 150]) {
+                    const session = new FarmSession({ hash: '#/solutions/farm?ns=${lifeNs}', onChange() {} });
+                    await session.start();
+                    const joining = session.join(2);
+                    await sleep(delay);
+                    await session.dispose();
+                    await joining.catch(() => {});
+                    rounds.push({ lanes: session._lanes.length, busClosed: session._bus.closed });
+                }
+                // 沒有遺留的佇列：排入一個任務，等一段時間後仍沒有人認領
+                const queue = createDurableTaskQueue({ namespace: '${lifeNs}' });
+                await queue.enqueue({ type: 'image.process', handlerVersion: 1, payload: { runId: 'r', inputId: 'i', name: 'n', params: { maxWidth: 64, format: 'image/png', quality: 1 } } });
+                await sleep(1500);
+                const statuses = (await queue.listTasks()).map((t) => t.status);
+                await queue.clearNamespace();
+                await queue.dispose();
+                return { rounds, workers: made.length, alive: made.filter((w) => !w.__terminated).length, statuses };
+            } finally {
+                window.Worker = OrigWorker;
+            }
+        })()`, 30000);
+        check(life.rounds.every((r) => r.lanes === 0 && r.busClosed) && life.alive === 0 && life.statuses.join() === 'pending',
+            `初始化中途釋放後不應留下 lane、Worker 或佇列：${JSON.stringify(life)}`);
+
+        // 批次建立中斷（PR #14 P2-02）：清單已寫入、只排入一半任務時建立者關閉，其他分頁補齊同一個批次
+        const recNs = `${ns}-recover`;
+        const openNs = async (namespace) => {
+            const tab = await openTab({ newWindow: true });
+            tab.tracker = trackProblems(tab.page);
+            tabs.push(tab);
+            await tab.page.send('Page.navigate', { url: `${base}#/solutions/farm?ns=${namespace}` });
+            if (!(await waitFor(tab.page, "document.querySelector('page-solution-farm')?.session?.snapshot != null", 15000))) throw new Error('Farm 頁面未就緒');
+            return tab;
+        };
+        const fakeFiles = (prefix, count) => `Array.from({ length: ${count} }, (_, i) => new File([new Uint8Array(16)], '${prefix}-' + i + '.png', { type: 'image/png' }))`;
+        const creator = await openNs(recNs);
+        const seeded = await creator.page.evaluate(`(async () => {
+            const session = document.querySelector('page-solution-farm').session;
+            const { RUN_STATUS, runTaskKey, normalizeParams } = await import('./components/pages/solutions/farm/farm-model.js');
+            await session.addFiles(${fakeFiles('rec', 4)});
+            const inputs = await session.store.listInputMeta();
+            const run = { id: 'interrupted-run', createdAt: Date.now(), status: RUN_STATUS.CREATING, params: normalizeParams({}),
+                inputs: inputs.map(({ id, name }) => ({ id, name })), taskIds: [], nodesAtStart: 0 };
+            // 建立者持有批次鎖直到分頁關閉
+            await new Promise((held) => navigator.locks.request('vanilla_solution:${recNs}:run:interrupted-run', () => { held(); return new Promise(() => {}); }));
+            await session.store.putRun(run);
+            const early = [];
+            for (const input of inputs.slice(0, 2)) {
+                const { task } = await session._control.enqueue({ type: 'image.process', handlerVersion: 1,
+                    payload: { runId: run.id, inputId: input.id, name: input.name, params: run.params },
+                    idempotencyKey: runTaskKey(run.id, input.id), maxAttempts: 3 });
+                early.push(task.id);
+            }
+            return { early };
+        })()`, 15000);
+        const r2 = await openNs(recNs);
+        const r3 = await openNs(recNs);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        check(await r2.page.evaluate("document.querySelector('[data-run-status=\"creating\"]') !== null"), '建立者還持有批次鎖時，其他分頁不應搶先補齊');
+        failures.push(...creator.tracker.take().map((p) => `Farm：${p}`));
+        await creator.close();
+        tabs.splice(tabs.indexOf(creator), 1);
+        check(await waitFor(r2.page, "document.querySelector('[data-run=\"interrupted-run\"][data-run-finished]') !== null", 12000), '建立者關閉後，其他分頁應補齊中斷的批次');
+        const recovered = await r2.page.evaluate(`(async () => {
+            const session = document.querySelector('page-solution-farm').session;
+            const run = (await session.store.listRuns()).find((r) => r.id === 'interrupted-run');
+            const tasks = (await session._control.listTasks({ type: 'image.process' })).filter((t) => t.payload.runId === 'interrupted-run');
+            return { status: run?.status, taskIds: run?.taskIds ?? [], tasks: tasks.length, runs: (await session.store.listRuns()).length };
+        })()`);
+        check(recovered.status === 'ready' && recovered.taskIds.length === 4 && recovered.tasks === 4 && recovered.runs === 1
+            && seeded.early.every((id) => recovered.taskIds.includes(id)),
+            `中斷的批次應補齊為同一批 4 個任務、沒有重複任務或多餘批次：${JSON.stringify({ seeded, recovered })}`);
+
+        // 並行匯入（PR #14 P3-01）：兩個分頁同時各匯入 30 張，總數不超過 40 張上限
+        const imports = await Promise.all([r2, r3].map((tab) => tab.page.evaluate(
+            `document.querySelector('page-solution-farm').session.addFiles(${fakeFiles('cap', 30)}).then((r) => r.accepted)`, 15000)));
+        const stored = await r2.page.evaluate("document.querySelector('page-solution-farm').session.store.listInputMeta().then((list) => list.length)");
+        check(stored === 40 && imports[0] + imports[1] === 36, `並行匯入應共收 36 張、總數 40 張：${JSON.stringify({ imports, stored })}`);
+        await r2.page.evaluate("document.querySelector('page-solution-farm').session.reset()", 15000);
+
         for (const tab of tabs) failures.push(...tab.tracker.take().map((p) => `Farm：${p}`));
     } catch (err) {
         failures.push(`Farm：測試中斷：${err.message.split('\n')[0]}`);
     } finally {
         for (const tab of [...tabs]) await tab.close();
     }
-    console.log('  Farm 多分頁測試：多節點處理、輸出設定、失敗重試、中斷與全部關閉後恢復、孤兒輸出、重設');
+    console.log('  Farm 多分頁測試：多節點處理、輸出設定、失敗重試、中斷與全部關閉後恢復、孤兒輸出、重設、初始化中途釋放、批次建立中斷恢復、並行匯入上限');
     return failures;
 }
 

@@ -1,6 +1,6 @@
 import { BaseComponent } from '../../../../lib/base-component.js';
 import { html } from '../../../../lib/html.js';
-import { DEFAULT_PARAMS, FARM_LIMITS, OUTPUT_FORMATS, formatBytes, summarizeRun } from './farm-model.js';
+import { DEFAULT_PARAMS, FARM_LIMITS, OUTPUT_FORMATS, RUN_STATUS, formatBytes, summarizeRun } from './farm-model.js';
 import { FarmSession, detectFarmFeatures } from './farm-session.js';
 
 const STATUS_LABEL = { pending: '等待中', running: '處理中', completed: '完成', failed: '失敗', cancelled: '已取消' };
@@ -267,6 +267,14 @@ export class FarmPage extends BaseComponent {
     }
 
     renderRun(run, tasks, summary) {
+        if (run.status === RUN_STATUS.CREATING) {
+            return html`
+                <section class="farm-card" aria-label="目前批次" data-run="${run.id}" data-run-status="creating">
+                    <h3>目前批次建立中（${run.inputs?.length ?? 0} 張）</h3>
+                    <p class="farm-muted">正在把任務排入佇列。建立中途關閉分頁的話，其他分頁或下次開啟時會依批次清單補齊。</p>
+                </section>
+            `;
+        }
         const completed = this._latestCompleted();
         return html`
             <section class="farm-card" aria-label="目前批次" data-run="${run.id}" data-run-finished="${String(summary.finished)}">
@@ -334,6 +342,9 @@ export class FarmPage extends BaseComponent {
                         <thead><tr><th>建立時間</th><th>張數</th><th>參數</th><th>實際節點數</th><th>耗時</th><th>吞吐量</th><th>重試</th><th>失敗</th></tr></thead>
                         <tbody>
                             ${[...snapshot.runs].reverse().map((run) => {
+                                if (run.status === RUN_STATUS.CREATING) {
+                                    return html`<tr data-history-run="${run.id}"><td>${new Date(run.createdAt).toLocaleTimeString('zh-TW', { hour12: false })}</td><td>${run.inputs?.length ?? 0}</td><td colspan="6">建立中</td></tr>`;
+                                }
                                 const s = summarizeRun(run, snapshot.tasks.filter((t) => run.taskIds.includes(t.id)), now);
                                 return html`
                                     <tr data-history-run="${run.id}">

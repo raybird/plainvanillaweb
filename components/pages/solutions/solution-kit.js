@@ -110,18 +110,41 @@ export function detectFeatures(checks) {
 
 /**
  * 資源釋放清單：開啟資源時登記釋放函式，`disconnectedCallback` 呼叫 `run()` 依相反順序釋放。
- * 單一釋放函式失敗不影響其他項目，錯誤彙整後回傳。`run()` 之後可再登記、再執行。
- * @returns {{ add: (dispose: () => any) => () => any, run: () => Promise<unknown[]>, readonly size: number }}
+ * 單一釋放函式失敗不影響其他項目，錯誤彙整後回傳。
+ *
+ * `run()` 之後清單即為已釋放（`disposed`、`signal.aborted` 為 true），不能再重複使用：
+ * 非同步初始化（等鎖、等 Worker）在 `run()` 之後才登記的釋放函式會立即執行，資源不會遺留。
+ * 初始化在每個 `await` 之後檢查 `disposed`，已釋放就停止，不再建立後續資源。
+ * @returns {{
+ *   add: (dispose: () => any) => () => any,
+ *   run: () => Promise<unknown[]>,
+ *   readonly size: number,
+ *   readonly disposed: boolean,
+ *   readonly signal: AbortSignal,
+ * }}
  */
 export function createTeardown() {
     let stack = [];
+    let disposed = false;
+    const controller = new AbortController();
     return {
         add(dispose) {
             if (typeof dispose !== 'function') throw new TypeError('dispose 必須是函式');
+            if (disposed) {
+                // 已釋放：立即釋放，不放進不會再執行的清單
+                try {
+                    Promise.resolve(dispose()).catch(() => {});
+                } catch {
+                    // 釋放失敗不影響呼叫端
+                }
+                return dispose;
+            }
             stack.push(dispose);
             return dispose;
         },
         async run() {
+            disposed = true;
+            controller.abort();
             const pending = stack.reverse();
             stack = [];
             const errors = [];
@@ -136,6 +159,12 @@ export function createTeardown() {
         },
         get size() {
             return stack.length;
+        },
+        get disposed() {
+            return disposed;
+        },
+        get signal() {
+            return controller.signal;
         },
     };
 }

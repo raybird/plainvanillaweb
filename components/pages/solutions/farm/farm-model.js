@@ -25,6 +25,21 @@ export const OUTPUT_FORMATS = Object.freeze({
 
 export const DEFAULT_PARAMS = Object.freeze({ maxWidth: 640, format: 'image/webp', quality: 0.8 });
 
+/**
+ * 批次狀態：先寫入 `creating` 的批次清單（固定 runId、輸入與參數），任務全部排入後才改成 `ready`。
+ * 建立中途分頁關閉時，其他分頁依清單補齊；沒有 status 的舊紀錄視為 `ready`。
+ */
+export const RUN_STATUS = Object.freeze({ CREATING: 'creating', READY: 'ready' });
+
+/**
+ * 批次內每張輸入的任務冪等鍵。建立與恢復都用同一個鍵，重複排入只會得到同一個任務。
+ * @param {string} runId
+ * @param {string} inputId
+ */
+export function runTaskKey(runId, inputId) {
+    return `${runId}:${inputId}`;
+}
+
 export class FarmError extends Error {
     /**
      * @param {'INVALID_PARAMS' | 'INVALID_INPUT' | 'QUOTA_EXCEEDED' | 'UNSUPPORTED'} code

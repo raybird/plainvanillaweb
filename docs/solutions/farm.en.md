@@ -48,13 +48,15 @@ Import limits: at most 40 images, 15 MB per file and 150 MB in total. Where the 
 
 ## 3. Data flow
 
-1. **Import**: images go into `inputs` (`{ id, name, type, size, blob, createdAt }`).
-2. **Create a batch**: each input is enqueued as an `image.process` task (handler version 1) with the payload `{ runId, inputId, name, params }`, the `idempotencyKey` `runId:inputId` and `maxAttempts` 3. The batch itself (parameters, task id list, creation time) goes into `runs`.
+1. **Import**: images go into `inputs` (`{ id, name, type, size, blob, createdAt }`). The count and size checks run in the same `readwrite` transaction as the writes, so two tabs importing at once cannot both slip past the limits.
+2. **Create a batch**: the batch manifest is written to `runs` first (`status: 'creating'`, a fixed `runId`, input ids and names, parameters); then each input is enqueued as an `image.process` task (handler version 1) with the payload `{ runId, inputId, name, params }`, the `idempotencyKey` `runId:inputId` (`runTaskKey()`) and `maxAttempts` 3; once all are enqueued the task ids are written back and the batch becomes `ready`. The creator holds the batch's Web Lock `vanilla_solution:<ns>:run:<runId>` throughout.
 3. **Claim and process**: a lane claims a task, reads the Blob from `inputs` and hands it to its Worker; the queue renews the lease while the handler runs.
 4. **Write the output**: the output Blob is written to `outputs` under the key `taskId:leaseId`, and the handler's result carries only that key plus the size, dimensions, duration and node. At `completeAtomic` the queue checks that the lease is still valid before it writes the result into the task.
 5. **Notify and reread**: queue events (claimed, completed, failed, rescheduled, reclaimed) trigger `farm:changed`; every tab coalesces notifications and rereads tasks, inputs, outputs and runs at most once every 200 ms.
 
 **Why the output key includes `leaseId`**: node A is frozen halfway through a task (say its tab went to the background), its lease expires, and node B reclaims and finishes the task. When A wakes up and writes its output, its `completeAtomic` is refused because the lease is no longer valid. The two outputs have different keys, so A cannot overwrite B's result, and the task's result references only B's. A's output is an **orphan**: no completed task references it and it does not belong to a running lease. After a 30-second grace period the next reread deletes it (`findOrphanOutputs()`).
+
+**Interrupted creation**: if the creator closes halfway, the batch stays `creating`. Any tab that rereads and sees a `creating` batch tries its lock with `ifAvailable`: getting it means the creator is gone, so the tab completes the batch from the manifest with the same idempotency keys (already enqueued tasks come back as the same task, never duplicated) and marks it `ready`; not getting it means the creator is still there, and the tab checks again 2 seconds later. If the batch was deleted by a reset in the meantime, `updateRun()` does not write it back and the tasks enqueued by that attempt are cancelled. Without Web Locks, a `creating` batch is completed after 15 seconds.
 
 **Why Blobs stay out of the queue**: `DurableTaskQueue` deliberately refuses Blobs, ArrayBuffers and TypedArrays (`SERIALIZATION_ERROR`); large binary data would slow down the single readwrite transaction a claim runs in. See the binary data pattern in [Coordination](../coordination.md).
 
@@ -70,7 +72,9 @@ Import limits: at most 40 images, 15 MB per file and 150 MB in total. Where the 
 | An expired lease finishes its output | `completeAtomic` is refused; the output becomes an orphan and is deleted after the grace period, never overwriting the newer result | `tests/farm-model.test.js`; the browser test checks outputs and task results match one to one |
 | An image cannot be decoded | Retried with backoff, marked failed with the error after 3 attempts; "Retry failed tasks" requeues it | Browser test with a broken image |
 | A batch is submitted twice | `idempotencyKey` deduplicates, no duplicate tasks | `FarmSession.createRun()` |
-| Not enough space | Files over the count, per-file or total limit are skipped with a reason each; the whole import is refused when remaining space is too low | `tests/farm-model.test.js` |
+| A tab closes while creating a batch | Another tab, or the next visit, completes the same batch from its manifest, with no duplicate tasks and no tasks without a batch | Browser test closes the creator after half the tasks were enqueued |
+| Leaving the route during initialization | Leaving while "Join processing" is still starting Workers or queues rolls back the lanes created so far; no Worker or claiming queue is left behind | Browser test disposes the session at different stages of joining |
+| Not enough space | Files over the count, per-file or total limit are skipped with a reason each; the whole import is refused when remaining space is too low; two tabs importing at once cannot exceed the limits | `tests/farm-model.test.js`; browser test with two tabs importing 30 images each at once |
 | No OffscreenCanvas or module Worker | Processing runs on the main thread and the page may stutter; the page lists the missing capabilities | `ImageProcessor.init()` |
 | The requested output format is unsupported | The canvas outputs PNG instead; the result's extension and MIME type follow the actual format | `outputName()` |
 | No IndexedDB, BroadcastChannel or createImageBitmap | Shows an explanation and does not start | `detectFarmFeatures()` |
@@ -79,7 +83,7 @@ Import limits: at most 40 images, 15 MB per file and 150 MB in total. Where the 
 ## 5. Resources and cleanup
 
 - Each tab opens a MessageBus, a PeerDiscovery (heartbeat timer), a control queue that is never started, an image database connection and a `visibilitychange` listener. After joining, each lane adds a queue instance (poll, renew and reclaim timers) and a Web Worker. Result previews and downloads use object URLs, revoked as soon as they are no longer shown.
-- On leaving the route (`disconnectedCallback`) every lane stops, every Worker is terminated, every object URL is revoked, and `createTeardown()` closes the rest.
+- On leaving the route (`disconnectedCallback`) every lane stops, every Worker is terminated, every object URL is revoked, and `createTeardown()` closes the rest. Joining, leaving and disposal run one after another; joining takes effect only once every lane was created, and rolls back the Workers and queues it created if the session was disposed meanwhile.
 - Reset clears this namespace's tasks from `vanilla_coordination_tasks` (`clearNamespace()`; other namespaces are untouched) and the IndexedDB `vanilla_solution:<namespace>:blobs`.
 
 ## 6. Production gaps
@@ -93,4 +97,4 @@ Import limits: at most 40 images, 15 MB per file and 150 MB in total. Where the 
 ## 7. Tests
 
 - `tests/farm-model.test.js`: parameter validation, proportional downscaling, import limits and the remaining-space check, output naming, orphan detection, run statistics.
-- `runFarmTests` in `tests/browser-runner.mjs`: in its own namespace, two real tabs process 8 test images and 1 broken image; it checks that both nodes processed images, outputs are 320×240 WebP, the broken image fails after 3 attempts and results can be downloaded; a second batch survives closing every tab mid-way and finishes after reopening; outputs match task results one to one with no orphans; reset clears everything.
+- `runFarmTests` in `tests/browser-runner.mjs`: in its own namespace, two real tabs process 8 test images and 1 broken image; it checks that both nodes processed images, outputs are 320×240 WebP, the broken image fails after 3 attempts and results can be downloaded; a second batch survives closing every tab mid-way and finishes after reopening; outputs match task results one to one with no orphans; reset clears everything; disposing the session at different stages of joining leaves no lane, Worker or queue behind; with the manifest written and only half the tasks enqueued, closing the creator lets two other tabs complete the same batch without duplicate tasks; two tabs importing at once stay within the 40-image limit.

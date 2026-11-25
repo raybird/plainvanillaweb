@@ -48,13 +48,15 @@
 
 ## 3. 資料流
 
-1. **匯入**：圖片存進 `inputs`（`{ id, name, type, size, blob, createdAt }`）。
-2. **建立批次**：每張輸入 `enqueue` 一個 `image.process`（handler 版本 1）任務，payload 是 `{ runId, inputId, name, params }`，`idempotencyKey` 為 `runId:inputId`，`maxAttempts` 為 3。批次本身（參數、任務 id 清單、建立時間）存進 `runs`。
+1. **匯入**：圖片存進 `inputs`（`{ id, name, type, size, blob, createdAt }`）。張數與容量檢查和寫入在同一個 `readwrite` transaction 內，兩個分頁同時匯入也不會一起突破上限。
+2. **建立批次**：先把批次清單寫進 `runs`（`status: 'creating'`、固定的 `runId`、輸入 id 與名稱、參數），再為每張輸入 `enqueue` 一個 `image.process`（handler 版本 1）任務，payload 是 `{ runId, inputId, name, params }`，`idempotencyKey` 為 `runId:inputId`（`runTaskKey()`），`maxAttempts` 為 3；全部排入後把任務 id 寫回批次並改成 `ready`。建立者在這段期間持有批次的 Web Lock `vanilla_solution:<ns>:run:<runId>`。
 3. **認領與處理**：lane 認領任務後從 `inputs` 讀出 Blob，交給 Worker 處理；佇列在處理期間自動續租。
 4. **寫入輸出**：輸出 Blob 以 `taskId:leaseId` 為 key 寫進 `outputs`，handler 的 result 只回傳這個 key 與尺寸、大小、耗時、節點。佇列在 `completeAtomic` 時確認租約仍然有效，才把 result 寫進任務。
 5. **通知與重讀**：佇列事件（認領、完成、失敗、重新排程、回收）觸發 `farm:changed`；各分頁合併通知，最多每 200 ms 重讀一次任務、輸入、輸出與批次。
 
 **為什麼輸出 key 要帶 `leaseId`**：節點 A 處理到一半被凍結（例如分頁進入背景），租約到期，節點 B 重新認領並完成。之後 A 醒來寫完輸出，但它的 `completeAtomic` 會因為租約已失效被拒絕。兩份輸出的 key 不同，A 不會蓋掉 B 的結果；任務 result 只引用 B 的那份。A 留下的那份是**孤兒輸出**：沒有被任何已完成任務引用、也不屬於執行中的租約，超過 30 秒寬限時間後在下一次重讀時刪除（`findOrphanOutputs()`）。
+
+**建立中途中斷**：建立者在排入一半時關閉，批次停在 `creating`。任何分頁重讀時看到 `creating` 的批次，就以 `ifAvailable` 嘗試批次鎖：取得到代表建立者已不在，依清單用同一組冪等鍵補齊（已排入的得到同一個任務，不會重複）並標記 `ready`；取不到代表建立者還在，2 秒後再檢查。補齊時批次已被重設刪除的話，`updateRun()` 不會把批次寫回，這次排入的任務會被取消。沒有 Web Locks 時，`creating` 批次放置 15 秒後才補齊。
 
 **為什麼不把 Blob 放進佇列**：`DurableTaskQueue` 刻意拒收 Blob、ArrayBuffer 與 TypedArray（`SERIALIZATION_ERROR`），大型二進位資料會拖慢認領時的單一 readwrite transaction。見 [Coordination](../coordination.md) 的二進位資料整合模式。
 
@@ -70,7 +72,9 @@
 | 過期租約寫完結果 | `completeAtomic` 拒絕；輸出成為孤兒，寬限後刪除，不覆蓋新結果 | `tests/farm-model.test.js`；瀏覽器測試核對輸出與任務一一對應 |
 | 圖片無法解碼 | 依退避重試，3 次後標為失敗並顯示錯誤；可按「重試失敗任務」 | 瀏覽器測試損壞圖片 |
 | 同一批次重送 | `idempotencyKey` 去重，不會重複建立任務 | `FarmSession.createRun()` |
-| 容量不足 | 超過張數、單檔或總容量上限的檔案逐一列出原因並略過；剩餘空間不足時整批拒絕 | `tests/farm-model.test.js` |
+| 建立批次途中關閉分頁 | 其他分頁或下次開啟時依批次清單補齊同一個批次，沒有重複任務或沒有批次的任務 | 瀏覽器測試只排入一半任務後關閉建立者 |
+| 初始化中途離開路由 | 加入處理還在啟動 Worker 或佇列時離開，已建立的 lane 撤回，不留下 Worker 或認領任務的佇列 | 瀏覽器測試在加入處理的不同階段釋放工作階段 |
+| 容量不足 | 超過張數、單檔或總容量上限的檔案逐一列出原因並略過；剩餘空間不足時整批拒絕；兩個分頁同時匯入也不會突破上限 | `tests/farm-model.test.js`；瀏覽器測試兩個分頁同時各匯入 30 張 |
 | 不支援 OffscreenCanvas 或 module Worker | 改在主執行緒處理，畫面可能短暫卡頓；頁面標示缺少的能力 | `ImageProcessor.init()` |
 | 不支援要求的輸出格式 | canvas 改輸出 PNG；結果的副檔名與 MIME type 依實際格式 | `outputName()` |
 | 不支援 IndexedDB、BroadcastChannel 或 createImageBitmap | 顯示說明，不啟動 | `detectFarmFeatures()` |
@@ -79,7 +83,7 @@
 ## 5. 資源與清理
 
 - 每個分頁開啟：MessageBus、PeerDiscovery（心跳計時器）、一個不啟動的控制用佇列、圖片資料庫連線、`visibilitychange` 監聽；加入處理後每條 lane 另有一個佇列實例（輪詢、續租、回收計時器）與一個 Web Worker。結果預覽與下載使用 object URL，不再顯示時立即 `revokeObjectURL`。
-- 離開路由時（`disconnectedCallback`）停止所有 lane、終止 Worker、釋放全部 object URL，再由 `createTeardown()` 關閉其餘資源。
+- 離開路由時（`disconnectedCallback`）停止所有 lane、終止 Worker、釋放全部 object URL，再由 `createTeardown()` 關閉其餘資源。加入處理、停止處理與釋放依序執行；加入處理全部建立成功才生效，中途已釋放就撤回已建立的 Worker 與佇列。
 - 重設清除：`vanilla_coordination_tasks` 中這個 namespace 的任務（`clearNamespace()`，其他 namespace 不受影響），以及 IndexedDB `vanilla_solution:<namespace>:blobs`。
 
 ## 6. 正式上線差距
@@ -93,4 +97,4 @@
 ## 7. 測試
 
 - `tests/farm-model.test.js`：參數驗證、等比例縮小、匯入限制與剩餘空間檢查、輸出命名、孤兒輸出判定、批次統計。
-- `tests/browser-runner.mjs` 的 `runFarmTests`：在獨立 namespace 下以兩個真實分頁處理 8 張測試圖片與 1 張損壞圖片，核對兩個節點都有處理、輸出為 320×240 WebP、損壞圖片重試 3 次後失敗、結果可下載；第二批處理中關閉全部分頁，重新開啟後完成；輸出與任務結果一一對應、沒有孤兒；重設後清空。
+- `tests/browser-runner.mjs` 的 `runFarmTests`：在獨立 namespace 下以兩個真實分頁處理 8 張測試圖片與 1 張損壞圖片，核對兩個節點都有處理、輸出為 320×240 WebP、損壞圖片重試 3 次後失敗、結果可下載；第二批處理中關閉全部分頁，重新開啟後完成；輸出與任務結果一一對應、沒有孤兒；重設後清空；在加入處理的不同階段釋放工作階段，不留下 lane、Worker 或佇列；批次清單寫入、只排入一半任務時建立者關閉，另外兩個分頁補齊同一個批次且沒有重複任務；兩個分頁同時匯入不突破 40 張上限。

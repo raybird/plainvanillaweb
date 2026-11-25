@@ -50,7 +50,7 @@ Coordination APIs used:
 
 - `MessageBus`: publishes `pos:changed` after a successful write. The message content is not trusted; receivers always re-read the authoritative state.
 - `PeerDiscovery`: the admin window lists the windows online and their roles; joins and leaves trigger a re-read.
-- Web Locks (platform API): each kitchen station holds `vanilla_solution:<namespace>:station:<station>` so others can tell whether it has closed.
+- Web Locks (platform API): each kitchen station holds `vanilla_solution:<namespace>:station:<station>` so others can tell whether it has closed. "Closed" on screen is only a hint: an actual takeover first takes the previous station's lock with `ifAvailable` and holds it until the transaction completes; if the lock is not available the takeover is refused (`CONFLICT`) and the screen is re-read.
 
 ## 3. Data flow
 
@@ -66,7 +66,7 @@ Transitions (everything else is rejected with `INVALID_TRANSITION`):
 | --- | --- | --- | --- |
 | `claim` | pending → preparing | kitchen station | Records the station; `CONFLICT` if another station claimed it |
 | `ready` | preparing → ready | the claiming station | Other stations cannot complete it |
-| `takeover` | preparing → preparing | kitchen station | Must name the previous station; `CONFLICT` if the station is no longer that one |
+| `takeover` | preparing → preparing | kitchen station | Must name the previous station; `CONFLICT` if that station still holds its lock (still open, or another station is taking over) or the order's station is no longer that one |
 | `pickup` | ready → picked up | display | |
 | `cancel` | pending → cancelled | admin | |
 
@@ -81,14 +81,16 @@ Transitions (everything else is rejected with `INVALID_TRANSITION`):
 | Reload | Restored from IndexedDB; the kitchen station id is kept in sessionStorage, so a reloaded station keeps the orders it claimed | Browser test reloads a kitchen window |
 | Window closed and reopened | Reopening re-reads the authoritative state; a closed kitchen station releases its Web Lock and other stations show "Take over" | Browser test takes over after closing a station |
 | Window joining late | Reads the current state on open, consistent with the others | Browser test opens the admin window afterwards |
-| Concurrent operations on the same record | Exactly one succeeds; the other shows "handled by another station" | Browser test: two kitchens claim at once; two tabs each claim 6 orders at once |
+| Concurrent operations on the same record | Exactly one succeeds; the other shows "handled by another station" | Browser test: two kitchens claim at once; two tabs each claim 6 orders at once; two kitchens take over the same order from a closed station at once |
+| "Take over" on a stale screen | The previous station reloaded and holds its lock again; the stale takeover is refused and the screen re-read | Browser test sends a takeover while the previous station is still open |
+| Leaving the route during initialization | A late station lock is released at once; no PeerDiscovery or listeners are created | Browser test delays the lock and disposes the session meanwhile |
 | Duplicate submit | One order per `requestId` | Browser test submits the same `requestId` twice at once |
 | Offline | Keeps working; the header shows the offline state. Coordination only spans same-origin windows on one machine | Visited pages are served from the Service Worker cache |
 | Background tab misses a notification | Re-reads on returning to the foreground (`visibilitychange`) and on reconnect | `PosSession.start()` |
 | Reset while other windows are open | Their connections close on `versionchange`; the next read reopens the database and restores the menu | Browser test checks every window after a reset |
 | Duplicated tab | sessionStorage is copied too; the second tab cannot get the same station lock and picks a new station id | `PosSession._claimStation()` |
 | No IndexedDB or BroadcastChannel | Shows an explanation and does not start | `detectPosFeatures()` |
-| No Web Locks | Cannot tell whether a station has closed: "Take over" is always shown and a person decides | The kitchen screen says the station state cannot be detected |
+| No Web Locks | Cannot tell whether a station has closed: "Take over" is always shown and a person decides, with no mutual exclusion guarantee | The kitchen screen says the station state cannot be detected |
 
 ## 5. Resources and cleanup
 
@@ -106,4 +108,4 @@ Transitions (everything else is rejected with `INVALID_TRANSITION`):
 ## 7. Tests
 
 - `tests/pos-model.test.js`: order creation and totals, the full flow, idempotency, station conflicts, the takeover compare-and-set, illegal transitions, statistics.
-- `runPosTests` in `tests/browser-runner.mjs`: in a dedicated namespace, several real windows go through submit → claim → ready → pickup; a repeated `requestId`; two kitchens claiming at once; two tabs each claiming 6 orders at once with one success per order; a late admin window; a reload keeping the station; taking over after a station closes; consistency after a reset.
+- `runPosTests` in `tests/browser-runner.mjs`: in a dedicated namespace, several real windows go through submit → claim → ready → pickup; a repeated `requestId`; two kitchens claiming at once; two tabs each claiming 6 orders at once with one success per order; a late admin window; a reload keeping the station; a takeover refused while the previous station is open; two stations taking over a closed station at once with one success; leaving during initialization without leaving a station lock or PeerDiscovery behind; consistency after a reset.

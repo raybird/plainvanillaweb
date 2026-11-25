@@ -6,11 +6,15 @@
  * 也沒關係：開啟、回到前景與重新連線時都會重讀。
  *
  * 廚房站台以 Web Lock 宣告「這個站台還開著」：視窗關閉時瀏覽器自動釋放鎖，其他站台才能接手它的訂單。
+ * 畫面上的「已關閉」只是提示；實際接手時要先以 ifAvailable 取得原站台的鎖，持鎖期間才寫入。
+ *
+ * 生命週期：`start()` 在每個 `await` 之後檢查 `_teardown.disposed`。初始化中途離開路由時，
+ * 晚到的站台鎖由 teardown 立即釋放，也不再建立 PeerDiscovery 與監聽器。
  */
 import { createMessageBus, createPeerDiscovery } from '../../../../lib/coordination.js';
 import { createTeardown, detectFeatures, resetSolutionData, resolveNamespace, solutionStorageName } from '../solution-kit.js';
 import { createPosRepository } from './pos-repository.js';
-import { DEFAULT_MENU } from './pos-model.js';
+import { DEFAULT_MENU, POS_ERROR_CODES, PosError } from './pos-model.js';
 
 export const POS_SLUG = 'pos';
 export const POS_TOPIC_CHANGED = 'pos:changed';
@@ -104,6 +108,8 @@ export class PosSession {
         this._teardown.add(this._bus.subscribe(POS_TOPIC_CHANGED, () => this.refresh()));
 
         if (this.role === 'kitchen') await this._claimStation();
+        // 等鎖期間已離開路由：不再建立後續資源（已建立的由 teardown 釋放）
+        if (this._teardown.disposed) return;
 
         this._peers = createPeerDiscovery({
             bus: this._bus,
@@ -154,6 +160,7 @@ export class PosSession {
             return;
         }
         for (let attempt = 0; attempt < 5; attempt++) {
+            if (this._teardown.disposed) return;
             const acquired = await new Promise((resolve) => {
                 navigator.locks.request(`${this.stationLockPrefix}${stationId}`, { ifAvailable: true }, (lock) => {
                     if (!lock) {
@@ -161,7 +168,7 @@ export class PosSession {
                         return undefined;
                     }
                     resolve(true);
-                    // 持有到視窗關閉或 teardown 為止
+                    // 持有到視窗關閉或 teardown 為止；已經 teardown 時 add 會立即釋放
                     return new Promise((release) => this._teardown.add(release));
                 });
             });
@@ -252,10 +259,36 @@ export class PosSession {
      */
     async act(orderId, action, extra = {}) {
         const actor = this.role === 'kitchen' ? this.stationId : this.role;
-        const outcome = await this._repo.transition(orderId, { action, actor, ...extra });
+        const write = () => this._repo.transition(orderId, { action, actor, ...extra });
+        let outcome;
+        try {
+            outcome = action === 'takeover' && extra.fromStation && navigator.locks
+                ? await this._whileStationClosed(extra.fromStation, write)
+                : await write();
+        } catch (err) {
+            // 被拒絕（例如原站台其實還在線）時，畫面可能是舊的：重讀後再回報
+            await this.refresh();
+            throw err;
+        }
         if (outcome.result === 'applied') await this._afterWrite({ kind: action, orderId });
         else await this.refresh();
         return outcome;
+    }
+
+    /**
+     * 確認原站台已關閉（取得它的站台鎖）才執行寫入，持鎖到 transaction 完成。
+     * 原站台重新整理後又拿回鎖、或另一個站台正在接手時，取不到鎖，拒絕接手。
+     * 沒有 Web Locks 時不呼叫這裡：接手由人工確認，沒有互斥保證。
+     * @template T
+     * @param {string} station
+     * @param {() => Promise<T>} write
+     * @returns {Promise<T>}
+     */
+    _whileStationClosed(station, write) {
+        return navigator.locks.request(`${this.stationLockPrefix}${station}`, { ifAvailable: true }, (lock) => {
+            if (!lock) throw new PosError(POS_ERROR_CODES.CONFLICT, `站台 ${station} 仍在線或正被其他站台接手，不能接手`);
+            return write();
+        });
     }
 
     /**

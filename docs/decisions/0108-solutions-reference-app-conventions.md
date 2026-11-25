@@ -36,7 +36,7 @@ hash query 帶 `kiosk=1` 時，`<x-app>` 不渲染側邊欄、漢堡按鈕與頁
 
 ### 4. 共用慣例收成一個小模組
 
-`components/pages/solutions/solution-kit.js` 只收各範例都要遵守的部分：`resolveNamespace`（預設 `solution-<slug>`，`?ns=` 可覆寫）、`solutionStorageName`（`vanilla_solution:<namespace>:<purpose>`）、`buildSolutionHash`、`openSolutionWindow`（固定視窗名稱，被擋時回傳 `null` 由畫面提供連結）、`detectFeatures`、`createTeardown`、`resetSolutionData`。狀態管理、畫面與資料模型由範例自己負責，不做成框架。
+`components/pages/solutions/solution-kit.js` 只收各範例都要遵守的部分：`resolveNamespace`（預設 `solution-<slug>`，`?ns=` 可覆寫）、`solutionStorageName`（`vanilla_solution:<namespace>:<purpose>`）、`buildSolutionHash`、`openSolutionWindow`（固定視窗名稱，被擋時回傳 `null` 由畫面提供連結）、`detectFeatures`、`createTeardown`（釋放後才登記的資源立即釋放，並提供 `disposed`／`signal` 讓非同步初始化在每個 `await` 之後停止）、`resetSolutionData`。狀態管理、畫面與資料模型由範例自己負責，不做成框架。
 
 ### 5. 業務資料與二進位資料不放進佇列
 

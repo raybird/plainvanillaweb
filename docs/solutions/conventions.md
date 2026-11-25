@@ -105,6 +105,20 @@ disconnectedCallback() {
 ```
 
 - 依相反順序釋放；單一項目失敗不影響其他項目，`run()` 回傳錯誤清單。
+- **非同步初始化**：初始化常要等待（Web Lock、Worker 就緒、佇列啟動），等待中途就可能離開路由。`run()` 之後清單即為已釋放（`disposed`、`signal.aborted` 為 true），之後才登記的釋放函式會立即執行；初始化在每個 `await` 之後檢查 `disposed`，已釋放就停止，不再建立後續資源：
+
+```javascript
+async start() {
+    const bus = createMessageBus({ namespace });
+    this._teardown.add(() => bus.dispose());
+    await this._claimStationLock(); // 取得鎖時以 this._teardown.add(release) 登記；已釋放時會立即放掉
+    if (this._teardown.disposed) return; // 等鎖期間已離開：不再建立 PeerDiscovery 與監聽器
+    // ...
+}
+```
+
+- 可以反覆開關的資源（例如 Farm 的「加入處理」／「停止處理」）把開與關排成依序執行，全部建立成功才生效，中途失敗或已釋放就撤回已建立的部分。
+- `createTeardown()` 釋放後不能再用；需要「先關再開」的情境（例如重設資料）直接關閉該連線，不要呼叫 `run()`。
 - 必須釋放的資源：BroadcastChannel／MessageBus、Web Lock 與 Leader 身分、Worker、object URL、計時器、IndexedDB 連線、Wake Lock、媒體串流。
 - smoke test 會走訪每一條路由再離開；沒釋放的資源會讓後續頁面出錯或測試變慢。
 
@@ -115,7 +129,7 @@ disconnectedCallback() {
 ```javascript
 import { resetSolutionData, solutionStorageName } from './solution-kit.js';
 
-await this._teardown.run(); // 先關自己的連線
+this._repo.close(); // 先關自己的連線（下一次讀寫時重新開啟）
 bus.publish('solution:reset', {}); // 通知其他視窗關閉連線或重新載入
 const report = await resetSolutionData({
     databases: [solutionStorageName(namespace, 'orders')],

@@ -7,6 +7,10 @@
  *   過期租約留下的輸出由 `findOrphanOutputs` 判定後清除，舊 worker 不會覆蓋新結果。
  * - 寫入後以 MessageBus 發出 `farm:changed`，各分頁重讀；佇列狀態本身就在 IndexedDB，
  *   所有分頁關閉後重新開啟、加入處理，未完成的任務會繼續。
+ * - 建立批次時先寫入 `creating` 的批次清單，再以固定的冪等鍵排入任務，最後標記 `ready`。
+ *   建立者持有批次的 Web Lock；鎖已釋放（建立者中途關閉）而批次仍是 `creating` 時，任何分頁都會依清單補齊。
+ * - 生命週期：加入、停止處理與釋放依序執行（`_serial`），每個 `await` 之後檢查是否已釋放，
+ *   初始化中途離開路由時把已建立的 Worker 與佇列撤回，不會遺留。
  */
 import { TASK_STATUS, createDurableTaskQueue, createMessageBus, createPeerDiscovery } from '../../../../lib/coordination.js';
 import { createTeardown, detectFeatures, resetSolutionData, resolveNamespace, solutionStorageName } from '../solution-kit.js';
@@ -15,6 +19,8 @@ import {
     FARM_LIMITS,
     FARM_TASK_TYPE,
     FarmError,
+    RUN_STATUS,
+    runTaskKey,
     checkImport,
     findOrphanOutputs,
     normalizeParams,
@@ -29,6 +35,16 @@ export const FARM_SLUG = 'farm';
 export const FARM_TOPIC_CHANGED = 'farm:changed';
 const MAX_ATTEMPTS = 3;
 const REFRESH_THROTTLE_MS = 200;
+/** 沒有 Web Locks 時無法得知建立者是否還在，`creating` 批次放置這麼久才補齊（補齊本身是冪等的） */
+const RECOVER_WITHOUT_LOCKS_MS = 15000;
+
+/** @param {Array<{ queue: any, processor: ImageProcessor }>} lanes */
+async function disposeLanes(lanes) {
+    await Promise.allSettled(lanes.map(async ({ queue, processor }) => {
+        await queue?.dispose();
+        processor.dispose();
+    }));
+}
 
 /**
  * 必要：IndexedDB、BroadcastChannel、createImageBitmap。
@@ -66,6 +82,16 @@ export class FarmSession {
         this._refreshing = null;
         this._dirty = false;
         this._disposed = false;
+        /** 加入／停止／釋放依序執行 */
+        this._lifecycle = Promise.resolve();
+        this._recovering = null;
+        /** @type {Set<ReturnType<typeof setTimeout>>} */
+        this._timers = new Set();
+        this._teardown.add(() => {
+            for (const timer of this._timers) clearTimeout(timer);
+            this._timers.clear();
+        });
+        this.recoveredRuns = 0;
         this.snapshot = null;
     }
 
@@ -137,6 +163,7 @@ export class FarmSession {
                     const orphans = findOrphanOutputs(outputs, tasks, Date.now());
                     if (orphans.length) await this.store.deleteOutputs(orphans);
                     const orphanSet = new Set(orphans);
+                    this._recoverRuns(runs);
                     this.snapshot = {
                         tasks,
                         inputs,
@@ -163,10 +190,46 @@ export class FarmSession {
     }
 
     _notify(detail) {
+        if (this._disposed) return;
         this._bus.publish(FARM_TOPIC_CHANGED, detail);
         this.refreshSoon();
     }
 
+    /** @param {() => void} fn @param {number} ms */
+    _later(fn, ms) {
+        if (this._disposed) return;
+        const timer = setTimeout(() => {
+            this._timers.delete(timer);
+            fn();
+        }, ms);
+        this._timers.add(timer);
+    }
+
+    /**
+     * 依序執行生命週期動作；前一個失敗不影響下一個。
+     * @template T
+     * @param {() => Promise<T>} fn
+     * @returns {Promise<T>}
+     */
+    _serial(fn) {
+        const run = this._lifecycle.then(fn);
+        this._lifecycle = run.catch(() => {});
+        return run;
+    }
+
+    /**
+     * 批次鎖：建立者持有到任務全部排入；恢復時以 ifAvailable 嘗試，取不到代表建立者還在。
+     * 沒有 Web Locks 時直接執行（`held` 為 true）。
+     * @template T
+     * @param {string} runId
+     * @param {boolean} ifAvailable
+     * @param {(held: boolean) => Promise<T>} fn
+     * @returns {Promise<T>}
+     */
+    _withRunLock(runId, ifAvailable, fn) {
+        if (!navigator.locks) return fn(true);
+        return navigator.locks.request(`${solutionStorageName(this.namespace, 'run')}:${runId}`, { ifAvailable }, (lock) => fn(Boolean(lock)));
+    }
     /** 剩餘儲存空間；不支援 estimate 時回傳 null */
     async _available() {
         if (!navigator.storage?.estimate) return null;
@@ -179,24 +242,30 @@ export class FarmSession {
      * @param {Array<File | { name: string, type: string, size: number, blob: Blob }>} files
      */
     async addFiles(files) {
-        const existing = await this.store.listInputMeta();
-        const metas = files.map((f) => ({ name: f.name, type: f.type, size: f.size, source: f }));
-        const { accepted, rejected } = checkImport(metas, {
-            existingCount: existing.length,
-            existingBytes: existing.reduce((sum, i) => sum + i.size, 0),
-            available: await this._available(),
-        });
+        const available = await this._available();
         const now = Date.now();
-        await this.store.putInputs(accepted.map((meta, index) => ({
-            id: crypto.randomUUID(),
-            name: meta.name,
-            type: meta.type,
-            size: meta.size,
-            blob: meta.source.blob ?? meta.source,
-            createdAt: now + index,
-        })));
+        const metas = files.map((f) => ({ name: f.name, type: f.type, size: f.size, source: f }));
+        // 檢查與寫入在同一個 transaction：兩個分頁同時匯入也不會一起突破張數與容量上限
+        const result = await this.store.addInputsChecked((existing) => {
+            const { accepted, rejected } = checkImport(metas, {
+                existingCount: existing.length,
+                existingBytes: existing.reduce((sum, i) => sum + i.size, 0),
+                available,
+            });
+            return {
+                records: accepted.map((meta, index) => ({
+                    id: crypto.randomUUID(),
+                    name: meta.name,
+                    type: meta.type,
+                    size: meta.size,
+                    blob: meta.source.blob ?? meta.source,
+                    createdAt: now + index,
+                })),
+                result: { accepted: accepted.length, rejected },
+            };
+        });
         this._notify({ kind: 'inputs' });
-        return { accepted: accepted.length, rejected };
+        return result;
     }
 
     /**
@@ -219,58 +288,139 @@ export class FarmSession {
     }
 
     /**
-     * 為目前所有輸入建立一個批次。同一批次重送時 idempotencyKey 去重，不會重複建立任務。
+     * 為目前所有輸入建立一個批次：先寫入 `creating` 批次清單，再依清單排入任務，最後標記 `ready`。
      * @param {{ maxWidth?: any, format?: any, quality?: any }} rawParams
      */
     async createRun(rawParams) {
         const params = normalizeParams(rawParams);
         const inputs = await this.store.listInputMeta();
         if (!inputs.length) throw new FarmError('INVALID_INPUT', '還沒有匯入圖片');
-        const runId = crypto.randomUUID();
-        const createdAt = Date.now();
+        const run = {
+            id: crypto.randomUUID(),
+            createdAt: Date.now(),
+            status: RUN_STATUS.CREATING,
+            params,
+            inputs: inputs.map(({ id, name }) => ({ id, name })),
+            taskIds: [],
+            nodesAtStart: this._peers.getPeers({ includeSelf: true, capability: 'imageFarm' }).length,
+        };
+        await this._withRunLock(run.id, false, async () => {
+            await this.store.putRun(run);
+            await this._fillRun(run);
+        });
+        this._notify({ kind: 'run', runId: run.id });
+        return run.id;
+    }
+
+    /**
+     * 依批次清單排入任務（冪等鍵去重：已排入的得到同一個任務），再把批次標記為 `ready`。
+     * 批次在這期間被重設刪除時，撤銷這次排入的任務，不留下沒有批次的任務。
+     * @param {{ id: string, params: object, inputs: Array<{ id: string, name: string }> }} run
+     * @returns {Promise<boolean>} 是否完成
+     */
+    async _fillRun(run) {
         const taskIds = [];
-        for (const input of inputs) {
+        for (const input of run.inputs) {
             const { task } = await this._control.enqueue({
                 type: FARM_TASK_TYPE,
                 handlerVersion: FARM_HANDLER_VERSION,
-                payload: { runId, inputId: input.id, name: input.name, params },
-                idempotencyKey: `${runId}:${input.id}`,
+                payload: { runId: run.id, inputId: input.id, name: input.name, params: run.params },
+                idempotencyKey: runTaskKey(run.id, input.id),
                 maxAttempts: MAX_ATTEMPTS,
             });
             taskIds.push(task.id);
         }
-        const nodesAtStart = this._peers.getPeers({ includeSelf: true, capability: 'imageFarm' }).length;
-        await this.store.putRun({ id: runId, createdAt, params, taskIds, nodesAtStart });
-        this._notify({ kind: 'run', runId });
-        return runId;
+        const updated = await this.store.updateRun(run.id, { status: RUN_STATUS.READY, taskIds });
+        if (!updated) {
+            for (const id of taskIds) await this._control.cancel(id).catch(() => {});
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 補齊建立中途中斷的批次。建立者還持有批次鎖時跳過（它會自己完成）；多個分頁同時恢復時，
+     * 鎖讓同一時間只有一個在補，就算重疊，冪等鍵也保證不會有重複任務。
+     * @param {Array<{ id: string, status?: string, createdAt: number }>} runs
+     */
+    _recoverRuns(runs) {
+        if (this._recovering || this._disposed) return;
+        const creating = runs.filter((run) => run.status === RUN_STATUS.CREATING);
+        if (!creating.length) return;
+        this._recovering = (async () => {
+            let recovered = 0;
+            let waiting = false;
+            for (const run of creating) {
+                if (this._disposed) return;
+                if (!navigator.locks) {
+                    const wait = RECOVER_WITHOUT_LOCKS_MS - (Date.now() - run.createdAt);
+                    if (wait > 0) {
+                        this._later(() => this.refreshSoon(), wait);
+                        continue;
+                    }
+                }
+                await this._withRunLock(run.id, true, async (held) => {
+                    if (!held) waiting = true;
+                    if (!held || this._disposed) return;
+                    // 拿到鎖後重讀：建立者可能剛好完成
+                    const fresh = (await this.store.listRuns()).find((r) => r.id === run.id);
+                    if (fresh?.status !== RUN_STATUS.CREATING) return;
+                    if (await this._fillRun(fresh)) recovered++;
+                });
+            }
+            // 建立者還持有鎖：它會自己完成；若它其實正在關閉（離開訊息比鎖釋放早到），稍後再檢查
+            if (waiting) this._later(() => this.refreshSoon(), 2000);
+            if (recovered) {
+                this.recoveredRuns += recovered;
+                this._notify({ kind: 'run-recovered', count: recovered });
+            }
+        })().catch((err) => {
+            if (!this._disposed) console.warn('[Farm] 恢復批次失敗', err);
+        }).finally(() => {
+            this._recovering = null;
+        });
     }
 
     /**
      * 加入處理：建立 1–4 條 lane，每條有自己的佇列實例（各自的 workerId）與圖片處理器（各自的 Worker）。
+     * 全部建立完成才生效；中途失敗或離開路由時撤回已建立的 lane。
      * @param {number} laneCount
      */
-    async join(laneCount = 1) {
-        if (this.joined) return;
-        const count = Math.min(Math.max(1, Math.trunc(laneCount) || 1), FARM_LIMITS.maxLanes);
-        for (let i = 0; i < count; i++) {
-            const processor = new ImageProcessor();
-            await processor.init();
-            const queue = createDurableTaskQueue({
-                namespace: this.namespace,
-                bus: this._bus,
-                workerId: `${this.nodeId}#${i + 1}`,
-                pollIntervalMs: 400,
-            });
-            const lane = { queue, processor };
-            queue.registerHandler(FARM_TASK_TYPE, (payload, ctx) => this._handle(lane, payload, ctx), { version: FARM_HANDLER_VERSION });
-            for (const type of ['task-claimed', 'task-completed', 'task-failed', 'task-retry-scheduled', 'task-reclaimed', 'lease-lost']) {
-                queue.on(type, () => this._notify({ kind: type }));
+    join(laneCount = 1) {
+        return this._serial(async () => {
+            if (this._disposed || this.joined) return;
+            const count = Math.min(Math.max(1, Math.trunc(laneCount) || 1), FARM_LIMITS.maxLanes);
+            const lanes = [];
+            try {
+                for (let i = 0; i < count && !this._disposed; i++) {
+                    const lane = { processor: new ImageProcessor(), queue: null };
+                    lanes.push(lane);
+                    await lane.processor.init();
+                    if (this._disposed) break;
+                    lane.queue = createDurableTaskQueue({
+                        namespace: this.namespace,
+                        bus: this._bus,
+                        workerId: `${this.nodeId}#${i + 1}`,
+                        pollIntervalMs: 400,
+                    });
+                    lane.queue.registerHandler(FARM_TASK_TYPE, (payload, ctx) => this._handle(lane, payload, ctx), { version: FARM_HANDLER_VERSION });
+                    for (const type of ['task-claimed', 'task-completed', 'task-failed', 'task-retry-scheduled', 'task-reclaimed', 'lease-lost']) {
+                        lane.queue.on(type, () => this._notify({ kind: type }));
+                    }
+                    await lane.queue.start();
+                }
+            } catch (err) {
+                await disposeLanes(lanes);
+                throw err;
             }
-            this._lanes.push(lane);
-            await queue.start();
-        }
-        this._updatePeer();
-        this.refreshSoon();
+            if (this._disposed) {
+                await disposeLanes(lanes);
+                return;
+            }
+            this._lanes = lanes;
+            this._updatePeer();
+            this.refreshSoon();
+        });
     }
 
     /**
@@ -278,13 +428,14 @@ export class FarmSession {
      * 算一次失敗並等退避。dispose 不改寫資料庫，執行中的任務由 Web Lock 孤兒偵測或租約到期回收，
      * 與分頁被關閉時相同（回收同樣計入 maxAttempts）。
      */
-    async leave() {
+    leave() {
+        return this._serial(() => this._stopLanes());
+    }
+
+    async _stopLanes() {
         const lanes = this._lanes;
         this._lanes = [];
-        await Promise.allSettled(lanes.map(async ({ queue, processor }) => {
-            await queue.dispose();
-            processor.dispose();
-        }));
+        await disposeLanes(lanes);
         if (!this._disposed) {
             this._updatePeer();
             this.refreshSoon();
@@ -367,7 +518,8 @@ export class FarmSession {
 
     async dispose() {
         this._disposed = true;
-        await this.leave();
+        // 排在進行中的 join 之後：join 在下一個 await 之後看到已釋放，撤回自己建立的 lane
+        await this._serial(() => this._stopLanes());
         await this._teardown.run();
     }
 }

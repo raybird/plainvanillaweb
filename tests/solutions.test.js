@@ -61,7 +61,7 @@ test('detectFeatures 把拋錯的偵測視為不支援', () => {
     assert.deepEqual(result.missing, ['no', 'broken']);
 });
 
-test('createTeardown 依相反順序釋放、錯誤不中斷且可重複使用', async () => {
+test('createTeardown 依相反順序釋放、錯誤不中斷', async () => {
     const teardown = createTeardown();
     const order = [];
     teardown.add(() => order.push('first'));
@@ -74,10 +74,31 @@ test('createTeardown 依相反順序釋放、錯誤不中斷且可重複使用',
     assert.equal(errors[0].message, 'second failed');
     assert.equal(teardown.size, 0);
     assert.deepEqual(await teardown.run(), [], '重複 run 不會再執行已釋放的項目');
-    teardown.add(() => order.push('again'));
-    await teardown.run();
-    assert.deepEqual(order, ['third', 'first', 'again']);
     assert.throws(() => teardown.add('nope'), TypeError);
+});
+
+test('createTeardown 釋放後才登記的資源立即釋放（非同步初始化中途離開）', async () => {
+    const teardown = createTeardown();
+    const released = [];
+    assert.equal(teardown.disposed, false);
+    assert.equal(teardown.signal.aborted, false);
+    // 模擬：初始化正在等鎖時頁面離開
+    const lockGranted = new Promise((resolve) => setTimeout(resolve, 10));
+    const init = (async () => {
+        await lockGranted;
+        teardown.add(() => released.push('lock'));
+        if (teardown.disposed) return 'aborted';
+        teardown.add(() => released.push('peers'));
+        return 'started';
+    })();
+    await teardown.run();
+    assert.equal(teardown.disposed, true);
+    assert.equal(teardown.signal.aborted, true);
+    assert.equal(await init, 'aborted', '初始化在 await 之後看到已釋放就停止');
+    assert.deepEqual(released, ['lock'], '晚到的鎖立即釋放，後續資源不再建立');
+    teardown.add(() => { throw new Error('late failure'); });
+    teardown.add(async () => { throw new Error('late async failure'); });
+    assert.equal(teardown.size, 0, '釋放後不再累積');
 });
 
 test('resetSolutionData 刪除資料庫與 key、回報 blocked 並執行額外清理', async (t) => {

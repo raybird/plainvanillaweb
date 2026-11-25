@@ -65,11 +65,43 @@ export class FarmStore {
         opening?.then((db) => db.close(), () => {});
     }
 
-    /** @param {Array<{ id: string, name: string, type: string, size: number, blob: Blob, createdAt: number }>} inputs */
-    async putInputs(inputs) {
-        const tx = (await this._db()).transaction('inputs', 'readwrite');
-        for (const input of inputs) tx.objectStore('inputs').put(input);
-        await committed(tx);
+    /**
+     * 在同一個 readwrite transaction 內讀出現有輸入、決定要收哪些、再寫入。
+     * IndexedDB 讓範圍重疊的 readwrite transaction 依序執行（跨分頁也一樣），
+     * 兩個分頁同時匯入時，後執行的一定看得到前一個寫入的張數與容量，不會一起突破上限。
+     * `decide` 必須是同步函式（transaction 內不能等待其他非同步工作）；丟出錯誤時整個 transaction 取消。
+     * @template R
+     * @param {(existing: Array<{ id: string, size: number }>) => { records: object[], result: R }} decide
+     * @returns {Promise<R>}
+     */
+    async addInputsChecked(decide) {
+        const db = await this._db();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('inputs', 'readwrite');
+            const store = tx.objectStore('inputs');
+            const existing = [];
+            let outcome;
+            let failure = null;
+            tx.oncomplete = () => resolve(outcome);
+            tx.onabort = () => reject(failure ?? tx.error ?? new Error('IndexedDB transaction aborted'));
+            const request = store.openCursor();
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (cursor) {
+                    existing.push({ id: cursor.value.id, size: cursor.value.size });
+                    cursor.continue();
+                    return;
+                }
+                try {
+                    const { records, result } = decide(existing);
+                    for (const record of records) store.put(record);
+                    outcome = result;
+                } catch (err) {
+                    failure = err;
+                    tx.abort();
+                }
+            };
+        });
     }
 
     /** @param {string} id */
@@ -138,6 +170,30 @@ export class FarmStore {
         const tx = (await this._db()).transaction('runs', 'readwrite');
         tx.objectStore('runs').put(run);
         await committed(tx);
+    }
+
+    /**
+     * 只在批次還存在時更新（單一 transaction 內讀出、合併、寫回）。
+     * 批次已被重設刪除時回傳 null，不會把它寫回來。
+     * @param {string} id
+     * @param {object} patch
+     * @returns {Promise<object | null>}
+     */
+    async updateRun(id, patch) {
+        const db = await this._db();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('runs', 'readwrite');
+            const store = tx.objectStore('runs');
+            let updated = null;
+            tx.oncomplete = () => resolve(updated);
+            tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'));
+            const request = store.get(id);
+            request.onsuccess = () => {
+                if (!request.result) return;
+                updated = { ...request.result, ...patch };
+                store.put(updated);
+            };
+        });
     }
 
     async listRuns() {

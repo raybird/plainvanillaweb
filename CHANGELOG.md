@@ -5,7 +5,7 @@
 固定版本的引用方式（jsDelivr 依 git tag 提供，內容不會再變）：
 
 ```javascript
-import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/core.js';
+import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.3.0/lib/core.js';
 ```
 
 `https://raybird.github.io/plainvanillaweb/lib/...` 永遠是最新的 master，適合試用，不適合正式專案。
@@ -13,6 +13,17 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 **發版步驟**：更新 `lib/version.js` 的 `VERSION` 與本檔最新一節 → 執行 `scripts/check.sh` → commit → 打 tag `v<VERSION>` 並推送。`tests/core.test.js` 會檢查 `VERSION` 與本檔最新一節一致。
 
 ---
+
+## [3.3.0] - 2026-11-26
+
+Epic #8（Native Web Solutions）的 #9–#11 合併為 v3.3.0 發布；核心與 `lib/coordination.js` 的匯出不變。
+
+### 新增
+
+- Solutions 分類（#9，[ADR 0108](./docs/decisions/0108-solutions-reference-app-conventions.md)）：`#/solutions` 目錄頁（首頁與側欄皆有入口，Browser Cluster 連回 `#/lab/browser-cluster`）、hash query `?kiosk=1` 的全視窗 kiosk 版面（`app/kiosk.js`）、`components/pages/solutions/solution-kit.js` 慣例工具（`resolveNamespace`、`solutionStorageName`、`buildSolutionHash`、`openSolutionWindow`、`detectFeatures`、`createTeardown`（釋放後才登記的資源立即釋放，`disposed`／`signal` 讓非同步初始化中途停止）、`resetSolutionData`），以及中英雙語的 [Reference App 慣例](./docs/solutions/conventions.md) 與 [文件範本](./docs/solutions/reference-app-template.md)。
+- Multi-Window POS（#10，`#/solutions/pos`，[文件](./docs/solutions/pos.md)）：點餐、廚房、顧客叫號、管理統計四個視窗的 local-first 訂單流程。訂單存在範例自有的 IndexedDB，每次狀態轉移在單一 `readwrite` transaction 內判斷與寫入（並行認領只有一個站台成功、同一 `requestId` 重送不重複建單）；`MessageBus` 通知後各視窗重讀權威狀態，重新整理與晚加入的視窗狀態一致；廚房站台以 Web Lock 宣告存活，關閉後其他站台可接手，實際接手時持有原站台的鎖才寫入（原站台仍在線時拒絕、並行接手只有一個成功）；初始化中途離開不留下站台鎖；`PeerDiscovery` 顯示在線視窗；叫號畫面可選用 Screen Wake Lock。附 demo 示範訂單與重設、真實多視窗瀏覽器測試。
+- Browser Computing Farm（#11，`#/solutions/farm`，[文件](./docs/solutions/farm.md)）：多個分頁以 `DurableTaskQueue` 分工處理本機圖片（縮放、轉 WebP／JPEG／PNG）。每個分頁選擇加入處理（1–4 條 lane），在 module Web Worker 以 OffscreenCanvas 處理，不支援時降級到主執行緒；圖片存在範例自有的 Blob store，佇列 payload 與 result 只放參考；輸出以 `taskId:leaseId` 為 key，過期租約的結果不會覆蓋新結果，孤兒輸出寬限後清除；節點中斷、所有分頁關閉後重新開啟都能繼續；建立批次先寫入批次清單再以固定冪等鍵排入任務，建立中途關閉時由其他分頁補齊同一個批次；加入處理的初始化中途離開會撤回已建立的 Worker 與佇列；損壞圖片依退避重試後標為失敗，可手動重試；匯入有張數、單檔、總容量與剩餘空間檢查，檢查與寫入在同一個 transaction，並行匯入不會突破上限；重設取得 namespace 寫入鎖（Web Locks `exclusive`），與匯入、建立與補齊批次、處理結果寫入（`shared`）互斥，等待中的動作在重設後重讀狀態，重設完成後不留下舊世代的任務、批次或 Blob；批次紀錄列出耗時、吞吐量與各節點完成數，供比較單節點與多節點。附內建測試圖片、重設與真實多分頁瀏覽器測試。
+- 瀏覽器測試的 `openTab({ newWindow: true })`：同一視窗內的背景分頁會暫停 `requestAnimationFrame`，需要同時觀察多個畫面的測試改在獨立視窗開啟。
 
 ## [3.2.0] - 2026-11-24
 

@@ -6,6 +6,7 @@ import { prefetchService } from "../lib/prefetch-service.js";
 import { notificationService } from "../lib/notification-service.js";
 import { authService } from "../lib/auth-service.js";
 import { html, unsafe } from "../lib/html.js";
+import { isKioskMode, setKioskMode } from "./kiosk.js";
 import "../components/AppFooter.js";
 import "../components/Modal.js";
 import "../components/route/switch.js";
@@ -74,6 +75,8 @@ export class App extends BaseComponent {
 
         const { isAuthenticated, user } = authService;
         const currentHash = window.location.hash || '#/';
+        // kiosk 版面（ADR 0108）：角色視窗只顯示主內容，不渲染側邊欄、漢堡按鈕與頁尾
+        const kiosk = isKioskMode(currentHash);
 
         // 定義導覽連結 (分類與階層化結構)
         const navSections = [
@@ -89,6 +92,7 @@ export class App extends BaseComponent {
                 links: [
                     { href: '#/docs', label: t('app.docs'), icon: 'book-open', module: './components/pages/Docs.js' },
                     { href: '#/lab', label: t('app.lab'), icon: 'flask-conical', module: './components/pages/Lab.js' },
+                    { href: '#/solutions', label: t('app.solutions'), icon: 'layers', module: './components/pages/Solutions.js' },
                     { href: '#/playground', label: t('app.playground'), icon: 'terminal', module: './components/pages/Playground.js' }
                 ]
             },
@@ -125,7 +129,7 @@ export class App extends BaseComponent {
         `);
 
         return html`
-            <div class="app-container">
+            <div class="app-container ${kiosk ? 'is-kiosk' : ''}">
                 <a href="#main-content" class="skip-link">
                     ${i18n.locale === 'zh-TW' ? '跳至主內容' : 'Skip to content'}
                 </a>
@@ -133,6 +137,9 @@ export class App extends BaseComponent {
                 <app-modal data-persistent="app-modal"></app-modal>
                 <app-notification data-persistent="app-notification"></app-notification>
                 
+                ${kiosk ? html`
+                    <a href="${setKioskMode(currentHash, false)}" class="kiosk-exit">${i18n.locale === 'zh-TW' ? '離開 kiosk 版面' : 'Exit kiosk layout'}</a>
+                ` : html`
                 <!-- 手機版漢堡按鈕 -->
                 <button type="button" class="hamburger-btn" aria-label="${t('app.navToggle')}" aria-expanded="${this.state.isMenuOpen}" aria-controls="app-nav" onclick="this.closest('x-app').toggleMenu()">
                     <span style="font-size: 1.2rem;">${this.state.isMenuOpen ? '✕' : '☰'}</span>
@@ -169,6 +176,7 @@ export class App extends BaseComponent {
                         </div>
                     </div>
                 </nav>
+                `}
 
                 <!-- 主內容區 -->
                 <main id="main-content" tabindex="-1">
@@ -181,13 +189,14 @@ export class App extends BaseComponent {
                         <x-route path="/analytics" auth-required module="./components/pages/Analytics.js" meta-title="app.analytics"><template><page-analytics></page-analytics></template></x-route>
                         <x-route path="/docs" module="./components/pages/Docs.js" meta-title="app.docs"><template><page-docs></page-docs></template></x-route>
                         <x-route path="/lab" module="./components/pages/Lab.js" meta-title="app.lab"><template><page-lab></page-lab></template></x-route>
+                        <x-route path="/solutions" module="./components/pages/Solutions.js" meta-title="app.solutions"><template><page-solutions></page-solutions></template></x-route>
                         <x-route path="/playground" module="./components/pages/Playground.js" meta-title="app.playground"><template><page-playground></page-playground></template></x-route>
                         <x-route path="/dashboard" exact module="./components/pages/Dashboard.js" meta-title="app.dashboard"><template><page-dashboard></page-dashboard></template></x-route>
                         <x-route path="/login" module="./components/pages/Login.js" meta-title="登入系統"><template><page-login></page-login></template></x-route>
                         <x-route path="*"><template><h1>404</h1><p>Page Not Found</p></template></x-route>
                     </x-switch>
                     
-                    <app-footer></app-footer>
+                    ${kiosk ? '' : html`<app-footer></app-footer>`}
                 </main>
             </div>
         `;

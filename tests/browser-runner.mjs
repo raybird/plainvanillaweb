@@ -106,8 +106,11 @@ async function launchChrome() {
     const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
     const page = await connect(targets.find((t) => t.type === 'page').webSocketDebuggerUrl);
 
-    const openTab = async () => {
-        const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank' });
+    // newWindow：每個分頁自成一個視窗。同一視窗內只有最前面的分頁是 visible，
+    // 背景分頁的 requestAnimationFrame 會暫停，BaseComponent 的重繪也跟著停住；
+    // 需要同時觀察多個分頁畫面的測試（例如 POS 多視窗）要開在不同視窗。
+    const openTab = async ({ newWindow = false } = {}) => {
+        const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank', newWindow });
         let tabPage = null;
         try {
             const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
@@ -1664,6 +1667,635 @@ async function runCoordinationTests(openTab, base, realtime) {
 }
 
 /** A fresh origin installs the worker before any prior fetch can warm its runtime cache. */
+/** Solutions（#9）：首頁與側欄入口、深連結、kiosk 版面切換、巢狀路由生命週期與雙語文件 */
+async function runSolutionsTests(openTab, base) {
+    const failures = [];
+    const check = (ok, message) => { if (!ok) failures.push(`Solutions：${message}`); };
+    let tab = null;
+    try {
+        tab = await openTab();
+        const { page } = tab;
+        const tracker = trackProblems(page);
+        const network = trackNetwork(page);
+        const settle = async () => {
+            await waitForNetworkIdle(network);
+            await page.evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))', 3000);
+        };
+
+        // 深連結：新分頁直接開 #/solutions
+        await page.send('Page.navigate', { url: `${base}#/solutions` });
+        check(await waitFor(page, "document.querySelector('page-solutions-index .solution-card') !== null", 15000),
+            '直接開啟 #/solutions 應顯示目錄');
+        await settle();
+        const catalog = await page.evaluate(`(() => {
+            const cards = [...document.querySelectorAll('page-solutions-index .solution-card')];
+            const open = (id) => document.querySelector('.solution-card[data-solution="' + id + '"] a.btn-primary')?.getAttribute('href') ?? null;
+            return { ids: cards.map((c) => c.dataset.solution), pos: open('pos'), farm: open('farm'), cluster: open('browser-cluster') };
+        })()`);
+        check(JSON.stringify(catalog.ids) === JSON.stringify(['pos', 'farm', 'browser-cluster']), `目錄項目不符：${catalog.ids.join(', ')}`);
+        check(catalog.cluster === '#/lab/browser-cluster', 'Browser Cluster 應連回 #/lab/browser-cluster，不在 Solutions 重做');
+        check(catalog.pos === '#/solutions/pos', `POS 應連到 #/solutions/pos，實際為 ${catalog.pos}`);
+        check(catalog.farm === '#/solutions/farm', `Farm 應連到 #/solutions/farm，實際為 ${catalog.farm}`);
+        check(await page.evaluate("document.querySelector('#app-nav a.nav-link[href=\"#/solutions\"]') !== null"), '側欄應有 Solutions 入口');
+
+        // kiosk 版面：不渲染側欄、漢堡按鈕、頁尾與 Solutions 標頭；切換時目錄頁不重建
+        await page.evaluate("document.querySelector('page-solutions-index').__marker = true");
+        await page.evaluate("location.hash = '#/solutions?kiosk=1'");
+        await waitFor(page, "document.querySelector('.kiosk-exit') !== null", 5000);
+        await settle();
+        const kiosk = await page.evaluate(`(() => ({
+            nav: !!document.querySelector('#app-nav'),
+            hamburger: !!document.querySelector('.hamburger-btn'),
+            footer: !!document.querySelector('app-footer'),
+            header: !!document.querySelector('.solutions-header'),
+            exit: document.querySelector('.kiosk-exit')?.getAttribute('href'),
+            marginLeft: getComputedStyle(document.querySelector('main#main-content')).marginLeft,
+            sameIndex: document.querySelector('page-solutions-index')?.__marker === true,
+        }))()`);
+        check(!kiosk.nav && !kiosk.hamburger && !kiosk.footer, 'kiosk 版面不應渲染側欄、漢堡按鈕與頁尾');
+        check(!kiosk.header, 'kiosk 版面不應顯示 Solutions 標頭');
+        check(kiosk.exit === '#/solutions', `離開 kiosk 連結應回到 #/solutions，實際為 ${kiosk.exit}`);
+        check(kiosk.marginLeft === '0px', `kiosk 版面主內容不應保留側欄寬度（margin-left: ${kiosk.marginLeft}）`);
+        check(kiosk.sameIndex, '切換 kiosk 版面不應重建同一路由的頁面');
+
+        await page.evaluate("document.querySelector('.kiosk-exit').click()");
+        await waitFor(page, "document.querySelector('#app-nav') !== null", 5000);
+        await settle();
+        check(await page.evaluate("location.hash === '#/solutions' && !!document.querySelector('.solutions-header') && !!document.querySelector('app-footer')"),
+            '離開 kiosk 後應恢復側欄、頁尾與標頭');
+
+        // 巢狀 404 與離開 Solutions 時移除頁面（ADR 0102）
+        await page.evaluate("location.hash = '#/solutions/not-a-solution'");
+        await waitFor(page, "document.querySelector('x-route[path=\"/solutions/*\"][active]') !== null", 5000);
+        check(await page.evaluate("document.querySelector('x-route[path=\"/solutions/*\"][active]')?.textContent.includes('找不到這個 Solution')"),
+            '未知的 /solutions/* 應顯示 Solutions 的 404');
+        await page.evaluate("location.hash = '#/'");
+        await waitFor(page, "document.querySelector('page-home') !== null", 5000);
+        await settle();
+        check(await page.evaluate("document.querySelector('page-solutions') === null"), '離開 /solutions 後應移除 <page-solutions>');
+        check(await page.evaluate("document.querySelector('page-home a[href=\"#/solutions\"]') !== null"), '首頁應有 Solutions 入口');
+
+        // 雙語文件互相連結
+        for (const [id, heading, counterpart] of [
+            ['solutions/conventions', 'Solutions Reference App 慣例', 'solutions/conventions.en'],
+            ['solutions/conventions.en', 'Solutions Reference App Conventions', 'solutions/conventions'],
+            ['solutions/reference-app-template', 'Solutions 文件範本', 'solutions/reference-app-template.en'],
+            ['solutions/reference-app-template.en', 'Solutions Doc Template', 'solutions/reference-app-template'],
+        ]) {
+            await page.evaluate(`location.hash = ${JSON.stringify(`#/docs/${id}`)}`);
+            const ok = await waitFor(page, `document.querySelector('page-docs h1')?.textContent.includes(${JSON.stringify(heading)})`, 5000);
+            check(ok, `#/docs/${id} 未顯示標題「${heading}」`);
+            if (ok) {
+                check(await page.evaluate(`document.querySelector('page-docs a[href="#/docs/${counterpart}"]') !== null`),
+                    `#/docs/${id} 應連到另一語言版本 #/docs/${counterpart}`);
+            }
+        }
+        await settle();
+        failures.push(...tracker.take().map((p) => `Solutions：${p}`));
+    } catch (err) {
+        failures.push(`Solutions：測試中斷：${err.message.split('\n')[0]}`);
+    } finally {
+        await tab?.close();
+    }
+    console.log('  Solutions 測試：入口、深連結、kiosk 版面、巢狀路由生命週期、雙語文件');
+    return failures;
+}
+
+/**
+ * Multi-Window POS（#10）：真實同源分頁走完下單 → 認領 → 完成 → 取餐；並行認領只有一個成功；
+ * 同一 requestId 重送不產生第二張單；晚加入與重新整理看到一致狀態；關閉站台後其他站台可接手；重設後各視窗一致。
+ */
+async function runPosTests(openTab, base) {
+    const failures = [];
+    const check = (ok, message) => { if (!ok) failures.push(`POS：${message}`); };
+    const ns = `e2e-pos-${Date.now().toString(36)}`;
+    const url = (path) => `${base}#/solutions/pos${path}?ns=${ns}&kiosk=1`;
+    const tabs = [];
+    const open = async (path, ready) => {
+        const tab = await openTab({ newWindow: true });
+        tab.tracker = trackProblems(tab.page);
+        tabs.push(tab);
+        await tab.page.send('Page.navigate', { url: url(path) });
+        if (!(await waitFor(tab.page, ready, 15000))) throw new Error(`${path} 未就緒`);
+        return tab;
+    };
+    const click = (tab, selector) => tab.page.evaluate(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el || el.disabled) return false;
+        el.click();
+        return true;
+    })()`);
+    const text = (tab, selector) => tab.page.evaluate(`document.querySelector(${JSON.stringify(selector)})?.textContent.trim() ?? null`);
+    const repoCall = (tab, namespace, body) => tab.page.evaluate(`(async () => {
+        const { createPosRepository } = await import('./components/pages/solutions/pos/pos-repository.js');
+        const { solutionStorageName } = await import('./components/pages/solutions/solution-kit.js');
+        const repo = createPosRepository({ dbName: solutionStorageName(${JSON.stringify(namespace)}, 'orders') });
+        try { return await (${body})(repo); } finally { repo.close(); }
+    })()`, 15000);
+    try {
+        // 入口頁：角色連結帶著 namespace 與 kiosk
+        const admin = await open('', "document.querySelector('[data-role-link=\"kitchen\"]') !== null");
+        const kitchenLink = await admin.page.evaluate("document.querySelector('[data-role-link=\"kitchen\"]').getAttribute('href')");
+        check(kitchenLink === `#/solutions/pos/kitchen?ns=${ns}&kiosk=1`, `入口頁的廚房連結不正確：${kitchenLink}`);
+
+        const order = await open('/order', "document.querySelector('.pos-menu button[data-product=\"burger\"]') !== null");
+        const kitchenA = await open('/kitchen', "document.querySelector('[data-column=\"pending\"]') !== null && !!document.querySelector('[data-station]')");
+        const kitchenB = await open('/kitchen', "document.querySelector('[data-column=\"pending\"]') !== null && !!document.querySelector('[data-station]')");
+        const display = await open('/display', "document.querySelector('[data-column=\"ready\"]') !== null");
+        const stationOf = (tab) => tab.page.evaluate("document.querySelector('[data-station]')?.dataset.station ?? null");
+        const stationA = await stationOf(kitchenA);
+        const stationB = await stationOf(kitchenB);
+        check(stationA && stationB && stationA !== stationB, `兩個廚房視窗應是不同站台：${stationA}、${stationB}`);
+
+        // 同一個 requestId 同時送出兩次：只會有一張單
+        const dup = await repoCall(order, ns, `async (repo) => {
+            const items = [{ productId: 'burger', qty: 1 }];
+            const [a, b] = await Promise.all([repo.placeOrder({ items, requestId: 'dup-1' }), repo.placeOrder({ items, requestId: 'dup-1' })]);
+            const all = await repo.listOrders();
+            return { results: [a.result, b.result].sort(), same: a.order.id === b.order.id, count: all.filter((o) => o.requestId === 'dup-1').length };
+        }`);
+        check(dup.same && dup.count === 1 && dup.results.join() === 'applied,noop', `同一 requestId 重送應只建立一張單：${JSON.stringify(dup)}`);
+
+        // 點餐視窗下單
+        await click(order, '.pos-menu button[data-product="burger"]');
+        await click(order, '.pos-menu button[data-product="burger"]');
+        await click(order, '.pos-menu button[data-product="cola"]');
+        await waitFor(order.page, "document.querySelector('.pos-cart-total')?.textContent.includes('275')", 5000);
+        check((await text(order, '.pos-cart-total'))?.includes('275'), '購物車合計應為 275');
+        check(await click(order, '[data-action="submit"]'), '送出按鈕應可點擊');
+        check(await waitFor(order.page, "document.querySelector('[data-last-order]') !== null", 5000), '送出後應顯示取餐號碼');
+        const number = await order.page.evaluate("document.querySelector('[data-last-order]')?.dataset.lastOrder");
+        check(number === '002', `第二張單的取餐號碼應為 002，實際為 ${number}`);
+
+        // 其他視窗收到通知後重讀
+        const pendingTicket = `[data-column="pending"] [data-order-number="${number}"]`;
+        for (const [label, tab] of [['廚房 A', kitchenA], ['廚房 B', kitchenB]]) {
+            check(await waitFor(tab.page, `document.querySelector(${JSON.stringify(pendingTicket)}) !== null`, 5000), `${label} 應出現新訂單 ${number}`);
+        }
+        check(await waitFor(display.page, `document.querySelector('[data-column="preparing"] [data-order-number="${number}"]') !== null`, 5000),
+            `叫號畫面的備餐中應出現 ${number}`);
+
+        // 兩個廚房同時認領：只有一個成功
+        const claimButton = `${pendingTicket} [data-action="claim"]`;
+        await Promise.all([click(kitchenA, claimButton), click(kitchenB, claimButton)]);
+        const mine = `[data-column="mine"] [data-order-number="${number}"]`;
+        const others = `[data-column="others"] [data-order-number="${number}"]`;
+        await waitFor(kitchenA.page, `!!document.querySelector(${JSON.stringify(mine)}) || !!document.querySelector(${JSON.stringify(others)})`, 5000);
+        await waitFor(kitchenB.page, `!!document.querySelector(${JSON.stringify(mine)}) || !!document.querySelector(${JSON.stringify(others)})`, 5000);
+        const aMine = await kitchenA.page.evaluate(`!!document.querySelector(${JSON.stringify(mine)})`);
+        const bMine = await kitchenB.page.evaluate(`!!document.querySelector(${JSON.stringify(mine)})`);
+        check(aMine !== bMine, `並行認領應只有一個站台成功（A：${aMine}，B：${bMine}）`);
+        const [winner, loser] = aMine ? [kitchenA, kitchenB] : [kitchenB, kitchenA];
+        const winnerStation = aMine ? stationA : stationB;
+        check(await waitFor(loser.page, "document.querySelector('.pos-notice [data-code=\"CONFLICT\"]') !== null", 3000),
+            '認領失敗的站台應顯示「已由其他站台處理」');
+        const preparingCount = await repoCall(order, ns, `async (repo) => {
+            const all = await repo.listOrders();
+            const target = all.find((o) => o.number === ${JSON.stringify(number)});
+            return target.history.filter((h) => h.status === 'preparing').length;
+        }`);
+        check(preparingCount === 1, `訂單歷程應只有一次備餐，實際 ${preparingCount} 次`);
+
+        // 跨分頁原子性：兩個分頁各自對同一批訂單同時認領，每張單只成功一次
+        const raceNs = `${ns}-race`;
+        await repoCall(kitchenA, raceNs, `async (repo) => {
+            for (let i = 0; i < 6; i++) await repo.placeOrder({ items: [{ productId: 'tea', qty: 1 }], requestId: 'race-' + i });
+        }`);
+        const raceBody = (actor) => `async (repo) => {
+            const ids = (await repo.listOrders()).map((o) => o.id);
+            const outcomes = await Promise.all(ids.map((id) => repo.transition(id, { action: 'claim', actor: ${JSON.stringify(actor)} })
+                .then((r) => r.result, (err) => err.code)));
+            return outcomes;
+        }`;
+        const [raceA, raceB] = await Promise.all([repoCall(kitchenA, raceNs, raceBody('T-A')), repoCall(kitchenB, raceNs, raceBody('T-B'))]);
+        const applied = [...raceA, ...raceB].filter((r) => r === 'applied').length;
+        const conflicts = [...raceA, ...raceB].filter((r) => r === 'CONFLICT').length;
+        check(applied === 6 && conflicts === 6, `跨分頁並行認領 6 張單應各成功一次：applied=${applied}、CONFLICT=${conflicts}`);
+        await kitchenA.page.evaluate(`new Promise((resolve) => { const r = indexedDB.deleteDatabase(${JSON.stringify(`vanilla_solution:${raceNs}:orders`)}); r.onsuccess = r.onerror = () => resolve(); })`);
+
+        // 完成備餐 → 叫號 → 取餐
+        check(await click(winner, `${mine} [data-action="ready"]`), '認領成功的站台應能按「備餐完成」');
+        const readyTicket = `[data-column="ready"] [data-order-number="${number}"]`;
+        check(await waitFor(display.page, `document.querySelector(${JSON.stringify(readyTicket)}) !== null`, 5000), `叫號畫面應把 ${number} 移到請取餐`);
+        check(await click(display, `${readyTicket} [data-action="pickup"]`), '叫號畫面應能按「已取餐」');
+        check(await waitFor(display.page, `document.querySelector(${JSON.stringify(readyTicket)}) === null`, 5000), '取餐後號碼應從請取餐移除');
+        check(await waitFor(order.page, "document.querySelector('[data-last-status=\"picked_up\"]') !== null", 5000), '點餐視窗應看到訂單已取餐');
+
+        // 晚加入：入口頁換成管理視窗，看到一致的統計（ADR 0102：入口頁卸載、管理頁新建）
+        await admin.page.evaluate(`location.hash = ${JSON.stringify(`#/solutions/pos/admin?ns=${ns}&kiosk=1`)}`);
+        check(await waitFor(admin.page, "document.querySelector('page-pos-hub') === null && document.querySelector('[data-stat=\"picked_up\"] strong')?.textContent === '1'", 8000),
+            '晚加入的管理視窗應看到 1 張已取餐');
+        check(await text(admin, '[data-stat="pending"] strong') === '1', '管理視窗應看到 1 張待處理（重送測試的訂單）');
+
+        // 重新整理：站台身分沿用，狀態從 IndexedDB 恢復
+        await loser.page.send('Page.reload');
+        await waitFor(loser.page, "document.querySelector('[data-column=\"pending\"] [data-order-number=\"001\"]') !== null", 10000);
+        const loserStationBefore = aMine ? stationB : stationA;
+        check(await stationOf(loser) === loserStationBefore, '重新整理後應沿用同一個站台');
+        check(await loser.page.evaluate("document.querySelector('[data-column=\"pending\"] [data-order-number=\"001\"]') !== null"),
+            '重新整理後應看到待處理的 001');
+
+        // 站台關閉後接手：winner 認領 001 後關閉，loser 看到站台已關閉並接手
+        const ticket001 = '[data-column="pending"] [data-order-number="001"] [data-action="claim"]';
+        await waitFor(winner.page, `document.querySelector(${JSON.stringify(ticket001)}) !== null`, 5000);
+        check(await click(winner, ticket001), '站台應能認領 001');
+        await waitFor(loser.page, "document.querySelector('[data-column=\"others\"] [data-order-number=\"001\"]') !== null", 5000);
+        const order001 = await loser.page.evaluate("document.querySelector('[data-column=\"others\"] [data-order-number=\"001\"]')?.dataset.orderId ?? null");
+        const takeoverBy = (tab) => tab.page.evaluate(`document.querySelector('page-pos-kitchen').session
+            .act(${JSON.stringify(order001)}, 'takeover', { fromStation: ${JSON.stringify(winnerStation)} })
+            .then((r) => r.result, (err) => err.code ?? err.message)`, 10000);
+        // 原站台還在線（持有站台鎖）時，就算畫面是舊的、直接送出接手，也要被拒絕（PR #14 P2-03）
+        const early = await takeoverBy(loser);
+        check(early === 'CONFLICT', `原站台在線時接手應被拒絕，實際 ${early}`);
+        check(await loser.page.evaluate("document.querySelector('[data-column=\"others\"] [data-order-number=\"001\"]') !== null"), '被拒絕的接手不應改動訂單');
+        const kitchenC = await open('/kitchen', "document.querySelector('[data-column=\"pending\"]') !== null && !!document.querySelector('[data-station]')");
+        failures.push(...winner.tracker.take().map((p) => `POS（廚房 ${winnerStation}）：${p}`));
+        await winner.close();
+        tabs.splice(tabs.indexOf(winner), 1);
+        const takeover = `[data-column="others"] [data-order-number="001"] [data-action="takeover"][data-station="${winnerStation}"]`;
+        if (!(await waitFor(loser.page, `document.querySelector(${JSON.stringify(takeover)}) !== null`, 8000))) {
+            const diag = await loser.page.evaluate(`(async () => ({
+                held: (await navigator.locks.query()).held.map((l) => l.name),
+                state: document.querySelector('[data-column="others"] [data-order-number="001"] [data-station-state]')?.dataset.stationState ?? null,
+                visibility: document.visibilityState,
+            }))()`);
+            check(false, `站台關閉後應出現「接手」：${JSON.stringify(diag)}`);
+        }
+        // 兩個廚房同時接手已關閉站台的同一張單：只有一個成功
+        const [takeL, takeC] = await Promise.all([takeoverBy(loser), takeoverBy(kitchenC)]);
+        check([takeL, takeC].sort().join() === 'CONFLICT,applied', `兩個站台並行接手應只有一個成功：${takeL}、${takeC}`);
+        const taker = takeL === 'applied' ? loser : kitchenC;
+        check(await waitFor(taker.page, "document.querySelector('[data-column=\"mine\"] [data-order-number=\"001\"]') !== null", 5000), '接手後訂單應移到本站');
+        failures.push(...kitchenC.tracker.take().map((p) => `POS（廚房 C）：${p}`));
+        await kitchenC.close();
+        tabs.splice(tabs.indexOf(kitchenC), 1);
+
+        // 初始化中途離開（PR #14 P2-04）：站台鎖晚到也立即釋放，不建立 PeerDiscovery
+        const lifeNs = `${ns}-life`;
+        const life = await loser.page.evaluate(`(async () => {
+            const { PosSession } = await import('./components/pages/solutions/pos/pos-session.js');
+            const original = navigator.locks.request;
+            navigator.locks.request = function (...args) {
+                return new Promise((resolve) => setTimeout(resolve, 300)).then(() => original.apply(navigator.locks, args));
+            };
+            try {
+                const session = new PosSession({ role: 'kitchen', hash: '#/solutions/pos/kitchen?ns=${lifeNs}', onChange() {} });
+                const starting = session.start();
+                await new Promise((resolve) => setTimeout(resolve, 50));
+                await session.dispose();
+                await starting;
+                await new Promise((resolve) => setTimeout(resolve, 200));
+                const held = (await navigator.locks.query()).held.map((lock) => lock.name).filter((name) => name.includes('${lifeNs}'));
+                return { held, peers: session._peers ?? null, busClosed: session._bus.closed };
+            } finally {
+                navigator.locks.request = original;
+                sessionStorage.removeItem('vanilla_solution:${lifeNs}:station');
+                await new Promise((resolve) => { const r = indexedDB.deleteDatabase('vanilla_solution:${lifeNs}:orders'); r.onsuccess = r.onerror = r.onblocked = () => resolve(); });
+            }
+        })()`, 10000);
+        check(life.held.length === 0 && life.peers === null && life.busClosed, `初始化中途離開不應留下站台鎖或 PeerDiscovery：${JSON.stringify(life)}`);
+
+        // 重設：其他視窗的連線自動讓出，各視窗都回到空的訂單與完整菜單
+        check(await click(admin, '[data-action="reset"]'), '管理視窗應能重設');
+        check(await waitFor(admin.page, "document.querySelector('.pos-notice')?.textContent.includes('已重設')", 8000),
+            `重設應成功：${await text(admin, '.pos-notice')}`);
+        check(await waitFor(loser.page, "document.querySelectorAll('[data-order-number]').length === 0", 8000), '重設後廚房應沒有訂單');
+        check(await waitFor(display.page, "document.querySelectorAll('[data-order-number]').length === 0", 8000), '重設後叫號畫面應沒有訂單');
+        check(await waitFor(admin.page, "document.querySelector('[data-stat=\"picked_up\"] strong')?.textContent === '0'", 8000), '重設後統計應歸零');
+        check(await order.page.evaluate("document.querySelectorAll('.pos-menu button').length") === 8, '重設後菜單應自動重新載入');
+
+        for (const tab of tabs) failures.push(...tab.tracker.take().map((p) => `POS：${p}`));
+    } catch (err) {
+        failures.push(`POS：測試中斷：${err.message.split('\n')[0]}`);
+    } finally {
+        for (const tab of tabs) await tab.close();
+    }
+    console.log('  POS 多分頁測試：下單、並行認領、冪等重送、晚加入、重新整理、站台接手（在線拒絕、並行只成功一次）、初始化中途離開、重設');
+    return failures;
+}
+
+/**
+ * Browser Computing Farm（#11）：多個真實分頁處理圖片；輸出符合設定；損壞圖片重試到上限後失敗；
+ * 處理中途關閉節點、所有分頁都關閉後重新開啟可恢復；沒有孤兒輸出；重設後清空。
+ */
+async function runFarmTests(openTab, base) {
+    const failures = [];
+    const check = (ok, message) => { if (!ok) failures.push(`Farm：${message}`); };
+    const ns = `e2e-farm-${Date.now().toString(36)}`;
+    const tabs = [];
+    const open = async () => {
+        const tab = await openTab({ newWindow: true });
+        tab.tracker = trackProblems(tab.page);
+        tabs.push(tab);
+        await tab.page.send('Page.navigate', { url: `${base}#/solutions/farm?ns=${ns}` });
+        if (!(await waitFor(tab.page, "document.querySelector('[data-action=\"samples\"]') !== null", 15000))) throw new Error('Farm 頁面未就緒');
+        return tab;
+    };
+    const close = async (tab) => {
+        failures.push(...tab.tracker.take().map((p) => `Farm：${p}`));
+        await tab.close();
+        tabs.splice(tabs.indexOf(tab), 1);
+    };
+    const click = (tab, selector) => tab.page.evaluate(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el || el.disabled) return false;
+        el.click();
+        return true;
+    })()`);
+    const join = async (tab) => {
+        check(await click(tab, '[data-action="join"]'), '應能加入處理');
+        check(await waitFor(tab.page, "document.querySelector('[data-joined=\"true\"]') !== null", 8000), '加入後應顯示處理中');
+    };
+    const runState = (tab) => tab.page.evaluate(`(() => {
+        const rows = [...document.querySelectorAll('[data-task-id]')];
+        return {
+            run: document.querySelector('[data-run]')?.dataset.run ?? null,
+            finished: document.querySelector('[data-run-finished]')?.dataset.runFinished === 'true',
+            statuses: rows.map((r) => r.dataset.status),
+            attempts: rows.map((r) => Number(r.dataset.attempts)),
+        };
+    })()`);
+    // 直接讀佇列與 Blob store，核對輸出是否符合設定、是否有孤兒
+    const inspect = (tab, namespace = ns) => tab.page.evaluate(`(async () => {
+        const { createDurableTaskQueue } = await import('./lib/coordination.js');
+        const { FarmStore } = await import('./components/pages/solutions/farm/farm-store.js');
+        const queue = createDurableTaskQueue({ namespace: ${JSON.stringify(namespace)} });
+        const store = new FarmStore(${JSON.stringify(`vanilla_solution:${namespace}:blobs`)});
+        try {
+            const tasks = await queue.listTasks({ type: 'image.process' });
+            const outputs = await store.listOutputMeta();
+            const referenced = new Set(tasks.filter((t) => t.status === 'completed').map((t) => t.result.outputKey));
+            return {
+                completed: tasks.filter((t) => t.status === 'completed').length,
+                failed: tasks.filter((t) => t.status === 'failed').length,
+                total: tasks.length,
+                nodes: [...new Set(tasks.filter((t) => t.status === 'completed').map((t) => t.result.nodeId))].length,
+                outputs: outputs.length,
+                unreferenced: outputs.filter((o) => !referenced.has(o.key)).length,
+                missing: [...referenced].filter((key) => !outputs.some((o) => o.key === key)).length,
+                badSize: outputs.filter((o) => o.width !== 320 || o.height !== 240).length,
+                types: [...new Set(outputs.map((o) => o.type))],
+                inputs: (await store.listInputMeta()).length,
+                runs: (await store.listRuns()).length,
+            };
+        } finally {
+            store.close();
+            await queue.dispose();
+        }
+    })()`, 15000);
+    try {
+        // 兩個節點先加入，再匯入 8 張測試圖片與 1 張損壞圖片、以 320px WebP 建立批次
+        const a = await open();
+        const b = await open();
+        await join(a);
+        await join(b);
+        await a.page.evaluate(`(() => {
+            const broken = document.querySelector('#farm-broken');
+            broken.checked = true;
+            broken.dispatchEvent(new Event('change', { bubbles: true }));
+            const width = document.querySelector('#farm-max-width');
+            width.value = '320';
+            width.dispatchEvent(new Event('change', { bubbles: true }));
+        })()`);
+        check(await click(a, '[data-action="samples"]'), '應能產生測試圖片');
+        check(await waitFor(a.page, "document.querySelector('.farm-notice')?.textContent.includes('已匯入 9 張')", 15000), '應匯入 8 張測試圖片與 1 張損壞圖片');
+        await waitFor(a.page, "document.querySelector('[data-action=\"run\"]')?.disabled === false", 5000);
+        check(await click(a, '[data-action="run"]'), '應能建立批次');
+        check(await waitFor(a.page, "document.querySelector('[data-run-finished=\"true\"]') !== null", 45000), '第一個批次應在時限內處理完');
+        const first = await runState(a);
+        check(first.statuses.filter((s) => s === 'completed').length === 8, `應完成 8 張：${first.statuses.join(',')}`);
+        const brokenIndex = first.statuses.indexOf('failed');
+        check(brokenIndex !== -1 && first.attempts[brokenIndex] === 3, `損壞圖片應重試到 3 次後失敗：${JSON.stringify(first)}`);
+        check(await b.page.evaluate("document.querySelector('[data-run-finished=\"true\"]') !== null"), '另一個分頁應看到同樣的批次完成');
+        check(await waitFor(a.page, "document.querySelectorAll('.farm-gallery img').length === 8", 8000), '應顯示 8 張結果縮圖');
+        check(await a.page.evaluate("[...document.querySelectorAll('.farm-gallery a[download]')].every((link) => link.href.startsWith('blob:') && link.download.endsWith('-320w.webp'))"),
+            '每張結果應可個別下載，檔名帶寬度與 webp 副檔名');
+        const afterFirst = await inspect(a);
+        check(afterFirst.nodes === 2, `兩個分頁都應處理到圖片（實際 ${afterFirst.nodes} 個節點）`);
+        check(afterFirst.badSize === 0 && afterFirst.types.join() === 'image/webp', `輸出應為 320×240 WebP：${JSON.stringify(afterFirst)}`);
+        check(afterFirst.unreferenced === 0 && afterFirst.missing === 0 && afterFirst.outputs === 8, `輸出與任務結果應一一對應：${JSON.stringify(afterFirst)}`);
+
+        // 中斷與全部關閉：A 停止處理並建立第二批，B 處理到一半時關閉，A 也關閉
+        check(await click(a, '[data-action="leave"]'), '應能停止處理');
+        await waitFor(a.page, "document.querySelector('[data-joined=\"false\"]') !== null", 5000);
+        const firstRun = first.run;
+        check(await click(a, '[data-action="run"]'), '應能建立第二個批次');
+        await waitFor(a.page, `document.querySelector('[data-run]') && document.querySelector('[data-run]').dataset.run !== ${JSON.stringify(firstRun)}`, 5000);
+        check(await waitFor(b.page, `[...document.querySelectorAll('[data-task-id]')].some((r) => r.dataset.status === 'completed') && document.querySelector('[data-run]')?.dataset.run !== ${JSON.stringify(firstRun)}`, 15000),
+            '第二個批次應開始由 B 處理');
+        await close(b);
+        await close(a);
+
+        const c = await open();
+        const resumed = await runState(c);
+        check(!resumed.finished, `所有分頁關閉後重新開啟，第二個批次應仍未完成：${JSON.stringify(resumed)}`);
+        await join(c);
+        check(await waitFor(c.page, "document.querySelector('[data-run-finished=\"true\"]') !== null", 60000), '重新加入後第二個批次應處理完');
+        const second = await runState(c);
+        check(second.statuses.filter((s) => s === 'completed').length === 8 && second.statuses.filter((s) => s === 'failed').length === 1,
+            `恢復後應完成 8 張、失敗 1 張：${second.statuses.join(',')}`);
+        check(await c.page.evaluate("document.querySelectorAll('[data-history-run]').length") === 2, '批次紀錄應有兩筆可比較');
+        const afterSecond = await inspect(c);
+        check(afterSecond.completed === 16 && afterSecond.outputs === 16 && afterSecond.unreferenced === 0 && afterSecond.badSize === 0,
+            `恢復後輸出應符合設定且沒有孤兒：${JSON.stringify(afterSecond)}`);
+
+        // 重設
+        check(await click(c, '[data-action="leave"]'), '重設前停止處理');
+        check(await click(c, '[data-action="reset"]'), '應能重設');
+        check(await waitFor(c.page, "document.querySelector('.farm-notice')?.textContent.includes('已清除')", 10000), '重設應成功');
+        const cleared = await inspect(c);
+        check(cleared.total === 0 && cleared.outputs === 0 && cleared.inputs === 0, `重設後應清空任務、輸入與輸出：${JSON.stringify(cleared)}`);
+        check(await c.page.evaluate("document.querySelector('[data-run]') === null"), '重設後不應顯示批次');
+
+        // 生命週期（PR #14 P2-01）：加入處理的初始化中途釋放，不留下 Worker、佇列與 lane
+        const lifeNs = `${ns}-life`;
+        const life = await c.page.evaluate(`(async () => {
+            const { FarmSession } = await import('./components/pages/solutions/farm/farm-session.js');
+            const { createDurableTaskQueue } = await import('./lib/coordination.js');
+            const OrigWorker = window.Worker;
+            const made = [];
+            window.Worker = class extends OrigWorker {
+                constructor(...args) { super(...args); made.push(this); this.__terminated = false; }
+                terminate() { this.__terminated = true; super.terminate(); }
+            };
+            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+            const rounds = [];
+            try {
+                for (const delay of [0, 30, 150]) {
+                    const session = new FarmSession({ hash: '#/solutions/farm?ns=${lifeNs}', onChange() {} });
+                    await session.start();
+                    const joining = session.join(2);
+                    await sleep(delay);
+                    await session.dispose();
+                    await joining.catch(() => {});
+                    rounds.push({ lanes: session._lanes.length, busClosed: session._bus.closed });
+                }
+                // 沒有遺留的佇列：排入一個任務，等一段時間後仍沒有人認領
+                const queue = createDurableTaskQueue({ namespace: '${lifeNs}' });
+                await queue.enqueue({ type: 'image.process', handlerVersion: 1, payload: { runId: 'r', inputId: 'i', name: 'n', params: { maxWidth: 64, format: 'image/png', quality: 1 } } });
+                await sleep(1500);
+                const statuses = (await queue.listTasks()).map((t) => t.status);
+                await queue.clearNamespace();
+                await queue.dispose();
+                return { rounds, workers: made.length, alive: made.filter((w) => !w.__terminated).length, statuses };
+            } finally {
+                window.Worker = OrigWorker;
+            }
+        })()`, 30000);
+        check(life.rounds.every((r) => r.lanes === 0 && r.busClosed) && life.alive === 0 && life.statuses.join() === 'pending',
+            `初始化中途釋放後不應留下 lane、Worker 或佇列：${JSON.stringify(life)}`);
+
+        // 批次建立中斷（PR #14 P2-02）：清單已寫入、只排入一半任務時建立者關閉，其他分頁補齊同一個批次
+        const recNs = `${ns}-recover`;
+        const openNs = async (namespace) => {
+            const tab = await openTab({ newWindow: true });
+            tab.tracker = trackProblems(tab.page);
+            tabs.push(tab);
+            await tab.page.send('Page.navigate', { url: `${base}#/solutions/farm?ns=${namespace}` });
+            if (!(await waitFor(tab.page, "document.querySelector('page-solution-farm')?.session?.snapshot != null", 15000))) throw new Error('Farm 頁面未就緒');
+            return tab;
+        };
+        const fakeFiles = (prefix, count) => `Array.from({ length: ${count} }, (_, i) => new File([new Uint8Array(16)], '${prefix}-' + i + '.png', { type: 'image/png' }))`;
+        const creator = await openNs(recNs);
+        const seeded = await creator.page.evaluate(`(async () => {
+            const session = document.querySelector('page-solution-farm').session;
+            const { RUN_STATUS, runTaskKey, normalizeParams } = await import('./components/pages/solutions/farm/farm-model.js');
+            await session.addFiles(${fakeFiles('rec', 4)});
+            const inputs = await session.store.listInputMeta();
+            const run = { id: 'interrupted-run', createdAt: Date.now(), status: RUN_STATUS.CREATING, params: normalizeParams({}),
+                inputs: inputs.map(({ id, name }) => ({ id, name })), taskIds: [], nodesAtStart: 0 };
+            // 建立者持有批次鎖直到分頁關閉
+            await new Promise((held) => navigator.locks.request('vanilla_solution:${recNs}:run:interrupted-run', () => { held(); return new Promise(() => {}); }));
+            await session.store.putRun(run);
+            const early = [];
+            for (const input of inputs.slice(0, 2)) {
+                const { task } = await session._control.enqueue({ type: 'image.process', handlerVersion: 1,
+                    payload: { runId: run.id, inputId: input.id, name: input.name, params: run.params },
+                    idempotencyKey: runTaskKey(run.id, input.id), maxAttempts: 3 });
+                early.push(task.id);
+            }
+            return { early };
+        })()`, 15000);
+        const r2 = await openNs(recNs);
+        const r3 = await openNs(recNs);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        check(await r2.page.evaluate("document.querySelector('[data-run-status=\"creating\"]') !== null"), '建立者還持有批次鎖時，其他分頁不應搶先補齊');
+        failures.push(...creator.tracker.take().map((p) => `Farm：${p}`));
+        await creator.close();
+        tabs.splice(tabs.indexOf(creator), 1);
+        check(await waitFor(r2.page, "document.querySelector('[data-run=\"interrupted-run\"][data-run-finished]') !== null", 12000), '建立者關閉後，其他分頁應補齊中斷的批次');
+        const recovered = await r2.page.evaluate(`(async () => {
+            const session = document.querySelector('page-solution-farm').session;
+            const run = (await session.store.listRuns()).find((r) => r.id === 'interrupted-run');
+            const tasks = (await session._control.listTasks({ type: 'image.process' })).filter((t) => t.payload.runId === 'interrupted-run');
+            return { status: run?.status, taskIds: run?.taskIds ?? [], tasks: tasks.length, runs: (await session.store.listRuns()).length };
+        })()`);
+        check(recovered.status === 'ready' && recovered.taskIds.length === 4 && recovered.tasks === 4 && recovered.runs === 1
+            && seeded.early.every((id) => recovered.taskIds.includes(id)),
+            `中斷的批次應補齊為同一批 4 個任務、沒有重複任務或多餘批次：${JSON.stringify({ seeded, recovered })}`);
+
+        // 並行匯入（PR #14 P3-01）：兩個分頁同時各匯入 30 張，總數不超過 40 張上限
+        const imports = await Promise.all([r2, r3].map((tab) => tab.page.evaluate(
+            `document.querySelector('page-solution-farm').session.addFiles(${fakeFiles('cap', 30)}).then((r) => r.accepted)`, 15000)));
+        const stored = await r2.page.evaluate("document.querySelector('page-solution-farm').session.store.listInputMeta().then((list) => list.length)");
+        check(stored === 40 && imports[0] + imports[1] === 36, `並行匯入應共收 36 張、總數 40 張：${JSON.stringify({ imports, stored })}`);
+        await r2.page.evaluate("document.querySelector('page-solution-farm').session.reset()", 15000);
+
+        // 重設與建立、補齊、處理中的任務交錯（PR #14 P2-05）：重設完成後不留下舊世代的任務、批次或 Blob
+        const resetNs = `${ns}-reset`;
+        const worker = await openNs(resetNs);
+        const resetter = await openNs(resetNs);
+        const session = "document.querySelector('page-solution-farm').session";
+        // 1. worker 處理中（處理器延遲 1.5 秒）時 resetter 開始重設；清除佇列後、刪除資料庫前停 800ms，
+        //    這段期間 worker 用重設前的輸入建立批次，並出現一個待補齊的 creating 批次
+        await worker.page.evaluate(`(async () => {
+            const session = ${session};
+            await session.addSamples(2);
+            await session.join(1);
+            const processor = session._lanes[0].processor;
+            const process = processor.process.bind(processor);
+            processor.process = async (...args) => {
+                window.__processing = true;
+                await new Promise((r) => setTimeout(r, 1500));
+                return process(...args);
+            };
+            await session.createRun({ maxWidth: 64 });
+        })()`, 15000);
+        check(await waitFor(worker.page, 'window.__processing === true', 10000), '重設競爭：任務應開始處理');
+        await resetter.page.evaluate(`(() => {
+            const session = ${session};
+            const clear = session._control.clearNamespace.bind(session._control);
+            session._control.clearNamespace = async () => {
+                await clear();
+                window.__cleared = true;
+                await new Promise((r) => setTimeout(r, 800));
+            };
+            window.__reset = session.reset().then(() => 'ok', (err) => err.message);
+        })()`);
+        check(await waitFor(resetter.page, 'window.__cleared === true', 10000), '重設競爭：應清除佇列');
+        await worker.page.evaluate(`(async () => {
+            const session = ${session};
+            const { RUN_STATUS, normalizeParams } = await import('./components/pages/solutions/farm/farm-model.js');
+            window.__late = session.createRun({}).then((id) => ({ id }), (err) => ({ code: err.code ?? err.message }));
+            const inputs = await session.store.listInputMeta();
+            await session.store.putRun({ id: 'stale-run', createdAt: Date.now(), status: RUN_STATUS.CREATING, params: normalizeParams({}),
+                inputs: inputs.map(({ id, name }) => ({ id, name })), taskIds: [], nodesAtStart: 0 });
+            await session.refresh();
+        })()`, 15000);
+        const resetResult = await resetter.page.evaluate('window.__reset', 15000);
+        const late = await worker.page.evaluate('window.__late', 15000);
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+        const afterRace = await inspect(resetter, resetNs);
+        check(resetResult === 'ok' && late.code === 'INVALID_INPUT', `重設期間建立的批次應在重設後重讀輸入而失敗：${JSON.stringify({ resetResult, late })}`);
+        check(afterRace.total === 0 && afterRace.outputs === 0 && afterRace.inputs === 0 && afterRace.runs === 0,
+            `重設與建立、補齊、處理交錯後不應留下任務、批次或 Blob：${JSON.stringify(afterRace)}`);
+
+        // 2. worker 排入任務排到一半（每個延遲 250ms）時要求重設：重設等批次建立完才清除
+        await worker.page.evaluate(`(async () => {
+            const session = ${session};
+            await session.leave();
+            await session.addFiles(${fakeFiles('race', 4)});
+            const enqueue = session._control.enqueue.bind(session._control);
+            window.__enqueued = 0;
+            session._control.enqueue = async (...args) => {
+                window.__enqueued++;
+                await new Promise((r) => setTimeout(r, 250));
+                return enqueue(...args);
+            };
+            window.__fill = session.createRun({}).then((id) => ({ id }), (err) => ({ code: err.code ?? err.message }));
+        })()`, 15000);
+        check(await waitFor(worker.page, 'window.__enqueued >= 1', 5000), '重設競爭：應開始排入任務');
+        await resetter.page.evaluate(`${session}.reset()`, 20000);
+        const fill = await worker.page.evaluate('window.__fill', 15000);
+        const afterFill = await inspect(resetter, resetNs);
+        check(typeof fill.id === 'string', `重設前已開始的批次應完整建立：${JSON.stringify(fill)}`);
+        check(afterFill.total === 0 && afterFill.inputs === 0 && afterFill.runs === 0,
+            `重設應等批次建立完成後一併清除：${JSON.stringify(afterFill)}`);
+
+        // 3. 重設後仍能建立並處理新的批次
+        await worker.page.evaluate(`(async () => {
+            const session = ${session};
+            delete session._control.enqueue;
+            await session.addSamples(2);
+            await session.join(1);
+            await session.createRun({ maxWidth: 320 });
+        })()`, 15000);
+        check(await waitFor(worker.page, `${session}.snapshot?.tasks?.length === 2 && ${session}.snapshot.tasks.every((t) => t.status === 'completed')`, 20000),
+            '重設後應能建立並處理新的批次');
+        const fresh = await inspect(resetter, resetNs);
+        check(fresh.completed === 2 && fresh.outputs === 2 && fresh.unreferenced === 0 && fresh.runs === 1, `重設後的新批次應正常完成：${JSON.stringify(fresh)}`);
+        await worker.page.evaluate(`${session}.reset()`, 15000);
+
+        for (const tab of tabs) failures.push(...tab.tracker.take().map((p) => `Farm：${p}`));
+    } catch (err) {
+        failures.push(`Farm：測試中斷：${err.message.split('\n')[0]}`);
+    } finally {
+        for (const tab of [...tabs]) await tab.close();
+    }
+    console.log('  Farm 多分頁測試：多節點處理、輸出設定、失敗重試、中斷與全部關閉後恢復、孤兒輸出、重設、初始化中途釋放、批次建立中斷恢復、並行匯入上限、重設與建立／補齊／處理交錯');
+    return failures;
+}
+
 async function checkOfflineShell(page, base, server) {
     await page.send('Network.setBypassServiceWorker', { bypass: false });
     try {
@@ -1671,12 +2303,22 @@ async function checkOfflineShell(page, base, server) {
         if (!await waitFor(page, '!!navigator.serviceWorker.controller && !!document.querySelector("page-home")')) {
             return 'Service Worker 未接管首頁';
         }
+        // 先在線上開一次 Solutions，讓延遲載入的模組進入執行期快取
+        await page.evaluate("location.hash = '#/solutions'");
+        if (!await waitFor(page, '!!document.querySelector("page-solutions-index .solution-card")')) {
+            return '線上開啟 #/solutions 失敗';
+        }
+        await sleep(300);
+        await page.evaluate("location.hash = '#/'");
         await page.send('Network.clearBrowserCache');
         server.testOffline = true;
         await page.evaluate('window.__offlineBeforeReload = true');
         await page.send('Page.reload');
         const loaded = await waitFor(page, '!window.__offlineBeforeReload && !!navigator.serviceWorker.controller && !!document.querySelector("page-home")');
-        return loaded ? null : '原始伺服器離線後，首頁未能從快取重啟';
+        if (!loaded) return '原始伺服器離線後，首頁未能從快取重啟';
+        await page.evaluate("location.hash = '#/solutions'");
+        const solutions = await waitFor(page, '!!document.querySelector("page-solutions-index .solution-card")');
+        return solutions ? null : '離線時無法開啟已造訪過的 #/solutions';
     } finally {
         server.testOffline = false;
         await page.send('Network.setBypassServiceWorker', { bypass: true });
@@ -1725,13 +2367,16 @@ async function main() {
                 ...(await runSmokeTests(page, base, tracker, network)),
                 ...(await runInteractionTests(page, base, tracker, network)),
                 ...(await runCoordinationTests(openTab, base, realtime)),
+                ...(await runSolutionsTests(openTab, base)),
+                ...(await runPosTests(openTab, base)),
+                ...(await runFarmTests(openTab, base)),
             ];
             const offlineServer = await startServer(prefix);
             try {
                 const offlineBase = `http://127.0.0.1:${offlineServer.address().port}${prefix}`;
                 const offlineFailure = await checkOfflineShell(page, offlineBase, offlineServer);
                 if (offlineFailure) failures.push(`離線：${offlineFailure}`);
-                else console.log('  離線冷重載：首頁完成渲染');
+                else console.log('  離線冷重載：首頁與已造訪的 Solutions 完成渲染');
             } finally {
                 offlineServer.close();
             }

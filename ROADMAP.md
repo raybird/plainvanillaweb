@@ -63,9 +63,17 @@
 - [x] **Phase 4 — IndexedDB Durable Task Queue & Browser Coordination Lab (#6)**：建立 [ADR 0106](./docs/decisions/0106-durable-task-queue-and-cluster-lab.md)、具 IndexedDB 單 transaction 原子認領／`leaseId` 防護／Web Locks 孤兒快收／版本化處理器／指數退避重試上限的 `DurableTaskQueue`（`lib/task-queue.js`），以及真實多分頁整合實驗室 [Browser Cluster Lab](#/lab/browser-cluster)。
 - [x] **Phase 5 — Optional Extensions (#7)**：完成 [ADR 0107](./docs/decisions/0107-sharedworker-and-cross-device-transport-evaluation.md)、[Phase 5 延伸評估報告](./docs/coordination-phase5-evaluation.md) 與 `tests/phase5-poc.test.js` 可重現 PoC；結論為 `SharedWorker` 及直接改造 `lib/webrtc-service.js` 採 **No-Go**，跨裝置 Transport Adapter（Backend WebSocket Relay 優先）採 **Conditional Go**（未來另開 issue，不納入預設核心或預先承諾實作）。
 
+## 🧱 Native Web Solutions（Epic #8）
+
+**重心：在協作 SDK 之上建立可重複使用的 reference app。Labs 解釋 API，Solutions 展示組合架構與真實工作流程。三個子 issue 合併為 v3.3.0 發布。**
+
+- [x] **Solutions 導覽與共通規範 (#9)**：建立 [ADR 0108](./docs/decisions/0108-solutions-reference-app-conventions.md)、`#/solutions` 目錄（Browser Cluster 連回 Lab，不重做）、`?kiosk=1` 全視窗版面、`solution-kit.js` 慣例工具（namespace、儲存命名、角色視窗、能力偵測、teardown、reset），以及中英雙語的 [Reference App 慣例](./docs/solutions/conventions.md) 與 [文件範本](./docs/solutions/reference-app-template.md)。
+- [x] **Multi-Window POS (#10)**：點餐、廚房、叫號、管理四個視窗的 local-first 訂單流程；IndexedDB 單一 transaction 狀態轉移、並行認領與重送冪等、Web Lock 站台存活與接手（[文件](./docs/solutions/pos.md)）。
+- [x] **Browser Computing Farm (#11)**：多分頁以 DurableTaskQueue 分工的本機圖片批次處理；Web Worker + OffscreenCanvas、Blob 存獨立 store 只把參考放進佇列、`taskId:leaseId` 輸出 key 與孤兒清理、中斷與全部關閉後恢復、批次實測比較（[文件](./docs/solutions/farm.md)）。
+
 ---
 
-_最後更新：2026-11-24_
+_最後更新：2026-11-25_
 
 ## 🎉 專案里程碑達成 (2026/02/19)
 

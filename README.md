@@ -42,7 +42,7 @@ Copy `lib/` and `components/route/` (keeping the relative paths), or import a pi
 
 ```javascript
 import { BaseComponent, html, router, registerRoute } from './lib/core.js';
-// or a pinned release: import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/core.js';
+// or a pinned release: import { ... } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.3.0/lib/core.js';
 
 class HelloCard extends BaseComponent {
     constructor() { super(); this.initReactiveState({ count: 0 }); }
@@ -88,6 +88,7 @@ Open `http://localhost:8000/`. The sidebar is organized into:
 
 - **📚 Docs** — the `docs/*.md` files, fetched and rendered at runtime.
 - **🧪 Lab** — 39 self-contained labs of cutting-edge native APIs, most with a matching doc.
+- **🧱 Solutions** — reference applications that combine several native APIs into complete workflows ([Multi-Window POS](./docs/solutions/pos.en.md), [Browser Computing Farm](./docs/solutions/farm.en.md)). Every app has its own route, namespace and storage, can be reset on its own, and supports a full-window kiosk layout with `?kiosk=1` ([conventions](./docs/solutions/conventions.en.md), [ADR 0108](./docs/decisions/0108-solutions-reference-app-conventions.md)).
 - **🎡 Playground** — a WYSIWYG code playground powered by `Blob` and object URLs.
 - **📊 Dashboard / 📈 Analytics** — live IndexedDB, network and Store inspection; Web Vitals (LCP, CLS) on a native Canvas chart.
 - **⚡ Worker Demo / 🔍 Repo Search** — off-main-thread compute; a GitHub REST search UI with a virtual list.
@@ -107,7 +108,7 @@ Open `http://localhost:8000/`. The sidebar is organized into:
 The SDK re-exports the core plus 40+ showcase services (crypto, IndexedDB, WebRTC, WebGPU, notifications…), the reactive form engine and `CanvasChart`. See the [SDK guide](./docs/sdk-usage.md).
 
 ```javascript
-import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.2.0/lib/vanilla-sdk.js';
+import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.3.0/lib/vanilla-sdk.js';
 ```
 
 ### App-level features built on the core
@@ -139,9 +140,10 @@ import { BaseComponent, html, cryptoService, FormGroup } from 'https://cdn.jsdel
 ├── components/
 │   ├── route/            # ① <x-switch>, <x-route>
 │   ├── pages/            # ② route pages (Home, Docs, Dashboard, Login…)
-│   │   └── lab/          # ② 39 Web API labs
+│   │   ├── lab/          # ② 39 Web API labs
+│   │   └── solutions/    # ② reference applications (Solutions)
 │   └── ui/               # ② reusable UI (Card, NativeChart…)
-├── app/App.js            # ② site shell: sidebar and all routes
+├── app/App.js            # ② site shell: sidebar and all routes (kiosk layout in app/kiosk.js)
 ├── docs/                 # runtime-loaded docs (Markdown)
 │   └── decisions/        # 90+ Architecture Decision Records
 ├── workers/              # ② Web Worker scripts

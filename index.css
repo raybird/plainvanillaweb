@@ -513,6 +513,40 @@ main#main-content>* {
   max-width: 1200px !important;
 }
 
+/* ── Kiosk 版面（ADR 0108）：角色視窗只留主內容 ── */
+.app-container.is-kiosk main#main-content {
+  margin-left: 0;
+  width: 100%;
+  max-width: 100%;
+  padding: 1rem 1.25rem;
+}
+
+.app-container.is-kiosk main#main-content>* {
+  max-width: none;
+}
+
+.kiosk-exit {
+  /* 右下角：右上角常是角色畫面標頭的操作區，固定連結會蓋住它 */
+  position: fixed;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  z-index: 1000;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--surface-color);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-decoration: none;
+  opacity: 0.75;
+}
+
+.kiosk-exit:hover,
+.kiosk-exit:focus-visible {
+  opacity: 1;
+  color: var(--text-color);
+}
+
 /* ── 漢堡按鈕 ── */
 .hamburger-btn {
   display: none;

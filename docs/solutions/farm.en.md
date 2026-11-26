@@ -1,6 +1,6 @@
 # Browser Computing Farm
 
-> **Updated**: 2026-11-25  
+> **Updated**: 2026-11-26  
 > **中文**：[Browser Computing Farm](./farm.md)  
 > **Entry**: [#/solutions/farm](#/solutions/farm) · **Issue**: #11 · **Conventions**: [Reference App Conventions](./conventions.en.md)
 
@@ -56,7 +56,11 @@ Import limits: at most 40 images, 15 MB per file and 150 MB in total. Where the 
 
 **Why the output key includes `leaseId`**: node A is frozen halfway through a task (say its tab went to the background), its lease expires, and node B reclaims and finishes the task. When A wakes up and writes its output, its `completeAtomic` is refused because the lease is no longer valid. The two outputs have different keys, so A cannot overwrite B's result, and the task's result references only B's. A's output is an **orphan**: no completed task references it and it does not belong to a running lease. After a 30-second grace period the next reread deletes it (`findOrphanOutputs()`).
 
-**Interrupted creation**: if the creator closes halfway, the batch stays `creating`. Any tab that rereads and sees a `creating` batch tries its lock with `ifAvailable`: getting it means the creator is gone, so the tab completes the batch from the manifest with the same idempotency keys (already enqueued tasks come back as the same task, never duplicated) and marks it `ready`; not getting it means the creator is still there, and the tab checks again 2 seconds later. If the batch was deleted by a reset in the meantime, `updateRun()` does not write it back and the tasks enqueued by that attempt are cancelled. Without Web Locks, a `creating` batch is completed after 15 seconds.
+**Interrupted creation**: if the creator closes halfway, the batch stays `creating`. Any tab that rereads and sees a `creating` batch tries its lock with `ifAvailable`: getting it means the creator is gone, so the tab completes the batch from the manifest with the same idempotency keys (already enqueued tasks come back as the same task, never duplicated) and marks it `ready`; not getting it means the creator is still there, and the tab checks again 2 seconds later. Without Web Locks, a `creating` batch is completed after 15 seconds.
+
+**Reset versus writes**: a reset clears two databases (the queue's namespace and the Blob store), which cannot share one transaction. So each namespace has a write lock, `vanilla_solution:<ns>:mutation`. Importing, creating a batch, completing a batch, retrying failed tasks and the handler writing its output take it `shared` (they can run together); a reset takes it `exclusive`. While a reset runs, these actions in other tabs wait for it, then reread inputs and batches after getting the lock instead of reusing what they read before the reset: "Create batch" pressed during a reset fails because there are no inputs, and a `creating` batch that was deleted is not completed. A handler that meets a reset while processing checks that its task still exists before writing the output and gives up if it does not, so no output of the old generation lands in the new database; a reset between that write and `completeAtomic` deletes the output with the database, and `completeAtomic` finds no task. Locks are always taken write lock first, then batch lock; a reset takes only the write lock, and code holding the write lock never requests it again, so there is no deadlock.
+
+Without Web Locks the write lock gives no cross-tab exclusion: a reset that interleaves with another tab creating or completing a batch can leave tasks without inputs (they fail after their attempts with "input image not found") or orphan outputs (deleted after the grace period); if the batch was deleted while completing, `updateRun()` does not write it back and the tasks enqueued by that attempt are cancelled. Resetting again cleans up.
 
 **Why Blobs stay out of the queue**: `DurableTaskQueue` deliberately refuses Blobs, ArrayBuffers and TypedArrays (`SERIALIZATION_ERROR`); large binary data would slow down the single readwrite transaction a claim runs in. See the binary data pattern in [Coordination](../coordination.md).
 
@@ -79,12 +83,15 @@ Import limits: at most 40 images, 15 MB per file and 150 MB in total. Where the 
 | The requested output format is unsupported | The canvas outputs PNG instead; the result's extension and MIME type follow the actual format | `outputName()` |
 | No IndexedDB, BroadcastChannel or createImageBitmap | Shows an explanation and does not start | `detectFarmFeatures()` |
 | Other tabs are open during a reset | Their image database connections close on `versionchange`; if the delete is still blocked, the page asks you to close the other tabs | `resetSolutionData()` reports `blocked` |
+| Other tabs are creating, completing or processing during a reset | The reset waits for writes in progress before clearing; creation, completion and output writes that arrive later reread the post-reset state. No old task, batch or Blob is left after the reset | Browser test resets mid-processing, between clearing the queue and deleting the database, and halfway through enqueuing |
+| No Web Locks | Interrupted tasks are reclaimed only by lease expiry; a `creating` batch is completed after 15 seconds; reset has no cross-tab exclusion and may leave failing tasks or orphan outputs, which another reset clears | `FarmSession._withMutation()` |
 
 ## 5. Resources and cleanup
 
 - Each tab opens a MessageBus, a PeerDiscovery (heartbeat timer), a control queue that is never started, an image database connection and a `visibilitychange` listener. After joining, each lane adds a queue instance (poll, renew and reclaim timers) and a Web Worker. Result previews and downloads use object URLs, revoked as soon as they are no longer shown.
 - On leaving the route (`disconnectedCallback`) every lane stops, every Worker is terminated, every object URL is revoked, and `createTeardown()` closes the rest. Joining, leaving and disposal run one after another; joining takes effect only once every lane was created, and rolls back the Workers and queues it created if the session was disposed meanwhile.
-- Reset clears this namespace's tasks from `vanilla_coordination_tasks` (`clearNamespace()`; other namespaces are untouched) and the IndexedDB `vanilla_solution:<namespace>:blobs`.
+- Reset clears this namespace's tasks from `vanilla_coordination_tasks` (`clearNamespace()`; other namespaces are untouched) and the IndexedDB `vanilla_solution:<namespace>:blobs`, both while holding the exclusive write lock.
+- When lanes stop, a lane's Worker is terminated even if disposing its queue fails (`disposeLanes()`), and lanes do not affect each other.
 
 ## 6. Production gaps
 
@@ -97,4 +104,5 @@ Import limits: at most 40 images, 15 MB per file and 150 MB in total. Where the 
 ## 7. Tests
 
 - `tests/farm-model.test.js`: parameter validation, proportional downscaling, import limits and the remaining-space check, output naming, orphan detection, run statistics.
-- `runFarmTests` in `tests/browser-runner.mjs`: in its own namespace, two real tabs process 8 test images and 1 broken image; it checks that both nodes processed images, outputs are 320×240 WebP, the broken image fails after 3 attempts and results can be downloaded; a second batch survives closing every tab mid-way and finishes after reopening; outputs match task results one to one with no orphans; reset clears everything; disposing the session at different stages of joining leaves no lane, Worker or queue behind; with the manifest written and only half the tasks enqueued, closing the creator lets two other tabs complete the same batch without duplicate tasks; two tabs importing at once stay within the 40-image limit.
+- `tests/farm-session.test.js`: a lane's processor is still disposed when disposing its queue fails, without affecting other lanes.
+- `runFarmTests` in `tests/browser-runner.mjs`: in its own namespace, two real tabs process 8 test images and 1 broken image; it checks that both nodes processed images, outputs are 320×240 WebP, the broken image fails after 3 attempts and results can be downloaded; a second batch survives closing every tab mid-way and finishes after reopening; outputs match task results one to one with no orphans; reset clears everything; disposing the session at different stages of joining leaves no lane, Worker or queue behind; with the manifest written and only half the tasks enqueued, closing the creator lets two other tabs complete the same batch without duplicate tasks; two tabs importing at once stay within the 40-image limit; after a reset interleaves with a task being processed, with creation and completion during the reset, and with a batch halfway through enqueuing, no task, batch or Blob is left, and a new batch can still be created and processed.

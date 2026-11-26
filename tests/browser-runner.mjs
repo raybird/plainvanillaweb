@@ -2016,11 +2016,11 @@ async function runFarmTests(openTab, base) {
         };
     })()`);
     // 直接讀佇列與 Blob store，核對輸出是否符合設定、是否有孤兒
-    const inspect = (tab) => tab.page.evaluate(`(async () => {
+    const inspect = (tab, namespace = ns) => tab.page.evaluate(`(async () => {
         const { createDurableTaskQueue } = await import('./lib/coordination.js');
         const { FarmStore } = await import('./components/pages/solutions/farm/farm-store.js');
-        const queue = createDurableTaskQueue({ namespace: ${JSON.stringify(ns)} });
-        const store = new FarmStore(${JSON.stringify(`vanilla_solution:${ns}:blobs`)});
+        const queue = createDurableTaskQueue({ namespace: ${JSON.stringify(namespace)} });
+        const store = new FarmStore(${JSON.stringify(`vanilla_solution:${namespace}:blobs`)});
         try {
             const tasks = await queue.listTasks({ type: 'image.process' });
             const outputs = await store.listOutputMeta();
@@ -2036,6 +2036,7 @@ async function runFarmTests(openTab, base) {
                 badSize: outputs.filter((o) => o.width !== 320 || o.height !== 240).length,
                 types: [...new Set(outputs.map((o) => o.type))],
                 inputs: (await store.listInputMeta()).length,
+                runs: (await store.listRuns()).length,
             };
         } finally {
             store.close();
@@ -2200,13 +2201,98 @@ async function runFarmTests(openTab, base) {
         check(stored === 40 && imports[0] + imports[1] === 36, `並行匯入應共收 36 張、總數 40 張：${JSON.stringify({ imports, stored })}`);
         await r2.page.evaluate("document.querySelector('page-solution-farm').session.reset()", 15000);
 
+        // 重設與建立、補齊、處理中的任務交錯（PR #14 P2-05）：重設完成後不留下舊世代的任務、批次或 Blob
+        const resetNs = `${ns}-reset`;
+        const worker = await openNs(resetNs);
+        const resetter = await openNs(resetNs);
+        const session = "document.querySelector('page-solution-farm').session";
+        // 1. worker 處理中（處理器延遲 1.5 秒）時 resetter 開始重設；清除佇列後、刪除資料庫前停 800ms，
+        //    這段期間 worker 用重設前的輸入建立批次，並出現一個待補齊的 creating 批次
+        await worker.page.evaluate(`(async () => {
+            const session = ${session};
+            await session.addSamples(2);
+            await session.join(1);
+            const processor = session._lanes[0].processor;
+            const process = processor.process.bind(processor);
+            processor.process = async (...args) => {
+                window.__processing = true;
+                await new Promise((r) => setTimeout(r, 1500));
+                return process(...args);
+            };
+            await session.createRun({ maxWidth: 64 });
+        })()`, 15000);
+        check(await waitFor(worker.page, 'window.__processing === true', 10000), '重設競爭：任務應開始處理');
+        await resetter.page.evaluate(`(() => {
+            const session = ${session};
+            const clear = session._control.clearNamespace.bind(session._control);
+            session._control.clearNamespace = async () => {
+                await clear();
+                window.__cleared = true;
+                await new Promise((r) => setTimeout(r, 800));
+            };
+            window.__reset = session.reset().then(() => 'ok', (err) => err.message);
+        })()`);
+        check(await waitFor(resetter.page, 'window.__cleared === true', 10000), '重設競爭：應清除佇列');
+        await worker.page.evaluate(`(async () => {
+            const session = ${session};
+            const { RUN_STATUS, normalizeParams } = await import('./components/pages/solutions/farm/farm-model.js');
+            window.__late = session.createRun({}).then((id) => ({ id }), (err) => ({ code: err.code ?? err.message }));
+            const inputs = await session.store.listInputMeta();
+            await session.store.putRun({ id: 'stale-run', createdAt: Date.now(), status: RUN_STATUS.CREATING, params: normalizeParams({}),
+                inputs: inputs.map(({ id, name }) => ({ id, name })), taskIds: [], nodesAtStart: 0 });
+            await session.refresh();
+        })()`, 15000);
+        const resetResult = await resetter.page.evaluate('window.__reset', 15000);
+        const late = await worker.page.evaluate('window.__late', 15000);
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+        const afterRace = await inspect(resetter, resetNs);
+        check(resetResult === 'ok' && late.code === 'INVALID_INPUT', `重設期間建立的批次應在重設後重讀輸入而失敗：${JSON.stringify({ resetResult, late })}`);
+        check(afterRace.total === 0 && afterRace.outputs === 0 && afterRace.inputs === 0 && afterRace.runs === 0,
+            `重設與建立、補齊、處理交錯後不應留下任務、批次或 Blob：${JSON.stringify(afterRace)}`);
+
+        // 2. worker 排入任務排到一半（每個延遲 250ms）時要求重設：重設等批次建立完才清除
+        await worker.page.evaluate(`(async () => {
+            const session = ${session};
+            await session.leave();
+            await session.addFiles(${fakeFiles('race', 4)});
+            const enqueue = session._control.enqueue.bind(session._control);
+            window.__enqueued = 0;
+            session._control.enqueue = async (...args) => {
+                window.__enqueued++;
+                await new Promise((r) => setTimeout(r, 250));
+                return enqueue(...args);
+            };
+            window.__fill = session.createRun({}).then((id) => ({ id }), (err) => ({ code: err.code ?? err.message }));
+        })()`, 15000);
+        check(await waitFor(worker.page, 'window.__enqueued >= 1', 5000), '重設競爭：應開始排入任務');
+        await resetter.page.evaluate(`${session}.reset()`, 20000);
+        const fill = await worker.page.evaluate('window.__fill', 15000);
+        const afterFill = await inspect(resetter, resetNs);
+        check(typeof fill.id === 'string', `重設前已開始的批次應完整建立：${JSON.stringify(fill)}`);
+        check(afterFill.total === 0 && afterFill.inputs === 0 && afterFill.runs === 0,
+            `重設應等批次建立完成後一併清除：${JSON.stringify(afterFill)}`);
+
+        // 3. 重設後仍能建立並處理新的批次
+        await worker.page.evaluate(`(async () => {
+            const session = ${session};
+            delete session._control.enqueue;
+            await session.addSamples(2);
+            await session.join(1);
+            await session.createRun({ maxWidth: 320 });
+        })()`, 15000);
+        check(await waitFor(worker.page, `${session}.snapshot?.tasks?.length === 2 && ${session}.snapshot.tasks.every((t) => t.status === 'completed')`, 20000),
+            '重設後應能建立並處理新的批次');
+        const fresh = await inspect(resetter, resetNs);
+        check(fresh.completed === 2 && fresh.outputs === 2 && fresh.unreferenced === 0 && fresh.runs === 1, `重設後的新批次應正常完成：${JSON.stringify(fresh)}`);
+        await worker.page.evaluate(`${session}.reset()`, 15000);
+
         for (const tab of tabs) failures.push(...tab.tracker.take().map((p) => `Farm：${p}`));
     } catch (err) {
         failures.push(`Farm：測試中斷：${err.message.split('\n')[0]}`);
     } finally {
         for (const tab of [...tabs]) await tab.close();
     }
-    console.log('  Farm 多分頁測試：多節點處理、輸出設定、失敗重試、中斷與全部關閉後恢復、孤兒輸出、重設、初始化中途釋放、批次建立中斷恢復、並行匯入上限');
+    console.log('  Farm 多分頁測試：多節點處理、輸出設定、失敗重試、中斷與全部關閉後恢復、孤兒輸出、重設、初始化中途釋放、批次建立中斷恢復、並行匯入上限、重設與建立／補齊／處理交錯');
     return failures;
 }
 

@@ -11,6 +11,9 @@
  *   建立者持有批次的 Web Lock；鎖已釋放（建立者中途關閉）而批次仍是 `creating` 時，任何分頁都會依清單補齊。
  * - 生命週期：加入、停止處理與釋放依序執行（`_serial`），每個 `await` 之後檢查是否已釋放，
  *   初始化中途離開路由時把已建立的 Worker 與佇列撤回，不會遺留。
+ * - 寫入鎖 `vanilla_solution:<ns>:mutation`：匯入、建立與補齊批次、重試、寫入輸出取 shared，重設取 exclusive，
+ *   重設期間不會有任務、批次或 Blob 寫進來；取得鎖後一律重讀，不沿用重設前讀到的資料。
+ *   鎖順序固定為寫入鎖 → 批次鎖，重設只取寫入鎖，不會死結。
  */
 import { TASK_STATUS, createDurableTaskQueue, createMessageBus, createPeerDiscovery } from '../../../../lib/coordination.js';
 import { createTeardown, detectFeatures, resetSolutionData, resolveNamespace, solutionStorageName } from '../solution-kit.js';
@@ -39,10 +42,14 @@ const REFRESH_THROTTLE_MS = 200;
 const RECOVER_WITHOUT_LOCKS_MS = 15000;
 
 /** @param {Array<{ queue: any, processor: ImageProcessor }>} lanes */
-async function disposeLanes(lanes) {
+export async function disposeLanes(lanes) {
+    // 佇列釋放失敗也要終止 Worker；各 lane 互不影響
     await Promise.allSettled(lanes.map(async ({ queue, processor }) => {
-        await queue?.dispose();
-        processor.dispose();
+        try {
+            await queue?.dispose();
+        } finally {
+            processor.dispose();
+        }
     }));
 }
 
@@ -230,6 +237,20 @@ export class FarmSession {
         if (!navigator.locks) return fn(true);
         return navigator.locks.request(`${solutionStorageName(this.namespace, 'run')}:${runId}`, { ifAvailable }, (lock) => fn(Boolean(lock)));
     }
+
+    /**
+     * 寫入鎖：會寫入任務、批次或 Blob 的動作取 shared（可同時進行），重設取 exclusive。
+     * 持有寫入鎖時只能再取批次鎖，不能再取寫入鎖（等待中的 exclusive 會擋住後到的 shared）。
+     * 沒有 Web Locks 時直接執行：跨分頁沒有互斥，限制見 docs/solutions/farm.md。
+     * @template T
+     * @param {'shared' | 'exclusive'} mode
+     * @param {() => Promise<T>} fn
+     * @returns {Promise<T>}
+     */
+    _withMutation(mode, fn) {
+        if (!navigator.locks) return fn();
+        return navigator.locks.request(solutionStorageName(this.namespace, 'mutation'), { mode }, () => fn());
+    }
     /** 剩餘儲存空間；不支援 estimate 時回傳 null */
     async _available() {
         if (!navigator.storage?.estimate) return null;
@@ -246,7 +267,7 @@ export class FarmSession {
         const now = Date.now();
         const metas = files.map((f) => ({ name: f.name, type: f.type, size: f.size, source: f }));
         // 檢查與寫入在同一個 transaction：兩個分頁同時匯入也不會一起突破張數與容量上限
-        const result = await this.store.addInputsChecked((existing) => {
+        const result = await this._withMutation('shared', () => this.store.addInputsChecked((existing) => {
             const { accepted, rejected } = checkImport(metas, {
                 existingCount: existing.length,
                 existingBytes: existing.reduce((sum, i) => sum + i.size, 0),
@@ -263,7 +284,7 @@ export class FarmSession {
                 })),
                 result: { accepted: accepted.length, rejected },
             };
-        });
+        }));
         this._notify({ kind: 'inputs' });
         return result;
     }
@@ -293,28 +314,33 @@ export class FarmSession {
      */
     async createRun(rawParams) {
         const params = normalizeParams(rawParams);
-        const inputs = await this.store.listInputMeta();
-        if (!inputs.length) throw new FarmError('INVALID_INPUT', '還沒有匯入圖片');
-        const run = {
-            id: crypto.randomUUID(),
-            createdAt: Date.now(),
-            status: RUN_STATUS.CREATING,
-            params,
-            inputs: inputs.map(({ id, name }) => ({ id, name })),
-            taskIds: [],
-            nodesAtStart: this._peers.getPeers({ includeSelf: true, capability: 'imageFarm' }).length,
-        };
-        await this._withRunLock(run.id, false, async () => {
-            await this.store.putRun(run);
-            await this._fillRun(run);
+        // 輸入在取得寫入鎖之後才讀：等到的若是剛完成的重設，這裡讀到的是重設後的狀態
+        const runId = await this._withMutation('shared', async () => {
+            const inputs = await this.store.listInputMeta();
+            if (!inputs.length) throw new FarmError('INVALID_INPUT', '還沒有匯入圖片');
+            const run = {
+                id: crypto.randomUUID(),
+                createdAt: Date.now(),
+                status: RUN_STATUS.CREATING,
+                params,
+                inputs: inputs.map(({ id, name }) => ({ id, name })),
+                taskIds: [],
+                nodesAtStart: this._peers.getPeers({ includeSelf: true, capability: 'imageFarm' }).length,
+            };
+            await this._withRunLock(run.id, false, async () => {
+                await this.store.putRun(run);
+                await this._fillRun(run);
+            });
+            return run.id;
         });
-        this._notify({ kind: 'run', runId: run.id });
-        return run.id;
+        this._notify({ kind: 'run', runId });
+        return runId;
     }
 
     /**
      * 依批次清單排入任務（冪等鍵去重：已排入的得到同一個任務），再把批次標記為 `ready`。
-     * 批次在這期間被重設刪除時，撤銷這次排入的任務，不留下沒有批次的任務。
+     * 呼叫者持有寫入鎖（shared），重設不會在這期間進行。沒有 Web Locks 時批次可能在這期間被重設刪除，
+     * 此時撤銷這次排入的任務。
      * @param {{ id: string, params: object, inputs: Array<{ id: string, name: string }> }} run
      * @returns {Promise<boolean>} 是否完成
      */
@@ -359,14 +385,14 @@ export class FarmSession {
                         continue;
                     }
                 }
-                await this._withRunLock(run.id, true, async (held) => {
+                await this._withMutation('shared', () => this._withRunLock(run.id, true, async (held) => {
                     if (!held) waiting = true;
                     if (!held || this._disposed) return;
-                    // 拿到鎖後重讀：建立者可能剛好完成
+                    // 拿到鎖後重讀：建立者可能剛好完成，或批次已被重設刪除
                     const fresh = (await this.store.listRuns()).find((r) => r.id === run.id);
                     if (fresh?.status !== RUN_STATUS.CREATING) return;
                     if (await this._fillRun(fresh)) recovered++;
-                });
+                }));
             }
             // 建立者還持有鎖：它會自己完成；若它其實正在關閉（離開訊息比鎖釋放早到），稍後再檢查
             if (waiting) this._later(() => this.refreshSoon(), 2000);
@@ -457,19 +483,25 @@ export class FarmSession {
         const key = outputKey(ctx.taskId, ctx.leaseId);
         const name = outputName(payload.name, out.blob.type, out.width);
         const durationMs = Math.round(performance.now() - started);
-        await this.store.putOutput({
-            key,
-            taskId: ctx.taskId,
-            leaseId: ctx.leaseId,
-            runId: payload.runId,
-            inputId: payload.inputId,
-            name,
-            blob: out.blob,
-            type: out.blob.type,
-            size: out.blob.size,
-            width: out.width,
-            height: out.height,
-            createdAt: Date.now(),
+        // 處理期間可能已重設：任務不在了就不寫，不在重設後的資料庫留下舊世代的輸出。
+        // 寫完到 completeAtomic 之間發生的重設會連同這份輸出一起刪除，completeAtomic 也找不到任務。
+        await this._withMutation('shared', async () => {
+            if (!(await this._control.getTask(ctx.taskId))) throw new Error('任務已不存在（可能已重設），放棄這次結果');
+            if (ctx.signal?.aborted) throw new Error('租約已失效，放棄這次結果');
+            await this.store.putOutput({
+                key,
+                taskId: ctx.taskId,
+                leaseId: ctx.leaseId,
+                runId: payload.runId,
+                inputId: payload.inputId,
+                name,
+                blob: out.blob,
+                type: out.blob.type,
+                size: out.blob.size,
+                width: out.width,
+                height: out.height,
+                createdAt: Date.now(),
+            });
         });
         this.processed++;
         this._updatePeer();
@@ -491,10 +523,13 @@ export class FarmSession {
     }
 
     async retryFailed() {
-        const failed = await this._control.listTasks({ type: FARM_TASK_TYPE, status: TASK_STATUS.FAILED });
-        for (const task of failed) await this._control.retry(task.id);
+        const count = await this._withMutation('shared', async () => {
+            const failed = await this._control.listTasks({ type: FARM_TASK_TYPE, status: TASK_STATUS.FAILED });
+            for (const task of failed) await this._control.retry(task.id);
+            return failed.length;
+        });
         this._notify({ kind: 'retry' });
-        return failed.length;
+        return count;
     }
 
     /** @param {string} key */
@@ -503,14 +538,17 @@ export class FarmSession {
     }
 
     /**
-     * 重設：停止本節點、清除佇列中這個 namespace 的任務（共用資料庫只清 namespace），
-     * 再刪除 Blob store。其他分頁的連線在 versionchange 時自動讓出。
+     * 重設：停止本節點，取得 exclusive 寫入鎖後清除佇列中這個 namespace 的任務（共用資料庫只清 namespace），
+     * 再刪除 Blob store。等待中的建立、補齊與輸出寫入在重設完成後才進行，並重讀重設後的狀態。
+     * 其他分頁的連線在 versionchange 時自動讓出。
      */
     async reset() {
         await this.leave();
-        await this._control.clearNamespace();
-        this.store.close();
-        const report = await resetSolutionData({ databases: [this.store.dbName] });
+        const report = await this._withMutation('exclusive', async () => {
+            await this._control.clearNamespace();
+            this.store.close();
+            return resetSolutionData({ databases: [this.store.dbName] });
+        });
         this._notify({ kind: 'reset' });
         await this.refresh();
         return report;

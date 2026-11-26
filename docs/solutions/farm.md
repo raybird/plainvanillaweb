@@ -1,6 +1,6 @@
 # Browser Computing Farm
 
-> **更新日期**：2026-11-25  
+> **更新日期**：2026-11-26  
 > **English**：[Browser Computing Farm](./farm.en.md)  
 > **入口**：[#/solutions/farm](#/solutions/farm) · **Issue**：#11 · **慣例**：[Reference App 慣例](./conventions.md)
 
@@ -56,7 +56,11 @@
 
 **為什麼輸出 key 要帶 `leaseId`**：節點 A 處理到一半被凍結（例如分頁進入背景），租約到期，節點 B 重新認領並完成。之後 A 醒來寫完輸出，但它的 `completeAtomic` 會因為租約已失效被拒絕。兩份輸出的 key 不同，A 不會蓋掉 B 的結果；任務 result 只引用 B 的那份。A 留下的那份是**孤兒輸出**：沒有被任何已完成任務引用、也不屬於執行中的租約，超過 30 秒寬限時間後在下一次重讀時刪除（`findOrphanOutputs()`）。
 
-**建立中途中斷**：建立者在排入一半時關閉，批次停在 `creating`。任何分頁重讀時看到 `creating` 的批次，就以 `ifAvailable` 嘗試批次鎖：取得到代表建立者已不在，依清單用同一組冪等鍵補齊（已排入的得到同一個任務，不會重複）並標記 `ready`；取不到代表建立者還在，2 秒後再檢查。補齊時批次已被重設刪除的話，`updateRun()` 不會把批次寫回，這次排入的任務會被取消。沒有 Web Locks 時，`creating` 批次放置 15 秒後才補齊。
+**建立中途中斷**：建立者在排入一半時關閉，批次停在 `creating`。任何分頁重讀時看到 `creating` 的批次，就以 `ifAvailable` 嘗試批次鎖：取得到代表建立者已不在，依清單用同一組冪等鍵補齊（已排入的得到同一個任務，不會重複）並標記 `ready`；取不到代表建立者還在，2 秒後再檢查。沒有 Web Locks 時，`creating` 批次放置 15 秒後才補齊。
+
+**重設與寫入互斥**：重設要清除兩個資料庫（佇列的 namespace 與 Blob store），無法放進同一個 transaction。所以每個 namespace 有一把寫入鎖 `vanilla_solution:<ns>:mutation`：匯入、建立批次、補齊批次、重試失敗任務與 handler 寫入輸出取 `shared`（彼此可以同時進行），重設取 `exclusive`。重設進行中，其他分頁的這些動作會等它完成，取得鎖後再重讀輸入與批次，不沿用重設前讀到的資料：重設期間按下的「建立批次」會因為沒有輸入而失敗，待補齊的 `creating` 批次已被刪除就不補。handler 在處理期間遇到重設，寫入輸出前先確認任務還在，不在就放棄，不會在重設後的新資料庫留下舊世代的輸出；寫入後到 `completeAtomic` 之間遇到重設，輸出隨資料庫刪除，`completeAtomic` 也找不到任務。鎖的順序固定為寫入鎖 → 批次鎖，重設只取寫入鎖，持有寫入鎖時不再取寫入鎖，所以不會死結。
+
+沒有 Web Locks 時，寫入鎖不提供跨分頁互斥：重設與其他分頁的建立或補齊交錯時，可能留下沒有輸入的任務（依重試次數失敗後顯示「找不到輸入圖片」）或孤兒輸出（寬限後刪除）；補齊時批次已被刪除的話，`updateRun()` 不會把批次寫回，並取消這次排入的任務。再按一次重設可以清乾淨。
 
 **為什麼不把 Blob 放進佇列**：`DurableTaskQueue` 刻意拒收 Blob、ArrayBuffer 與 TypedArray（`SERIALIZATION_ERROR`），大型二進位資料會拖慢認領時的單一 readwrite transaction。見 [Coordination](../coordination.md) 的二進位資料整合模式。
 
@@ -79,12 +83,15 @@
 | 不支援要求的輸出格式 | canvas 改輸出 PNG；結果的副檔名與 MIME type 依實際格式 | `outputName()` |
 | 不支援 IndexedDB、BroadcastChannel 或 createImageBitmap | 顯示說明，不啟動 | `detectFarmFeatures()` |
 | 重設時其他分頁開著 | 其他分頁的圖片資料庫連線收到 `versionchange` 後關閉；仍被擋住時提示關閉其他分頁 | `resetSolutionData()` 回報 `blocked` |
+| 重設時其他分頁正在建立、補齊或處理 | 重設等進行中的寫入完成才清除；之後才到的建立、補齊與輸出寫入重讀重設後的狀態。重設完成後沒有舊的任務、批次或 Blob | 瀏覽器測試在處理中、清除佇列與刪除資料庫之間、排入任務到一半時重設 |
+| 不支援 Web Locks | 中斷的任務只靠租約逾時回收；`creating` 批次 15 秒後才補齊；重設沒有跨分頁互斥，可能留下會失敗的任務或孤兒輸出，再重設一次即可 | `FarmSession._withMutation()` |
 
 ## 5. 資源與清理
 
 - 每個分頁開啟：MessageBus、PeerDiscovery（心跳計時器）、一個不啟動的控制用佇列、圖片資料庫連線、`visibilitychange` 監聽；加入處理後每條 lane 另有一個佇列實例（輪詢、續租、回收計時器）與一個 Web Worker。結果預覽與下載使用 object URL，不再顯示時立即 `revokeObjectURL`。
 - 離開路由時（`disconnectedCallback`）停止所有 lane、終止 Worker、釋放全部 object URL，再由 `createTeardown()` 關閉其餘資源。加入處理、停止處理與釋放依序執行；加入處理全部建立成功才生效，中途已釋放就撤回已建立的 Worker 與佇列。
-- 重設清除：`vanilla_coordination_tasks` 中這個 namespace 的任務（`clearNamespace()`，其他 namespace 不受影響），以及 IndexedDB `vanilla_solution:<namespace>:blobs`。
+- 重設清除：`vanilla_coordination_tasks` 中這個 namespace 的任務（`clearNamespace()`，其他 namespace 不受影響），以及 IndexedDB `vanilla_solution:<namespace>:blobs`；兩者都在 exclusive 寫入鎖內完成。
+- 停止 lane 時，佇列釋放失敗也會終止該 lane 的 Worker（`disposeLanes()`），各 lane 互不影響。
 
 ## 6. 正式上線差距
 
@@ -97,4 +104,5 @@
 ## 7. 測試
 
 - `tests/farm-model.test.js`：參數驗證、等比例縮小、匯入限制與剩餘空間檢查、輸出命名、孤兒輸出判定、批次統計。
-- `tests/browser-runner.mjs` 的 `runFarmTests`：在獨立 namespace 下以兩個真實分頁處理 8 張測試圖片與 1 張損壞圖片，核對兩個節點都有處理、輸出為 320×240 WebP、損壞圖片重試 3 次後失敗、結果可下載；第二批處理中關閉全部分頁，重新開啟後完成；輸出與任務結果一一對應、沒有孤兒；重設後清空；在加入處理的不同階段釋放工作階段，不留下 lane、Worker 或佇列；批次清單寫入、只排入一半任務時建立者關閉，另外兩個分頁補齊同一個批次且沒有重複任務；兩個分頁同時匯入不突破 40 張上限。
+- `tests/farm-session.test.js`：佇列釋放失敗時仍釋放同一條 lane 的處理器，且不影響其他 lane。
+- `tests/browser-runner.mjs` 的 `runFarmTests`：在獨立 namespace 下以兩個真實分頁處理 8 張測試圖片與 1 張損壞圖片，核對兩個節點都有處理、輸出為 320×240 WebP、損壞圖片重試 3 次後失敗、結果可下載；第二批處理中關閉全部分頁，重新開啟後完成；輸出與任務結果一一對應、沒有孤兒；重設後清空；在加入處理的不同階段釋放工作階段，不留下 lane、Worker 或佇列；批次清單寫入、只排入一半任務時建立者關閉，另外兩個分頁補齊同一個批次且沒有重複任務；兩個分頁同時匯入不突破 40 張上限；重設與處理中的任務、重設期間的建立與補齊、排入到一半的批次交錯後，不留下任務、批次或 Blob，之後仍能建立並處理新的批次。

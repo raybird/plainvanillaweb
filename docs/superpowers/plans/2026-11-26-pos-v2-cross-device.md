@@ -34,13 +34,13 @@
 
 - [x] #16 本文更新為已決定事項＋驗收 A1–A10，經使用者核准（2026-11-26）。
 - [x] ADR 0109（WebRTC DataChannel 與主機授權的信任模型），2026-11-26 已接受並同步 #16。產出：`docs/decisions/0109-pos-v2-webrtc-host-authority.md`，並執行 `node scripts/update-adr-index.js`。完成判準：寫明和 ADR 0107 第 3 條決策的差異、信任範圍與正式上線差距；`--check` 通過；使用者確認與 #16 原描述不同的設計後，狀態改為已接受，並同步 #16。
-- [ ] 協定規格：信令訊息（主機席位、加入、轉送 SDP／ICE、離開）與 DataChannel RPC（訊息信封、錯誤碼、各角色可呼叫的方法、推送內容）。產出：`docs/superpowers/plans/2026-11-26-pos-v2-protocol.md`（草案，P8 併入 `docs/solutions/pos-v2.md`／`.en.md`）。驗收：A1–A7 的前置。
+- [x] 協定規格（草案已建立，隨 P1–P7 修訂）：信令訊息（主機席位、加入、轉送 SDP／ICE、離開）與 DataChannel RPC（訊息信封、錯誤碼、各角色可呼叫的方法、推送內容）。產出：`docs/superpowers/plans/2026-11-26-pos-v2-protocol.md`（草案，P8 併入 `docs/solutions/pos-v2.md`／`.en.md`）。驗收：A1–A7 的前置。
 
 ### P1 資料模型 v2（純函式與 repository）
 
-- [ ] `pos-v2-model.js`：桌位、用餐場次（開桌、關桌、輪換入桌碼）、授權種類（裝置、入桌、訂單查詢）與雜湊比對、驗證嘗試次數上限與冷卻、訂單加上 `tableId`／`diningSessionId`／`source`／`principal`、前面待備餐筆數。盡量匯入第一代 `pos-model.js` 的轉移規則，不複製。驗收：A4–A6。
+- [x] `pos-v2-model.js`：桌位、用餐場次（開桌、關桌、輪換入桌碼）、授權種類（裝置、入桌、訂單查詢）與雜湊比對、驗證嘗試次數上限與冷卻、訂單加上 `tableId`／`diningSessionId`／`source`／`principal`、前面待備餐筆數。盡量匯入第一代 `pos-model.js` 的轉移規則，不複製。驗收：A4–A6。
 - [ ] `pos-v2-repository.js`：自有資料庫與 `SCHEMA_VERSION`；store 包含 orders、tables、sessions、credentials、host；去重鍵為 `[principal, requestId]` 複合索引；送單時在同一個 transaction 內確認場次仍有效。驗收：A5–A7。
-- [ ] 單元測試 `tests/pos-v2-model.test.js`。完成判準：拿別人的 `requestId` 取不到別人的訂單、舊場次授權被拒、冷卻時間生效、排隊筆數正確；`node --test tests/pos-model.test.js` 照常通過（A8）。
+- [x] 單元測試 `tests/pos-v2-model.test.js`（23 項；第一代測試未修改照常通過）。完成判準：拿別人的 `requestId` 取不到別人的訂單、舊場次授權被拒、冷卻時間生效、排隊筆數正確；`node --test tests/pos-model.test.js` 照常通過（A8）。
 
 ### P2 QR Code encoder（可和 P1 並行）
 
@@ -49,7 +49,7 @@
 
 ### P3 信令
 
-- [ ] **Spike：headless Chrome WebRTC loopback**（見最大風險 1）。
+- [x] **Spike：headless Chrome WebRTC loopback**（見最大風險 1，2026-11-26 本機通過）：同一個 headless Chrome 的兩個 target，信令由 Node 經 CDP 轉送、`iceServers: []`，約 0.4 秒建立 DataChannel 並雙向收發。預設的 host candidate 是 mDNS `.local` 名稱；加上 `--disable-features=WebRtcHideLocalIpsWithMdns` 後改為實際 IP，加上 `--no-sandbox`（CI 使用）也一樣能連。`tests/browser-runner.mjs` 加入 WebRTC 測試時一併加上這個參數，避免依賴 runner 的 multicast；GitHub Actions 上的結果要等第一個 WebRTC 瀏覽器測試推上去才能確認。
 - [ ] 信令協定與 client adapter：重連退避、斷線狀態事件、送出失敗明確回報。產出：`pos-v2/signaling-client.js`。
 - [ ] Node 參考伺服器，**單一檔案、不匯入任何本地模組**（測試者只下載這一個檔案就能執行）。WebSocket 實作以 `tests/helpers/realtime-server.mjs` 為參考寫在檔案內；反過來由測試輔助程式匯入它，不讓它依賴 `tests/`。房間只允許一個主機席位（以主機 secret 認證）、由伺服器指定 `sender`、限制訊息大小、閒置房間逾時、`Origin` 白名單可設定（預設 GitHub Pages 網域與 `localhost`）。產出：`server/signaling.mjs`（確認 `update-sw-version.js` 的雜湊範圍是否要排除 `server/`）。完成判準：把檔案複製到空目錄後，`node signaling.mjs` 能啟動。
 - [ ] `signaling.mjs --tunnel`：啟動 `cloudflared tunnel --url http://localhost:<port>`，從輸出抓出 `trycloudflare.com` 網址，印出已帶好 `wss://` 信令位址的主機頁連結。找不到 `cloudflared` 或抓不到網址時，改印出手動步驟，不中止信令伺服器。抓網址的邏輯寫成純函式，以 cloudflared 的輸出樣本做單元測試。

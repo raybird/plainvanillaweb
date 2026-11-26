@@ -44,8 +44,8 @@
 
 ### P2 QR Code encoder（可和 P1 並行）
 
-- [ ] 零依賴 encoder（byte mode、ECC M、版本 1–10、自動選遮罩），輸出 SVG 字串或 `<canvas>`。產出：`components/pages/solutions/pos-v2/qr-code.js`。
-- [ ] 單元測試：以已知輸入比對預期的模組矩陣（向量另外產生後寫死在測試裡），並驗證容量邊界與超長輸入報錯。
+- [x] 零依賴 encoder（byte mode、ECC M、版本 1–10、自動選遮罩），輸出 SVG 字串（深色模組用 `currentColor`）。產出：`components/pages/solutions/pos-v2/qr-code.js`。
+- [x] 單元測試 `tests/qr-code.test.js`：31 組指定遮罩的參考向量（segno 1.6.6 產生，涵蓋版本 1–10 與遮罩 0–7，模組矩陣以 SHA-256 寫死），加上容量邊界、超長報錯與 SVG 輸出。segno 在資料已對齊碼字邊界時多補一個 `0x00`，不符 ISO/IEC 18004 7.4.10，產生向量時換成符合規格的補位。自動選遮罩的罰分解讀和 segno 不同，測試只要求自動結果等於以同一遮罩指定產生的矩陣。另以 zxing-cpp 解碼 117 個產生結果（13 種內容 × 8 種遮罩加自動），全部解出原文（2026-11-26，只在 scratchpad 執行，不進 repo）。
 
 ### P3 信令
 

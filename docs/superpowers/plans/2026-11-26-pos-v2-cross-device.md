@@ -50,7 +50,8 @@
 ### P3 信令
 
 - [x] **Spike：headless Chrome WebRTC loopback**（見最大風險 1，2026-11-26 本機通過）：同一個 headless Chrome 的兩個 target，信令由 Node 經 CDP 轉送、`iceServers: []`，約 0.4 秒建立 DataChannel 並雙向收發。預設的 host candidate 是 mDNS `.local` 名稱；加上 `--disable-features=WebRtcHideLocalIpsWithMdns` 後改為實際 IP，加上 `--no-sandbox`（CI 使用）也一樣能連。`tests/browser-runner.mjs` 加入 WebRTC 測試時一併加上這個參數，避免依賴 runner 的 multicast；GitHub Actions 上的結果要等第一個 WebRTC 瀏覽器測試推上去才能確認。
-- [ ] 信令協定與 client adapter：重連退避、斷線狀態事件、送出失敗明確回報。產出：`pos-v2/signaling-client.js`。
+- [x] 信令協定與 client adapter：重連退避、斷線狀態事件、送出失敗明確回報。產出：`pos-v2/signaling-client.js`。
+  - 結果（2026-11-26）：`tests/signaling-client.test.js` 7 項，連真的 `signaling.mjs` 測互傳、4001 不重連、4002 停在 replaced、伺服器重啟後依退避重連、未連線送出回傳 false，並以不回應的假 WebSocket 測心跳逾時。Node 22 的 WebSocket（undici）連線失敗時只發 `error`、不發 `close`，client 在尚未開啟時收到 `error` 就當成關閉處理。
 - [x] Node 參考伺服器，**單一檔案、不匯入任何本地模組**（測試者只下載這一個檔案就能執行）。WebSocket 實作以 `tests/helpers/realtime-server.mjs` 為參考寫在檔案內；反過來由測試輔助程式匯入它，不讓它依賴 `tests/`。房間只允許一個主機席位（以主機 secret 認證）、由伺服器指定 `sender`、限制訊息大小、閒置房間逾時、`Origin` 白名單可設定（預設 GitHub Pages 網域與 `localhost`）。產出：`server/signaling.mjs`（確認 `update-sw-version.js` 的雜湊範圍是否要排除 `server/`）。完成判準：把檔案複製到空目錄後，`node signaling.mjs` 能啟動。
   - 結果（2026-11-26）：WebSocket 訊框處理直接寫在檔案內，沒有改動 `tests/helpers/realtime-server.mjs`（兩者各自獨立，不互相匯入）。`server/` 已加進 `update-sw-version.js` 的排除清單：它只給測試者下載，網站與 Service Worker 不會載入。
 - [x] `signaling.mjs --tunnel`：啟動 `cloudflared tunnel --url http://localhost:<port>`，從輸出抓出 `trycloudflare.com` 網址，印出已帶好 `wss://` 信令位址的主機頁連結。找不到 `cloudflared` 或抓不到網址時，改印出手動步驟，不中止信令伺服器。抓網址的邏輯寫成純函式，以 cloudflared 的輸出樣本做單元測試。

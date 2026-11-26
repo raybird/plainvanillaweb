@@ -47,17 +47,20 @@
 
 - 端點：`<sig>/v1/rooms/<roomId>?role=host|peer`，WebSocket，文字訊框，每則 JSON 物件最大 16 KiB。
 - 伺服器在 upgrade 時檢查 `Origin`，不在白名單就回 403。白名單由啟動參數或環境變數設定，預設 `https://raybird.github.io`、`http://localhost:*`、`http://127.0.0.1:*`。
-- `roomId` 不是 22 字元的 base64url 時回 400。
-- 每條連線限速：10 秒內最多 50 則訊息，超過就以 close code 4008 關閉。
+- `roomId` 不是 22 字元的 base64url，或 `role` 不是 `host`／`peer` 時回 400。
+- 只接受文字訊框；超過 16 KiB 的訊息以 close code 1009 關閉，二進位訊框以 1003 關閉。
+- 訊息不是含字串 `t` 的 JSON 物件、或型別不認得時回 `{"t":"error","code":"BAD_MESSAGE"}`，不關閉連線（解析時丟棄 `__proto__`、`constructor`、`prototype`）。
+- 每條連線限速：10 秒內最多 50 則訊息，超過就以 close code 4008 關閉。Worker 版的 `{"t":"ping"}` 由平台自動回應，不經過程式，也不計入限速。
 - 每個房間最多 64 條 peer 連線，超過就以 4009 關閉。
-- keepalive：伺服器每 30 秒送一次 WebSocket ping（Worker 版用 auto-response 的 `{"t":"ping"}`／`{"t":"pong"}`）。
+- keepalive：用戶端可隨時送 `{"t":"ping"}`，伺服器回 `{"t":"pong"}`（Worker 版由平台自動回應，不喚醒 Durable Object）。Node 版另外每 30 秒送 WebSocket ping，60 秒沒有收到任何資料就以 1001 關閉。
+- `GET /healthz` 回 `{"ok":true,"protocol":1,…}`；`GET /` 顯示已帶好信令位址的主機頁連結。
 
 ### 3.2 主機席位
 
-1. 主機連線後送出 `{"t":"host-auth","secret":"<hostSecret>"}`。
+1. 主機連線後送出 `{"t":"host-auth","secret":"<hostSecret>"}`。第一則訊息不是 `host-auth`、secret 不是 22–128 字元的 base64url，或連線 10 秒內沒有送出時，以 4001 關閉。
 2. **第一個連上的主機綁定房間**：房間還沒有綁定時，伺服器記下 `SHA-256(secret)`，回 `{"t":"host-ready","peers":["<peerId>", …]}`。已經綁定時，雜湊相同才回 `host-ready`，不同就以 4001 關閉（主機頁顯示「這個房間已被其他主機使用」，並提供「重新產生房間」）。
 3. 同一房間已有主機連線時，**新通過驗證的主機取代舊的**：舊連線收到 `{"t":"host-replaced"}` 後以 4002 關閉。這是主機分頁重新整理時的正常情況。
-4. 綁定的保存：Node 伺服器存在記憶體，重啟後清空；Worker 存在 Durable Object storage。房間連續 24 小時沒有主機連線時清除綁定。
+4. 綁定的保存：Node 伺服器存在記憶體，重啟後清空；Worker 存在 Durable Object storage。房間連續 24 小時沒有主機連線時清除綁定（Node 版每 30 秒檢查一次；Worker 版在主機離線時設 alarm，時間可用 `BINDING_TTL_MS` 調整）。
 5. 綁定清空後到主機重新連上之前，任何知道 `roomId` 的人（`roomId` 印在公開的桌牌 QR Code 上）都能搶先綁定。這是 demo 接受的風險：主機會自動重連，空窗很短；真的被搶走時，在管理頁「重新產生房間」並重啟信令伺服器即可恢復（ADR 0109 決策 5）。
 
 ### 3.3 peer
@@ -75,6 +78,7 @@
 
 - `from` 一律由伺服器填入，用戶端送來的 `from` 會被覆寫。peer 不能指定 `to`，只能送給主機。
 - 主機不在線時，peer 的 `signal` 會收到 `{"t":"error","code":"HOST_OFFLINE"}`，不排隊。
+- 主機送給不存在的 peer 時收到 `{"t":"error","code":"PEER_NOT_FOUND","peerId":"…"}`。
 - 信令只轉送 `data`，不解讀內容。授權、連線碼、訂單資料都不經過信令。
 
 ## 4. WebRTC 握手

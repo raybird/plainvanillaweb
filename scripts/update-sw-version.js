@@ -21,7 +21,7 @@ const SW_PATH = 'sw.js';
 const INDEX_PATH = 'index.html';
 
 // 不會被網站載入的檔案：改動它們不需要讓使用者更新快取
-const EXCLUDED_PREFIXES = ['.github/', '.agent/', 'scripts/', 'tests/', 'docs/audits/', 'docs/superpowers/'];
+const EXCLUDED_PREFIXES = ['.github/', '.agent/', 'scripts/', 'server/', 'tests/', 'docs/audits/', 'docs/superpowers/'];
 const EXCLUDED_FILES = new Set(['.gitignore']);
 
 const CACHE_NAME_RE = /const CACHE_NAME = '[^']*';/;

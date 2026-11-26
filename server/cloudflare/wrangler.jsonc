@@ -1,0 +1,20 @@
+// POS v2 信令（Cloudflare Worker＋Durable Object）。部署：npx wrangler@4 deploy
+{
+    "$schema": "https://unpkg.com/wrangler@4/config-schema.json",
+    "name": "pos-v2-signaling",
+    "main": "worker.js",
+    "compatibility_date": "2026-06-01",
+    "durable_objects": {
+        "bindings": [{ "name": "ROOMS", "class_name": "PosRoom" }]
+    },
+    // 免費方案只能用 SQLite 儲存的 Durable Object
+    "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PosRoom"] }],
+    "vars": {
+        // 自架前端時加上自己的網站，例如 "https://example.pages.dev"
+        "ALLOWED_ORIGINS": "https://raybird.github.io,http://localhost:*,http://127.0.0.1:*",
+        // 要用 TURN 時改成 [{"urls":"turn:turn.example.com:3478","username":"…","credential":"…"}]
+        "ICE_SERVERS": "[{\"urls\":\"stun:stun.l.google.com:19302\"}]",
+        // 首頁「開啟主機頁」連結指向的網站；自架前端時改成自己的網址
+        "APP_URL": "https://raybird.github.io/plainvanillaweb/"
+    }
+}

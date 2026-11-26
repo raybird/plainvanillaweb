@@ -12,9 +12,8 @@
 
 | 名詞 | 說明 |
 | --- | --- |
-| 主機（host） | 開著管理頁、持有主機身分金鑰的那一個瀏覽器分頁。每個 namespace 以 Web Lock `vanilla_solution:<ns>:host` 保證只有一個 |
-| 主機身分 | ECDSA P-256 金鑰對，私鑰以不可匯出（`extractable: false`）的 `CryptoKey` 存在主機的 IndexedDB |
-| `roomId` | `base64url(SHA-256(主機公鑰的 SPKI))`，43 字元。由主機身分推導，不另外產生 |
+| 主機（host） | 開著管理頁、持有房間的那一個瀏覽器分頁。每個 namespace 以 Web Lock `vanilla_solution:<ns>:host` 保證只有一個 |
+| 房間 | 主機第一次啟用時產生的 `roomId`（128 bit 隨機值，base64url，22 字元）與 `hostSecret`（256 bit 隨機值），存在主機的 IndexedDB `vanilla_solution:<ns>:room` |
 | 遠端裝置（peer） | 店員裝置與顧客手機。第二代除了管理頁以外的角色都是遠端裝置，即使和主機在同一台電腦上，也一樣經由信令與 DataChannel 連線 |
 | `peerId` | 信令伺服器替每條 peer WebSocket 指定的隨機 id（128 bit，base64url）。只在該條 WebSocket 存活期間有效 |
 | 授權（credential） | 主機簽發給遠端裝置的憑證，分成裝置、入桌、訂單查詢三種（第 5 節） |
@@ -40,7 +39,7 @@
 | `/solutions/pos-v2/order`、`/kitchen`、`/display` | 已配對店員裝置的角色畫面 | 無 |
 
 - **連線碼的前提**：輸入連線碼的裝置要先開啟店家入口（`home`），才知道 `room` 與 `sig`。只有連線碼、沒有店家入口網址時無法加入。連線碼只在 DataChannel 內驗證，不經過信令伺服器。
-- 主機頁從網址參數拿到 `sig` 時，要使用者確認才儲存。遠端裝置直接使用 QR Code 帶來的 `sig`：主機的真偽由第 4.3 節的簽章驗證，不依賴信令伺服器。
+- 主機頁從網址參數拿到 `sig` 時，要使用者確認才儲存。遠端裝置直接使用 QR Code 帶來的 `sig`：QR Code 由主機產生，信令伺服器由測試者自架，在信任範圍內（ADR 0109 決策 5）。
 
 ## 3. 信令協定
 
@@ -48,18 +47,18 @@
 
 - 端點：`<sig>/v1/rooms/<roomId>?role=host|peer`，WebSocket，文字訊框，每則 JSON 物件最大 16 KiB。
 - 伺服器在 upgrade 時檢查 `Origin`，不在白名單就回 403。白名單由啟動參數或環境變數設定，預設 `https://raybird.github.io`、`http://localhost:*`、`http://127.0.0.1:*`。
-- `roomId` 不是 43 字元的 base64url 時回 400。
+- `roomId` 不是 22 字元的 base64url 時回 400。
 - 每條連線限速：10 秒內最多 50 則訊息，超過就以 close code 4008 關閉。
 - 每個房間最多 64 條 peer 連線，超過就以 4009 關閉。
 - keepalive：伺服器每 30 秒送一次 WebSocket ping（Worker 版用 auto-response 的 `{"t":"ping"}`／`{"t":"pong"}`）。
 
 ### 3.2 主機席位
 
-1. 主機連線後，伺服器送出 `{"t":"challenge","nonce":"<base64url 32 bytes>"}`。
-2. 主機回 `{"t":"host-auth","publicKey":"<SPKI base64url>","signature":"<base64url>"}`，簽章內容是 UTF-8 字串 `pos-v2/host-auth/v1|<roomId>|<nonce>`，演算法 ECDSA P-256／SHA-256（WebCrypto 的 IEEE P1363 格式）。
-3. 伺服器驗證 `base64url(SHA-256(publicKey)) === roomId` 且簽章正確，成功回 `{"t":"host-ready","peers":["<peerId>", …]}`；失敗以 4001 關閉。
-4. 同一房間已有主機連線時，**新通過驗證的主機取代舊的**：舊連線收到 `{"t":"host-replaced"}` 後以 4002 關閉。只有持有私鑰的人能通過驗證，而私鑰不可匯出，所以取代者一定是同一台主機（例如重新整理後的分頁）。
-5. 伺服器不需要保存任何房間狀態就能驗證主機；Node 伺服器重啟或 Worker 換實例都不影響。
+1. 主機連線後送出 `{"t":"host-auth","secret":"<hostSecret>"}`。
+2. **第一個連上的主機綁定房間**：房間還沒有綁定時，伺服器記下 `SHA-256(secret)`，回 `{"t":"host-ready","peers":["<peerId>", …]}`。已經綁定時，雜湊相同才回 `host-ready`，不同就以 4001 關閉（主機頁顯示「這個房間已被其他主機使用」，並提供「重新產生房間」）。
+3. 同一房間已有主機連線時，**新通過驗證的主機取代舊的**：舊連線收到 `{"t":"host-replaced"}` 後以 4002 關閉。這是主機分頁重新整理時的正常情況。
+4. 綁定的保存：Node 伺服器存在記憶體，重啟後清空；Worker 存在 Durable Object storage。房間連續 24 小時沒有主機連線時清除綁定。
+5. 綁定清空後到主機重新連上之前，任何知道 `roomId` 的人（`roomId` 印在公開的桌牌 QR Code 上）都能搶先綁定。這是 demo 接受的風險：主機會自動重連，空窗很短；真的被搶走時，在管理頁「重新產生房間」並重啟信令伺服器即可恢復（ADR 0109 決策 5）。
 
 ### 3.3 peer
 
@@ -89,24 +88,15 @@
 | `kind` | 方向 | 欄位 |
 | --- | --- | --- |
 | `offer` | peer → 主機 | `sdp` |
-| `answer` | 主機 → peer | `sdp`、`publicKey`、`proof` |
+| `answer` | 主機 → peer | `sdp` |
 | `candidate` | 雙向 | `candidate`（`RTCIceCandidateInit`；`null` 表示收集完成） |
 | `restart` | peer → 主機 | 無；表示 peer 要放棄目前的 PeerConnection，之後會送新的 offer |
 
 採用 trickle ICE，不像 Lab 那樣等 2 秒收集完再一次送出。
 
-### 4.3 主機真偽驗證
+### 4.3 主機真偽
 
-主機的 answer 附上 `proof`，是對以下字串的 ECDSA 簽章：
-
-```text
-pos-v2/dtls/v1|<roomId>|<peerId>|<主機 answer 的 SHA-256 指紋>|<peer offer 的 SHA-256 指紋>
-```
-
-- 指紋取自 SDP 的 `a=fingerprint:sha-256 …`（大寫十六進位、冒號分隔，照 SDP 原文）。沒有 `sha-256` 指紋的 SDP 一律拒絕。
-- peer 收到 answer 後依序檢查：`SHA-256(publicKey) === roomId`、簽章正確、簽章裡的主機指紋等於 answer SDP 的指紋、簽章裡的 peer 指紋等於自己 offer 的指紋。任一項不符就關閉 PeerConnection，顯示「無法確認主機身分」。
-- 這樣信令伺服器即使被換掉或遭竄改，也只能讓連線失敗或觀察中繼資料，無法冒充主機或在中間轉接 DTLS（細節見 ADR 0109）。
-- `peerId` 由 peer 從 `welcome` 得知，主機從轉送的 `from` 得知；寫進簽章可以避免把簽給別的 peer 的 answer 拿來重放。
+不另外驗證主機真偽：信令伺服器由測試者自架，在信任範圍內，DTLS 指紋經由它交換。遠端裝置只要確認 DataChannel 是用 QR Code 上的 `room` 與 `sig` 建立的即可。正式上線需要的端到端驗證列在 ADR 0109 的正式上線差距。
 
 ### 4.4 逾時與失敗
 
@@ -219,7 +209,7 @@ peer 端另有兩個只在本機產生、不經過網路的狀態：`HOST_UNAVAI
 
 - peer 送出 `order.place` 前，先把 `{requestId, items, createdAt}` 存進 localStorage `vanilla_solution:<ns>:pending:<roomId>`，收到成功或明確失敗的回覆後才刪除。
 - 重連後依序：`auth` → 對每筆待確認的請求以原 `requestId` 重送 `order.place` → `sync`。畫面在這段期間顯示「待確認」，不顯示送出失敗。
-- 主機重新整理：從 IndexedDB 讀回主機身分、授權雜湊、桌位與場次，重新取得 Web Lock 與主機席位。peer 收到 `host-online` 後重新握手並 `auth`，不需要重新配對或輸入入桌碼。
+- 主機重新整理：從 IndexedDB 讀回房間、授權雜湊、桌位與場次，重新取得 Web Lock 與主機席位。peer 收到 `host-online` 後重新握手並 `auth`，不需要重新配對或輸入入桌碼。
 
 ## 8. 主機端資料
 
@@ -234,4 +224,4 @@ peer 端另有兩個只在本機產生、不經過網路的狀態：`HOST_UNAVAI
 | `credentials` | 各種授權的 secret 雜湊、種類、角色、站台、場次、撤銷狀態 |
 | `pairing` | 配對票與待核准的申請 |
 
-主機身分存在另一個資料庫 `vanilla_solution:<ns>:host-identity`。「重設 demo 資料」只刪除 `orders` 資料庫，**保留主機身分**，`roomId` 不變，已印出的桌牌 QR Code 仍然可用。管理頁另外提供「重新產生主機身分」：會產生新的 `roomId`，所有 QR Code 與已配對的裝置都要重新設定，執行前要使用者確認。
+房間（`roomId`、`hostSecret`）存在另一個資料庫 `vanilla_solution:<ns>:room`。「重設 demo 資料」只刪除 `orders` 資料庫，**保留房間**，`roomId` 不變，已印出的桌牌 QR Code 仍然可用。管理頁另外提供「重新產生房間」：會產生新的 `roomId` 與 `hostSecret`，所有 QR Code 與已配對的裝置都要重新設定，執行前要使用者確認。主機席位被搶走時，也用它恢復。

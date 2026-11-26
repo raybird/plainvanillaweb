@@ -3,7 +3,7 @@
 - Issue：#16（承接 #10、Epic #8）
 - 建立日期：2026-11-26
 - 規模：Large。風險：高（跨裝置授權、斷線恢復、新增外部信令服務）
-- 狀態：驗收 A1–A10（見 #16）已於 2026-11-26 核准；P0 進行中（ADR 0109 為提議狀態，待確認與 #16 原描述不同的設計）
+- 狀態：驗收 A1–A10（見 #16）已於 2026-11-26 核准；ADR 0109 已接受；P0 剩協定規格草案定稿
 - 協定規格：[2026-11-26-pos-v2-protocol.md](./2026-11-26-pos-v2-protocol.md)
 
 **目標** 讓管理統計頁成為店內 POS 主機，店員裝置與顧客手機經 WebRTC DataChannel 加入，所有寫入集中在主機的 IndexedDB。第一代 `#/solutions/pos/*` 保留不變。
@@ -33,7 +33,7 @@
 ### P0 規格與決策
 
 - [x] #16 本文更新為已決定事項＋驗收 A1–A10，經使用者核准（2026-11-26）。
-- [ ] ADR 0109（WebRTC DataChannel 與主機授權的信任模型）。產出：`docs/decisions/0109-pos-v2-webrtc-host-authority.md`，並執行 `node scripts/update-adr-index.js`。完成判準：寫明和 ADR 0107 第 3 條決策的差異、信任範圍與正式上線差距；`--check` 通過；使用者確認與 #16 原描述不同的設計後，狀態改為已接受，並同步 #16。
+- [x] ADR 0109（WebRTC DataChannel 與主機授權的信任模型），2026-11-26 已接受並同步 #16。產出：`docs/decisions/0109-pos-v2-webrtc-host-authority.md`，並執行 `node scripts/update-adr-index.js`。完成判準：寫明和 ADR 0107 第 3 條決策的差異、信任範圍與正式上線差距；`--check` 通過；使用者確認與 #16 原描述不同的設計後，狀態改為已接受，並同步 #16。
 - [ ] 協定規格：信令訊息（主機席位、加入、轉送 SDP／ICE、離開）與 DataChannel RPC（訊息信封、錯誤碼、各角色可呼叫的方法、推送內容）。產出：`docs/superpowers/plans/2026-11-26-pos-v2-protocol.md`（草案，P8 併入 `docs/solutions/pos-v2.md`／`.en.md`）。驗收：A1–A7 的前置。
 
 ### P1 資料模型 v2（純函式與 repository）
@@ -54,7 +54,7 @@
 - [ ] Node 參考伺服器，**單一檔案、不匯入任何本地模組**（測試者只下載這一個檔案就能執行）。WebSocket 實作以 `tests/helpers/realtime-server.mjs` 為參考寫在檔案內；反過來由測試輔助程式匯入它，不讓它依賴 `tests/`。房間只允許一個主機席位（以主機 secret 認證）、由伺服器指定 `sender`、限制訊息大小、閒置房間逾時、`Origin` 白名單可設定（預設 GitHub Pages 網域與 `localhost`）。產出：`server/signaling.mjs`（確認 `update-sw-version.js` 的雜湊範圍是否要排除 `server/`）。完成判準：把檔案複製到空目錄後，`node signaling.mjs` 能啟動。
 - [ ] `signaling.mjs --tunnel`：啟動 `cloudflared tunnel --url http://localhost:<port>`，從輸出抓出 `trycloudflare.com` 網址，印出已帶好 `wss://` 信令位址的主機頁連結。找不到 `cloudflared` 或抓不到網址時，改印出手動步驟，不中止信令伺服器。抓網址的邏輯寫成純函式，以 cloudflared 的輸出樣本做單元測試。
 - [ ] Cloudflare Worker＋Durable Object 版，給測試者部署到自己的帳號；協定和 Node 版相同，共用同一份協定測試。產出：`server/cloudflare/worker.js`＋`wrangler.jsonc`，下載這兩個檔案到空目錄後 `npx wrangler deploy` 即可部署。Worker 首頁（GET `/`）顯示已帶好信令位址的主機頁連結。實作前確認 `npm create cloudflare -- --template` 能否直接從 repo 子目錄建立，可以的話文件多列這條路。
-- [ ] Node 測試：主機席位互斥、偽造 sender 被覆寫、房間逾時、非主機無法冒充主機、不在白名單的 `Origin` 被拒。
+- [ ] Node 測試：第一個主機綁定房間、不同 secret 被拒（4001）、同一 secret 取代舊連線（4002）、偽造 sender 被覆寫、24 小時無主機後清除綁定、不在白名單的 `Origin` 被拒。
 - [ ] 主機端信令設定（A9）：
   - 信令網址欄位存 localStorage，提供連線測試；貼 `https://…` 時自動轉成 `wss://`。所有 QR Code 網址都帶上信令位址。
   - 未設定時顯示兩種自架方式的指令與複製按鈕：Node＋Quick Tunnel（`curl -fsSLO …/server/signaling.mjs`、`node signaling.mjs --tunnel`）、自有 Worker（下載 `worker.js`／`wrangler.jsonc`、`npx wrangler login`、`npx wrangler deploy`）。指令依 `lib/version.js` 的 `VERSION` 組出 `cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v<VERSION>/…`，與頁面同版；只下載後執行，不提供 `curl | sh`。另附 cloudflared 官方安裝說明的連結。
@@ -65,7 +65,7 @@
 
 - [ ] 主機分頁的 Web Lock 單例；其他管理分頁進入唯讀模式。
 - [ ] hub：每台裝置一個 `RTCPeerConnection`、可設定的 `iceServers`、ICE 失敗時回報需要 TURN、心跳與在線狀態、`bufferedAmount` 背壓、安全 JSON parse 與大小上限、依授權分派 RPC、依角色推送。
-- [ ] 主機身分：ECDSA P-256 金鑰對（不可匯出，存在 `vanilla_solution:<ns>:host-identity`）、`roomId` 推導、主機席位簽章、answer 的 DTLS 指紋簽章；遠端裝置驗證（協定規格 3.2、4.3）。Node 單元測試涵蓋簽章字串與驗證失敗的每一種情況。
+- [ ] 房間：第一次啟用時產生 `roomId` 與 `hostSecret`，存在 `vanilla_solution:<ns>:room`；「重設 demo 資料」保留房間；「重新產生房間」經使用者確認後換新，並處理 4001（房間已被其他主機使用）的提示（協定規格 3.2、第 8 節）。
 - [ ] 唯讀管理分頁：主機寫入後以 MessageBus 通知，同一台電腦上其他管理分頁重讀 IndexedDB。
 - [ ] 瀏覽器測試：主機與兩個 client target 互通；不合格訊息被拒並計數；未設定信令時頁面不出現 `console.error`（A9）。
 

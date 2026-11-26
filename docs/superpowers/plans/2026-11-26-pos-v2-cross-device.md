@@ -59,11 +59,12 @@
 - [x] Cloudflare Worker＋Durable Object 版，給測試者部署到自己的帳號；協定和 Node 版相同，共用同一份協定測試。產出：`server/cloudflare/worker.js`＋`wrangler.jsonc`，下載這兩個檔案到空目錄後 `npx wrangler deploy` 即可部署。Worker 首頁（GET `/`）顯示已帶好信令位址的主機頁連結。實作前確認 `npm create cloudflare -- --template` 能否直接從 repo 子目錄建立，可以的話文件多列這條路。
   - 結果（2026-11-26）：以 npx 快取裡的 wrangler 4.158.0 執行 `wrangler dev --local`，`SIGNALING_URL=ws://127.0.0.1:<port> node --test tests/signaling.test.js` 對 Worker 跑同一組協定測試，13 項通過、2 項 Node 專屬而略過。綁定逾時另以 `--var BINDING_TTL_MS:2000` 實測 alarm：逾時前其他 secret 被拒（4001），逾時後可以綁定。`npm create cloudflare --template` 能否從 repo 子目錄建立，要等分支推上 GitHub 才能試，尚未確認；文件先只列「下載兩個檔案後 `npx wrangler@4 deploy`」。實際部署到 Cloudflare 帳號屬於 A10 的實機驗收。
 - [x] Node 測試（`tests/signaling.test.js`，15 項）：第一個主機綁定房間、不同 secret 被拒（4001）、同一 secret 取代舊連線（4002）、偽造 sender 被覆寫、24 小時無主機後清除綁定、不在白名單的 `Origin` 被拒。另含訊框解析、限速（4008）、每房 64 個 peer（4009）、過大訊息（1009）、主機上下線通知，以及複製到空目錄執行。
-- [ ] 主機端信令設定（A9）：
+- [x] 主機端信令設定（A9）：
   - 信令網址欄位存 localStorage，提供連線測試；貼 `https://…` 時自動轉成 `wss://`。所有 QR Code 網址都帶上信令位址。
   - 未設定時顯示兩種自架方式的指令與複製按鈕：Node＋Quick Tunnel（`curl -fsSLO …/server/signaling.mjs`、`node signaling.mjs --tunnel`）、自有 Worker（下載 `worker.js`／`wrangler.jsonc`、`npx wrangler login`、`npx wrangler deploy`）。指令依 `lib/version.js` 的 `VERSION` 組出 `cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v<VERSION>/…`，與頁面同版；只下載後執行，不提供 `curl | sh`。另附 cloudflared 官方安裝說明的連結。
   - 從網址參數（`sig=`）帶入的信令位址，要經使用者確認「要使用這個信令網址嗎？」才儲存，不直接套用：信令伺服器在信任範圍內，不能讓任意連結替換它。
   - 瀏覽器測試：指令中的版本號等於 `VERSION`；帶 `sig=` 的連結在確認前不改變已儲存的設定。
+  - 結果（2026-11-26）：主機頁 `#/solutions/pos-v2/admin`（`PosV2AdminPage.js`）目前只有信令設定，房間與 hub 在 P4 加入；設定邏輯在 `signaling-settings.js`。連線測試以 peer 身分連到隨機空房間、收到 `welcome` 才算成功，所以也能抓出 Origin 白名單沒有包含網站的情況。`tests/signaling-settings.test.js` 5 項；`tests/browser-runner.mjs` 的 `runPosV2AdminTests` 在根目錄與子路徑各跑一次，連 runner 內建的兩個 `signaling.mjs`（一個只允許別的 Origin），驗證指令版本、儲存與連線測試、Origin 被拒、`sig` 確認前與拒絕後不改設定、重新載入後接受才儲存、格式不對時忽略。亮色與暗色截圖確認過。QR Code 帶上信令位址屬於 P4 起產生 QR Code 的頁面。
 
 ### P4 主機 hub 與連線層
 

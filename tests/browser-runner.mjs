@@ -11,6 +11,7 @@
  *   1. tests/browser.html 的 BaseComponent 測試、tests/pos-v2-browser.html 的 POS v2 repository 測試全部通過
  *   2. 整站冒煙測試：逐一開啟所有路由（含延遲載入的 Lab 子路由）與文件，
  *      不得有未捕捉的例外、console.error 或 4xx/5xx 回應
+ *   3. 互動與各 Solutions 的流程測試；POS v2 主機頁的信令設定連到 runner 內建的 server/signaling.mjs
  *
  * 用法：node tests/browser-runner.mjs
  * Chrome 路徑可用 CHROME_PATH 指定；預設依序尋找 google-chrome、google-chrome-stable、chromium、chromium-browser。
@@ -23,6 +24,8 @@ import path from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { startRealtimeTestServer } from './helpers/realtime-server.mjs';
+import { createSignalingServer } from '../server/signaling.mjs';
+import { VERSION } from '../lib/version.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SUBPATH = '/plainvanillaweb/';
@@ -282,6 +285,105 @@ async function runPosV2RepositoryTests(page, base) {
     const { passed, total, results } = await page.evaluate('window.__TEST_RESULTS__');
     console.log(`  POS v2 repository 測試：${passed} / ${total} 通過`);
     return results.filter((r) => !r.ok).map((r) => `tests/pos-v2-browser.html：${r.name}：${r.error}`);
+}
+
+/**
+ * POS v2 主機頁的信令設定（#16 A9）：自架指令與 VERSION 同版、儲存並以真的信令伺服器測試連線、
+ * Origin 不在白名單時測試失敗、網址帶來的 sig 在確認前不改變已儲存的設定。
+ */
+async function runPosV2AdminTests(openTab, base) {
+    const failures = [];
+    const check = (ok, message) => { if (!ok) failures.push(`POS v2 主機：${message}`); };
+    const ns = `e2e-pos-v2-${Date.now().toString(36)}`;
+    const storageKey = `vanilla_solution:${ns}:signaling`;
+    const url = (query = '') => `${base}#/solutions/pos-v2/admin?ns=${ns}${query}`;
+    const allowed = createSignalingServer();
+    const foreign = createSignalingServer({ allowedOrigins: ['https://only.example'] });
+    const { port } = await allowed.listen(0);
+    const { port: foreignPort } = await foreign.listen(0);
+    const tab = await openTab();
+    const tracker = trackProblems(tab.page);
+    const page = tab.page;
+    const evaluate = (expr) => page.evaluate(expr);
+    const saved = () => evaluate(`localStorage.getItem(${JSON.stringify(storageKey)})`);
+    const click = (selector) => evaluate(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el || el.disabled) return false;
+        el.click();
+        return true;
+    })()`);
+    const submit = (value) => evaluate(`(() => {
+        const form = document.querySelector('form[data-form="signaling"]');
+        if (!form) return false;
+        form.elements.sig.value = ${JSON.stringify(value)};
+        form.requestSubmit();
+        return true;
+    })()`);
+    try {
+        await page.send('Page.navigate', { url: url() });
+        check(await waitFor(page, "document.querySelector('[data-guide-panel]') !== null", 15000), '未設定信令時應顯示自架步驟');
+        const guide = await evaluate(`({
+            version: document.querySelector('[data-guide-version]')?.textContent.trim(),
+            node: document.querySelector('pre[data-command="node"]')?.textContent ?? '',
+            worker: document.querySelector('pre[data-command="worker"]')?.textContent ?? '',
+            copies: document.querySelectorAll('[data-action="copy"]').length,
+        })`);
+        const cdn = `https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v${VERSION}/server/`;
+        check(guide.version === `v${VERSION}`, `自架指令的版本應為 v${VERSION}：${guide.version}`);
+        check(guide.node.includes(`curl -fsSLO ${cdn}signaling.mjs`) && guide.node.includes('node signaling.mjs --tunnel'), `Node 指令不正確：${guide.node}`);
+        check(guide.worker.includes(`${cdn}cloudflare/worker.js`) && guide.worker.includes(`${cdn}cloudflare/wrangler.jsonc`) && guide.worker.includes('wrangler@4 deploy'), `Worker 指令不正確：${guide.worker}`);
+        check(!/\|\s*(ba)?sh\b/.test(guide.node + guide.worker), '不應提供 curl | sh');
+        check(guide.copies === 2, `應有兩個複製按鈕：${guide.copies}`);
+
+        // 貼 http:// 轉成 ws://（本機）並以真的信令伺服器測試
+        check(await submit(`http://127.0.0.1:${port}/`), '找不到信令網址表單');
+        check(await waitFor(page, `document.querySelector('[data-sig-saved]')?.textContent === 'ws://127.0.0.1:${port}'`, 5000), '儲存後應顯示整理過的網址');
+        check(await saved() === `ws://127.0.0.1:${port}`, `localStorage 應存整理過的網址：${await saved()}`);
+        check(await waitFor(page, "document.querySelector('[data-sig-test=\"ok\"]') !== null", 10000), '連線測試應成功');
+        check(await evaluate("document.querySelector('[data-sig-status]')?.dataset.ready === 'true'"), '標頭應顯示信令已設定');
+
+        // Origin 不在白名單：連線測試失敗並說明
+        await click('[data-action="edit"]');
+        check(await submit(`ws://127.0.0.1:${foreignPort}`), '變更時找不到表單');
+        check(await waitFor(page, "document.querySelector('[data-sig-test=\"fail\"]') !== null", 10000), 'Origin 不在白名單時連線測試應失敗');
+        check((await evaluate("document.querySelector('[data-sig-test]')?.textContent ?? ''")).includes('Origin'), '失敗訊息應提到 Origin 白名單');
+
+        // 網址帶來的 sig：同一頁換網址時，確認前不改變設定；拒絕後不再詢問
+        await click('[data-action="edit"]');
+        await submit(`ws://127.0.0.1:${port}`);
+        await waitFor(page, "document.querySelector('[data-sig-test=\"ok\"]') !== null", 10000);
+        await evaluate(`location.hash = ${JSON.stringify(`#/solutions/pos-v2/admin?ns=${ns}&sig=${encodeURIComponent('wss://evil.example')}`)}`);
+        check(await waitFor(page, "document.querySelector('[data-sig-confirm]') !== null", 5000), '帶 sig 的連結應要求確認');
+        check(await evaluate("document.querySelector('[data-sig-pending]')?.textContent") === 'wss://evil.example', '確認畫面應顯示連結帶來的網址');
+        check(await saved() === `ws://127.0.0.1:${port}`, '確認前不應改變已儲存的設定');
+        check(await click('[data-action="reject-sig"]'), '找不到「不使用」按鈕');
+        check(await waitFor(page, "document.querySelector('[data-sig-confirm]') === null", 3000), '拒絕後確認畫面應消失');
+        check(await saved() === `ws://127.0.0.1:${port}`, '拒絕後不應改變設定');
+
+        // 重新載入帶 sig 的連結：再問一次；接受後才儲存
+        await page.send('Page.navigate', { url: url(`&sig=${encodeURIComponent(`https://127.0.0.1:${port}`)}`) });
+        check(await waitFor(page, "document.querySelector('[data-sig-confirm]') !== null", 15000), '重新載入帶 sig 的連結應要求確認');
+        check(await saved() === `ws://127.0.0.1:${port}`, '重新載入後確認前不應改變設定');
+        check(await click('[data-action="accept-sig"]'), '找不到「使用這個信令網址」按鈕');
+        check(await waitFor(page, `document.querySelector('[data-sig-saved]')?.textContent === 'wss://127.0.0.1:${port}'`, 5000), '接受後應顯示新的網址');
+        check(await saved() === `wss://127.0.0.1:${port}`, `接受後才儲存：${await saved()}`);
+
+        // 格式不對的 sig 不詢問、不儲存
+        await evaluate(`location.hash = ${JSON.stringify(`#/solutions/pos-v2/admin?ns=${ns}&sig=${encodeURIComponent('ftp://bad.example')}`)}`);
+        check(await waitFor(page, "document.querySelector('[data-sig-invalid]') !== null", 5000), '格式不對的 sig 應顯示已忽略');
+        check(await saved() === `wss://127.0.0.1:${port}`, '格式不對的 sig 不應改變設定');
+
+        await evaluate(`localStorage.removeItem(${JSON.stringify(storageKey)})`);
+    } catch (err) {
+        failures.push(`POS v2 主機：測試中斷：${err.message.split('\n')[0]}`);
+    } finally {
+        failures.push(...tracker.take().map((p) => `POS v2 主機：${p}`));
+        await tab.close();
+        await allowed.close();
+        await foreign.close();
+    }
+    console.log('  POS v2 主機頁：自架指令與版本、信令網址儲存與連線測試、Origin 白名單、sig 參數確認');
+    return failures;
 }
 
 async function runSmokeTests(page, base, tracker, network) {
@@ -2382,6 +2484,7 @@ async function main() {
                 ...(await runCoordinationTests(openTab, base, realtime)),
                 ...(await runSolutionsTests(openTab, base)),
                 ...(await runPosTests(openTab, base)),
+                ...(await runPosV2AdminTests(openTab, base)),
                 ...(await runFarmTests(openTab, base)),
             ];
             const offlineServer = await startServer(prefix);

@@ -126,7 +126,7 @@
 ### 5.3 訂單查詢授權
 
 - 顧客以入桌授權送出的訂單，自動屬於該 principal，可以直接查看。
-- 店員點餐裝置送出的訂單，主機另外產生 `viewToken`，回應中帶回，用來組成訂單 QR Code（`track?o=<orderId>&k=<viewToken>`）。
+- 店員點餐裝置送出的訂單，回應中帶回 `viewToken`，用來組成訂單 QR Code（`track?o=<orderId>&k=<viewToken>`）。`viewToken = base64url(HMAC-SHA-256(hostSecret, "pos-v2/view/v1|<orderId>"))`：主機不保存它，驗證時重新推導再比對；重送取回原訂單時也算得出同一個值。「重新產生房間」後舊的訂單 QR Code 全部失效。
 - 任何連線送 `order.watch {orderId, token}`，成功後這條 DataChannel 取得該筆訂單的唯讀權限，並存進 localStorage 供重連使用。查詢授權只能看那一筆訂單。
 
 ### 5.4 送單去重
@@ -218,7 +218,7 @@ peer 端另有兩個只在本機產生、不經過網路的狀態：`HOST_UNAVAI
 | store | 內容 |
 | --- | --- |
 | `products`、`meta` | 同第一代 |
-| `orders` | 第一代欄位，加上 `principal`、`source`（`device`／`table`）、`tableId`、`diningSessionId`、`viewTokenHash`；`[principal, requestId]` 複合唯一索引 |
+| `orders` | 第一代欄位，加上 `principal`、`source`（`device`／`table`）、`tableId`、`diningSessionId`；`[principal, requestId]` 複合唯一索引 |
 | `tables` | 桌號、名稱 |
 | `sessions` | 用餐場次；`tableId` 索引 |
 | `credentials` | 各種授權的 secret 雜湊、種類、角色、站台、場次、撤銷狀態 |

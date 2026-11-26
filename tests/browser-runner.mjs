@@ -8,7 +8,7 @@
  * 子路徑伺服器只提供 /plainvanillaweb/ 底下的檔案，路徑解析錯誤會直接 404，不會被根目錄的檔案掩蓋。
  *
  * 每種路徑檢查：
- *   1. tests/browser.html 的 BaseComponent 測試全部通過
+ *   1. tests/browser.html 的 BaseComponent 測試、tests/pos-v2-browser.html 的 POS v2 repository 測試全部通過
  *   2. 整站冒煙測試：逐一開啟所有路由（含延遲載入的 Lab 子路由）與文件，
  *      不得有未捕捉的例外、console.error 或 4xx/5xx 回應
  *
@@ -271,6 +271,17 @@ async function runComponentTests(page, base) {
     const { passed, total, results } = await page.evaluate('window.__TEST_RESULTS__');
     console.log(`  BaseComponent 測試：${passed} / ${total} 通過`);
     return results.filter((r) => !r.ok).map((r) => `tests/browser.html：${r.name}：${r.error}`);
+}
+
+/** tests/pos-v2-browser.html：POS v2 repository（IndexedDB 與 WebCrypto）的測試 */
+async function runPosV2RepositoryTests(page, base) {
+    await page.send('Page.navigate', { url: new URL('tests/pos-v2-browser.html', base).href });
+    if (!(await waitFor(page, 'window.__TEST_RESULTS__ !== undefined', 30000))) {
+        return ['tests/pos-v2-browser.html：逾時，沒有產生測試結果'];
+    }
+    const { passed, total, results } = await page.evaluate('window.__TEST_RESULTS__');
+    console.log(`  POS v2 repository 測試：${passed} / ${total} 通過`);
+    return results.filter((r) => !r.ok).map((r) => `tests/pos-v2-browser.html：${r.name}：${r.error}`);
 }
 
 async function runSmokeTests(page, base, tracker, network) {
@@ -2364,6 +2375,8 @@ async function main() {
             const failures = [
                 ...(await runComponentTests(page, base)),
                 ...tracker.take().map((p) => `tests/browser.html：${p}`),
+                ...(await runPosV2RepositoryTests(page, base)),
+                ...tracker.take().map((p) => `tests/pos-v2-browser.html：${p}`),
                 ...(await runSmokeTests(page, base, tracker, network)),
                 ...(await runInteractionTests(page, base, tracker, network)),
                 ...(await runCoordinationTests(openTab, base, realtime)),

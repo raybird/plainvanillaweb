@@ -31,7 +31,7 @@ const SEQUENCE_KEY = 'sequence';
  * @param {(tx: IDBTransaction, ctx: { set: (value: any) => void, step: (fn: Function) => Function }) => void} body
  * @returns {Promise<any>}
  */
-function runTransaction(db, storeNames, mode, body) {
+export function runTransaction(db, storeNames, mode, body) {
     return new Promise((resolve, reject) => {
         let tx;
         try {
@@ -67,7 +67,7 @@ function runTransaction(db, storeNames, mode, body) {
  * @param {IDBRequest} request
  * @returns {Promise<any>}
  */
-function requestToPromise(request) {
+export function requestToPromise(request) {
     return new Promise((resolve, reject) => {
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);

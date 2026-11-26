@@ -39,7 +39,7 @@
 ### P1 資料模型 v2（純函式與 repository）
 
 - [x] `pos-v2-model.js`：桌位、用餐場次（開桌、關桌、輪換入桌碼）、授權種類（裝置、入桌、訂單查詢）與雜湊比對、驗證嘗試次數上限與冷卻、訂單加上 `tableId`／`diningSessionId`／`source`／`principal`、前面待備餐筆數。盡量匯入第一代 `pos-model.js` 的轉移規則，不複製。驗收：A4–A6。
-- [ ] `pos-v2-repository.js`：自有資料庫與 `SCHEMA_VERSION`；store 包含 orders、tables、sessions、credentials、host；去重鍵為 `[principal, requestId]` 複合索引；送單時在同一個 transaction 內確認場次仍有效。驗收：A5–A7。
+- [x] `pos-v2-repository.js`（瀏覽器測試 `tests/pos-v2-browser.html`，15 項，由 `browser-runner.mjs` 執行；店員點餐的查詢 token 改由 `hostSecret` 以 HMAC 推導，不保存雜湊，重送也取得同一個值；第一代 `pos-repository.js` 只把 `runTransaction`／`requestToPromise` 加上 export）：自有資料庫與 `SCHEMA_VERSION`；store 包含 orders、tables、sessions、credentials、host；去重鍵為 `[principal, requestId]` 複合索引；送單時在同一個 transaction 內確認場次仍有效。驗收：A5–A7。
 - [x] 單元測試 `tests/pos-v2-model.test.js`（23 項；第一代測試未修改照常通過）。完成判準：拿別人的 `requestId` 取不到別人的訂單、舊場次授權被拒、冷卻時間生效、排隊筆數正確；`node --test tests/pos-model.test.js` 照常通過（A8）。
 
 ### P2 QR Code encoder（可和 P1 並行）

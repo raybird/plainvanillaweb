@@ -21,6 +21,7 @@ import {
     createPairingTicket,
     createTableCredential,
     decidePlaceOrder,
+    deriveViewToken,
     decideTableJoin,
     evaluateAttempt,
     hashSecret,
@@ -73,6 +74,15 @@ test('hashSecret 為 SHA-256 base64url，同輸入同輸出', async () => {
     assert.equal(await hashSecret('secret'), a);
     assert.notEqual(await hashSecret('secret2'), a);
     await assert.rejects(() => hashSecret(''), TypeError);
+});
+
+test('deriveViewToken：同一訂單同一值；訂單或 hostSecret 不同就不同', async () => {
+    const token = await deriveViewToken('host-secret', 'order-1');
+    assert.match(token, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(await deriveViewToken('host-secret', 'order-1'), token);
+    assert.notEqual(await deriveViewToken('host-secret', 'order-2'), token);
+    assert.notEqual(await deriveViewToken('other-secret', 'order-1'), token);
+    await assert.rejects(() => deriveViewToken('', 'order-1'), TypeError);
 });
 
 test('safeEqual 只在完全相同時為真', () => {
@@ -209,9 +219,9 @@ test('送單：店員點餐裝置可不帶桌號；帶桌號時該桌要開桌�
 
 test('withV2Fields 保留第一代欄位並加上第二代欄位', () => {
     const base = order({ id: 'o1', sequence: 1 });
-    const v2 = withV2Fields(base, { principal: 'device:d', source: 'device', tableId: null, diningSessionId: null }, 'vh');
+    const v2 = withV2Fields(base, { principal: 'device:d', source: 'device', tableId: null, diningSessionId: null });
     assert.equal(v2.number, base.number);
-    assert.equal(v2.viewTokenHash, 'vh');
+    assert.equal(v2.source, 'device');
     assert.equal(v2.principal, 'device:d');
 });
 
@@ -261,7 +271,7 @@ test('權限：廚房只能 claim／ready／takeover，叫號只能 pickup，沒
 });
 
 test('查單：只看得到自己建立的或以查詢授權開啟的訂單；投影不含內部欄位', () => {
-    const mine = withV2Fields(order({ id: 'o1', sequence: 1 }), { principal: 'table:c1', source: 'table', tableId: 'T1', diningSessionId: 's1' }, 'vh');
+    const mine = withV2Fields(order({ id: 'o1', sequence: 1 }), { principal: 'table:c1', source: 'table', tableId: 'T1', diningSessionId: 's1' });
     const other = withV2Fields(order({ id: 'o2', sequence: 2, principal: 'table:c2' }), { principal: 'table:c2', source: 'table', tableId: 'T2', diningSessionId: 's9' });
     assert.equal(canViewOrder(mine, { principal: 'table:c1' }), true);
     assert.equal(canViewOrder(other, { principal: 'table:c1' }), false);
@@ -271,7 +281,7 @@ test('查單：只看得到自己建立的或以查詢授權開啟的訂單；�
     const projected = projectCustomerOrder(other, [mine, other]);
     assert.equal(projected.aheadCount, 1);
     assert.equal(projected.tableId, 'T2');
-    for (const key of ['principal', 'viewTokenHash', 'history', 'requestId', 'diningSessionId', 'station']) {
+    for (const key of ['principal', 'history', 'requestId', 'diningSessionId', 'station']) {
         assert.equal(key in projected, false, `投影不應含 ${key}`);
     }
 });

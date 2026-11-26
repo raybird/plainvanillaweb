@@ -115,6 +115,24 @@ export async function hashSecret(secret) {
 }
 
 /**
+ * 訂單查詢 token：以 `hostSecret` 對訂單 id 做 HMAC-SHA-256（base64url）。主機不保存 token，
+ * 驗證時重新推導再比對；同一筆訂單永遠得到同一個值，送單回覆遺失、重送取回原訂單時也能再算出來。
+ * 「重新產生房間」換掉 `hostSecret` 後，舊的訂單 QR Code 全部失效。
+ * @param {string} hostSecret
+ * @param {string} orderId
+ * @returns {Promise<string>}
+ */
+export async function deriveViewToken(hostSecret, orderId) {
+    if (typeof hostSecret !== 'string' || !hostSecret || typeof orderId !== 'string' || !orderId) {
+        throw new TypeError('deriveViewToken 需要 hostSecret 與 orderId');
+    }
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', encoder.encode(hostSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`pos-v2/view/v1|${orderId}`));
+    return toBase64Url(new Uint8Array(signature));
+}
+
+/**
  * 固定時間比較兩個字串（長度不同時直接回傳 false，長度本身不是秘密）。
  * @param {unknown} a
  * @param {unknown} b
@@ -358,10 +376,9 @@ export function decidePlaceOrder({ existing, grant, session, tableId = null }) {
  * 把第二代的欄位加到第一代 `createOrder()` 建出的訂單上。
  * @param {object} order 第一代的訂單
  * @param {{ principal: string, source: string, tableId: string | null, diningSessionId: string | null }} fields
- * @param {string | null} [viewTokenHash] 店員點餐時產生的查詢 token 雜湊（交接用）
  */
-export function withV2Fields(order, fields, viewTokenHash = null) {
-    return { ...order, ...fields, viewTokenHash };
+export function withV2Fields(order, fields) {
+    return { ...order, ...fields };
 }
 
 /**

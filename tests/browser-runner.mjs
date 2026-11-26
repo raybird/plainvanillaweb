@@ -78,7 +78,10 @@ async function launchChrome() {
     const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pvw-chrome-'));
     const args = [
         '--headless=new', '--remote-debugging-port=0', '--no-first-run', '--no-default-browser-check',
-        `--user-data-dir=${userDataDir}`, 'about:blank',
+        `--user-data-dir=${userDataDir}`,
+        // WebRTC 的 host candidate 預設是 mDNS（.local）名稱，CI 上不一定能解析；POS v2 測試改用實際 IP
+        '--disable-features=WebRtcHideLocalIpsWithMdns',
+        'about:blank',
     ];
     // GitHub Actions 的 Ubuntu 限制了非特權 user namespace，Chrome 沙箱無法啟動
     if (process.env.CI) args.unshift('--no-sandbox');
@@ -383,6 +386,152 @@ async function runPosV2AdminTests(openTab, base) {
         await foreign.close();
     }
     console.log('  POS v2 主機頁：自架指令與版本、信令網址儲存與連線測試、Origin 白名單、sig 參數確認');
+    return failures;
+}
+
+/**
+ * POS v2 主機與遠端裝置（#16 P4）：主機分頁經 runner 內建的 signaling.mjs 與兩個 client target 以 WebRTC 互通；
+ * 角色推送、不合格訊息計數、唯讀管理分頁同步，以及主機分頁關閉後唯讀分頁接手、裝置自動重連。
+ */
+async function runPosV2HubTests(openTab, base) {
+    const failures = [];
+    const check = (ok, message) => { if (!ok) failures.push(`POS v2 連線：${message}`); };
+    const ns = `e2e-pos-v2-hub-${Date.now().toString(36)}`;
+    const signaling = createSignalingServer();
+    const { port } = await signaling.listen(0);
+    const sig = `ws://127.0.0.1:${port}`;
+    const adminUrl = `${base}#/solutions/pos-v2/admin?ns=${ns}`;
+    const tabs = [];
+    const open = async (url, ready) => {
+        // 各自開新視窗：背景分頁的 requestAnimationFrame 會暫停，畫面不會重繪
+        const tab = await openTab({ newWindow: true });
+        tab.tracker = trackProblems(tab.page);
+        tabs.push(tab);
+        await tab.page.send('Page.navigate', { url });
+        if (ready && !(await waitFor(tab.page, ready, 15000))) throw new Error(`${url} 未就緒：${ready}`);
+        return tab;
+    };
+    const ev = (tab, expr, timeoutMs) => tab.page.evaluate(expr, timeoutMs);
+    const adminReady = (role) => `document.querySelector('[data-host-role="${role}"]') !== null`;
+    /** 在 client target 建立遠端裝置：信令 → WebRTC → RPC */
+    const startPeer = (tab, roomId, { relayOnly = false } = {}) => ev(tab, `(async () => {
+        const dir = new URL('../components/pages/solutions/pos-v2/', location.href);
+        const { SignalingClient } = await import(new URL('signaling-client.js', dir));
+        const { PeerLink } = await import(new URL('peer-link.js', dir));
+        const { PosV2RpcClient } = await import(new URL('pos-v2-rpc-client.js', dir));
+        const signaling = new SignalingClient({ url: ${JSON.stringify(sig)}, roomId: ${JSON.stringify(roomId)}, role: 'peer' });
+        // relayOnly：只允許 TURN，沒有 TURN 伺服器時一定連不上，用來驗證「需要 TURN」的提示
+        const RelayOnly = class extends RTCPeerConnection {
+            constructor(config) { super({ ...config, iceTransportPolicy: 'relay' }); }
+        };
+        const link = new PeerLink({ signaling, ...(${relayOnly} ? { RTCPeerConnectionImpl: RelayOnly, connectTimeoutMs: 1500 } : {}) });
+        const peer = window.__peer = { link, rpc: null, opens: 0, pushes: [], states: [], failure: null };
+        link.on('state', (d) => {
+            peer.states.push(d.state);
+            if (d.state === 'failed') peer.failure = d;
+        });
+        link.on('open', ({ channel }) => {
+            peer.opens += 1;
+            peer.channel = channel;
+            peer.rpc = new PosV2RpcClient({ channel });
+            peer.rpc.on('push', (p) => peer.pushes.push(p));
+            // 心跳判定主機失聯時通知連線層重連（主機分頁被關閉時 DataChannel 的 close 可能很久才來）
+            peer.rpc.on('closed', () => link.reconnect());
+        });
+        link.start();
+        return true;
+    })()`);
+    const rpc = (tab, method, params) => ev(tab, `window.__peer.rpc.request(${JSON.stringify(method)}, ${JSON.stringify(params)})
+        .then((value) => ({ ok: true, value }), (err) => ({ ok: false, code: err.code, message: err.message }))`, 15000);
+    try {
+        // 主機分頁：還沒設定信令時就已建立房間
+        const host = await open(adminUrl, `${adminReady('primary')} && document.querySelector('[data-room-id]')?.dataset.roomId`);
+        const firstRoom = await ev(host, "document.querySelector('[data-room-id]').dataset.roomId");
+        // 別人搶先以其他 secret 綁定這個房間（協定規格 3.2 的風險）
+        const intruder = new WebSocket(`${sig}/v1/rooms/${firstRoom}?role=host`, { headers: { Origin: new URL(base).origin } });
+        await new Promise((resolve, reject) => {
+            intruder.addEventListener('open', () => intruder.send(JSON.stringify({ t: 'host-auth', secret: 'x'.repeat(43) })));
+            intruder.addEventListener('message', (event) => { if (JSON.parse(event.data).t === 'host-ready') resolve(); });
+            intruder.addEventListener('error', reject);
+        });
+        // 存信令網址再重新載入，主機以它連上信令：房間已被綁定 → 4001
+        await ev(host, `localStorage.setItem(${JSON.stringify(`vanilla_solution:${ns}:signaling`)}, ${JSON.stringify(sig)})`);
+        await host.page.send('Page.navigate', { url: `${base}tests/pos-v2-peer.html` });
+        await host.page.send('Page.navigate', { url: adminUrl });
+        check(await waitFor(host.page, `document.querySelector('[data-signaling-state="rejected"]') !== null`, 15000), '房間被其他主機綁定時應顯示被拒');
+        intruder.close();
+        // 重新產生房間：要先確認；確認後換新房間並連上信令
+        await ev(host, "document.querySelector('[data-action=\"regenerate\"]').click()");
+        check(await waitFor(host.page, "document.querySelector('[data-regenerate-confirm]') !== null", 3000), '重新產生房間前應要求確認');
+        check(await ev(host, `document.querySelector('[data-room-id]').dataset.roomId === ${JSON.stringify(firstRoom)}`), '確認前不應換房間');
+        await ev(host, "document.querySelector('[data-action=\"confirm-regenerate\"]').click()");
+        check(await waitFor(host.page, `document.querySelector('[data-signaling-state="open"]') !== null`, 15000), '重新產生房間後主機應連上信令');
+        const roomId = await ev(host, "document.querySelector('[data-room-id]')?.dataset.roomId ?? ''");
+        check(roomId !== firstRoom, '重新產生後房間 id 應改變');
+        check(/^[A-Za-z0-9_-]{22}$/.test(roomId), `房間 id 格式不對：${roomId}`);
+        // 配對 UI 在 P5；這裡直接由主機的 repository 簽發裝置授權
+        const issue = (role, station) => ev(host, `document.querySelector('page-pos-v2-admin').host.repository
+            .approveDevice({ role: ${JSON.stringify(role)}, station: ${JSON.stringify(station)} }).then((r) => r.credential)`);
+        const kitchenCredential = await issue('kitchen', 'K1');
+        const orderCredential = await issue('order', null);
+
+        // 唯讀分頁：同一個 namespace 的第二個管理分頁
+        const readonly = await open(adminUrl, adminReady('readonly'));
+
+        // 兩個遠端裝置經 WebRTC 連上主機
+        const kitchen = await open(`${base}tests/pos-v2-peer.html`);
+        const order = await open(`${base}tests/pos-v2-peer.html`);
+        await startPeer(kitchen, roomId);
+        await startPeer(order, roomId);
+        check(await waitFor(kitchen.page, 'window.__peer?.rpc !== null', 15000), `廚房裝置沒有建立 DataChannel：${await ev(kitchen, 'JSON.stringify(window.__peer?.states)')}`);
+        check(await waitFor(order.page, 'window.__peer?.rpc !== null', 15000), '點餐裝置沒有建立 DataChannel');
+        check((await rpc(kitchen, 'auth', { credentials: [kitchenCredential] })).value?.device?.station === 'K1', '廚房授權應通過');
+        check((await rpc(order, 'auth', { credentials: [orderCredential] })).value?.device?.role === 'order', '點餐授權應通過');
+        check(await waitFor(host.page, "document.querySelector('[data-connection-count]')?.textContent === '2'", 5000), '主機頁應列出 2 個已連線裝置');
+
+        // 權限與推送
+        const denied = await rpc(order, 'order.act', { orderId: 'x', action: 'claim' });
+        check(!denied.ok && denied.code === 'FORBIDDEN', `點餐裝置認領應回 FORBIDDEN：${JSON.stringify(denied)}`);
+        const placed = await rpc(order, 'order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'e2e-1' });
+        check(placed.ok && placed.value.order.number === '001' && typeof placed.value.viewToken === 'string', `送單失敗：${JSON.stringify(placed)}`);
+        check(await waitFor(kitchen.page, "window.__peer.pushes.some((p) => p.topic === 'kitchen' && p.data.orders.some((o) => o.number === '001'))", 5000), '廚房應收到新訂單的推送');
+        const claimed = await rpc(kitchen, 'order.act', { orderId: placed.value?.order.id, action: 'claim' });
+        check(claimed.ok && claimed.value.order.station === 'K1', `廚房認領失敗：${JSON.stringify(claimed)}`);
+        check(await waitFor(readonly.page, "document.querySelector('[data-order-count]')?.dataset.orderCount === '1'", 5000), '唯讀分頁應隨主機寫入更新訂單數');
+        check(await ev(readonly, "document.querySelector('[data-action=\"reset\"]') === null"), '唯讀分頁不應出現寫入操作');
+
+        // 不合格訊息：主機計數並顯示
+        await ev(order, "['garbage', '[1]', JSON.stringify({ v: 9, type: 'req', id: 'x', method: 'sync' })].forEach((m) => window.__peer.channel.send(m))");
+        check(await waitFor(host.page, "document.querySelector('[data-bad-messages=\"3\"]') !== null", 5000), '主機頁應顯示 3 則不合格訊息');
+        check((await rpc(order, 'sync')).ok, '不合格訊息未達上限時連線應保持可用');
+
+        // 直連失敗（只允許 TURN 但沒有 TURN）：逾時後停在 failed 並提示需要 TURN，不自動重試
+        const relay = await open(`${base}tests/pos-v2-peer.html`);
+        await startPeer(relay, roomId, { relayOnly: true });
+        check(await waitFor(relay.page, 'window.__peer.failure !== null', 10000), `只允許 TURN 時應判定直連失敗：${await ev(relay, 'JSON.stringify(window.__peer.states)')}`);
+        const failure = await ev(relay, 'window.__peer.failure');
+        check(failure?.needTurn === true && failure.reason === 'timeout', `失敗原因應提示需要 TURN：${JSON.stringify(failure)}`);
+        await sleep(2000);
+        check(await ev(relay, "window.__peer.link.state === 'failed' && window.__peer.states.filter((s) => s === 'connecting').length === 1"), '直連失敗後不應自動重試');
+
+        // 主機分頁關閉：唯讀分頁接手主機，裝置自動重連並重新驗證
+        await host.close();
+        tabs.splice(tabs.indexOf(host), 1);
+        check(await waitFor(readonly.page, `${adminReady('primary')} && document.querySelector('[data-signaling-state="open"]') !== null`, 15000), '主機分頁關閉後，唯讀分頁應接手並連上信令');
+        check(await waitFor(kitchen.page, 'window.__peer.opens >= 2 && window.__peer.link.state === "open"', 20000),
+            `主機換分頁後廚房裝置應自動重連：${await ev(kitchen, 'JSON.stringify(window.__peer.states.slice(-6))')}`);
+        const again = await rpc(kitchen, 'auth', { credentials: [kitchenCredential] });
+        check(again.ok && again.value.topics.kitchen.orders.some((o) => o.number === '001'), `重連後授權與資料應保留：${JSON.stringify(again).slice(0, 200)}`);
+    } catch (err) {
+        failures.push(`POS v2 連線：測試中斷：${err.message.split('\n')[0]}`);
+    } finally {
+        for (const tab of tabs) {
+            failures.push(...tab.tracker.take().map((p) => `POS v2 連線：${p}`));
+            await tab.close();
+        }
+        await signaling.close();
+    }
+    console.log('  POS v2 連線：房間被搶先綁定（4001）與重新產生房間、主機與兩個遠端裝置以 WebRTC 互通、角色推送、不合格訊息計數、唯讀分頁同步、直連失敗提示需要 TURN、主機分頁關閉後接手與重連');
     return failures;
 }
 
@@ -2485,6 +2634,7 @@ async function main() {
                 ...(await runSolutionsTests(openTab, base)),
                 ...(await runPosTests(openTab, base)),
                 ...(await runPosV2AdminTests(openTab, base)),
+                ...(await runPosV2HubTests(openTab, base)),
                 ...(await runFarmTests(openTab, base)),
             ];
             const offlineServer = await startServer(prefix);

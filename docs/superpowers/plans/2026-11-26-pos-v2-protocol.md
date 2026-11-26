@@ -160,15 +160,15 @@
 
 | 方法 | 誰能呼叫 | 說明 |
 | --- | --- | --- |
-| `auth` | 任何連線 | 帶入已保存的授權（裝置授權或入桌授權最多一份，查詢授權可以多份），回傳通過驗證的清單與目前快照 |
+| `auth` | 任何連線 | `{credentials: [授權], watches: [{orderId, token}]}`：裝置授權或入桌授權最多一份，查詢授權最多 50 筆。回傳 `{device, table, watches, rejected, rev, topics}`；驗證失敗的列在 `rejected`（`{kind, id, code}`），用戶端據此刪掉本機失效的授權 |
 | `pair.request` | 任何連線 | 5.1 |
 | `table.listOpen` | 任何連線 | 已開桌的桌號與名稱，不含入桌碼 |
 | `table.join` | 任何連線 | 5.2 |
 | `order.watch` | 任何連線 | 5.3 |
 | `menu.get` | 點餐裝置、入桌授權 | 菜單 |
 | `order.place` | 點餐裝置、入桌授權（場次開啟中） | `{items, requestId}`；點餐裝置可另帶 `tableId` |
-| `order.act` | 廚房：`claim`／`ready`／`takeover`；叫號：`pickup` | 沿用第一代的 `decideTransition`；`actor` 由主機依授權填入，不採用參數 |
-| `sync` | 任何已驗證的連線 | 重新取得自己角色的完整快照 |
+| `order.act` | 廚房：`claim`／`ready`／`takeover`；叫號：`pickup` | 沿用第一代的 `decideTransition`；`actor` 由主機依授權填入，不採用參數（廚房為站台名稱，叫號為 `display:<裝置名稱或 id>`）。所有 `order.act` 在主機依序執行 |
+| `sync` | 任何已驗證的連線 | 重新取得自己角色的完整快照 `{rev, topics}`（`topics` 的鍵與內容同 6.3 的推送）。`auth`、`table.join`、`order.watch` 的結果也附上同樣的快照 |
 
 取消訂單（`cancel`）只在主機的管理頁操作，不開放給遠端裝置。
 
@@ -190,6 +190,7 @@
 ### 6.4 心跳與在線
 
 - 主機每 5 秒對每條連線送 `ping`；peer 回 `pong`。
+- 對方直接消失（例如主機分頁被關閉）時，DataChannel 的 `close` 可能很久才觸發：peer 以心跳判定主機失聯後，主動丟掉目前的 PeerConnection 並依 4.4 的退避重連。
 - 主機 15 秒沒收到某條連線的任何訊息，就視為離線並關閉它；peer 15 秒沒收到主機的任何訊息，就視為主機失聯，開始重連。
 - **遠端站台接手**：站台的 DataChannel 已關閉，且最後一則訊息距今超過 15 秒，其他廚房才能 `takeover`。主機把「判斷站台離線」與寫入排在同一個佇列裡依序執行，不會同時讓兩個站台都接手成功。
 

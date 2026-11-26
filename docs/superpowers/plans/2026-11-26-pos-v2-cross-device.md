@@ -68,11 +68,17 @@
 
 ### P4 主機 hub 與連線層
 
-- [ ] 主機分頁的 Web Lock 單例；其他管理分頁進入唯讀模式。
-- [ ] hub：每台裝置一個 `RTCPeerConnection`、可設定的 `iceServers`、ICE 失敗時回報需要 TURN、心跳與在線狀態、`bufferedAmount` 背壓、安全 JSON parse 與大小上限、依授權分派 RPC、依角色推送。
-- [ ] 房間：第一次啟用時產生 `roomId` 與 `hostSecret`，存在 `vanilla_solution:<ns>:room`；「重設 demo 資料」保留房間；「重新產生房間」經使用者確認後換新，並處理 4001（房間已被其他主機使用）的提示（協定規格 3.2、第 8 節）。
-- [ ] 唯讀管理分頁：主機寫入後以 MessageBus 通知，同一台電腦上其他管理分頁重讀 IndexedDB。
-- [ ] 瀏覽器測試：主機與兩個 client target 互通；不合格訊息被拒並計數；未設定信令時頁面不出現 `console.error`（A9）。
+- [x] 主機分頁的 Web Lock 單例；其他管理分頁進入唯讀模式。
+- [x] hub：每台裝置一個 `RTCPeerConnection`、可設定的 `iceServers`、ICE 失敗時回報需要 TURN、心跳與在線狀態、`bufferedAmount` 背壓、安全 JSON parse 與大小上限、依授權分派 RPC、依角色推送。
+- [x] 房間：第一次啟用時產生 `roomId` 與 `hostSecret`，存在 `vanilla_solution:<ns>:room`；「重設 demo 資料」保留房間；「重新產生房間」經使用者確認後換新，並處理 4001（房間已被其他主機使用）的提示（協定規格 3.2、第 8 節）。
+- [x] 唯讀管理分頁：主機寫入後以 MessageBus 通知，同一台電腦上其他管理分頁重讀 IndexedDB。
+- [x] 瀏覽器測試：主機與兩個 client target 互通；不合格訊息被拒並計數；未設定信令時頁面不出現 `console.error`（A9）。
+- 結果（2026-11-26）：
+  - 分層：`pos-v2-wire.js`（訊息信封）、`pos-v2-hub.js`（授權、RPC、推送、心跳、背壓、嘗試次數）、`pos-v2-rpc-client.js`（peer 端 RPC）、`peer-link.js`（WebRTC：主機端 `HostLinks`、peer 端 `PeerLink`）、`pos-v2-host.js`（Web Lock、房間、信令、MessageBus）。hub 與 RPC client 只依賴類 DataChannel 介面，`tests/pos-v2-hub.test.js` 以記憶體通道與沿用真模型函式的假 repository 測 15 項（權限、入桌與連線碼的嘗試次數、配對核准／拒絕、撤銷、查詢授權、接手的在線判斷與並行、不合格訊息、心跳、背壓、RPC 逾時與跳號）。
+  - 配對核准、站台接手的 RPC 已在 hub 實作並有單元測試；管理頁的配對 UI 與遠端畫面屬於 P5。
+  - `tests/browser-runner.mjs` 的 `runPosV2HubTests`（Chrome 加上 `--disable-features=WebRtcHideLocalIpsWithMdns`，每個分頁開新視窗，避免背景分頁的 requestAnimationFrame 暫停）：房間被搶先綁定時顯示被拒、確認後重新產生房間並連上信令；主機與兩個 client target 以 WebRTC 互通、角色推送、FORBIDDEN、不合格訊息計數顯示在主機頁、唯讀分頁同步、只允許 TURN 時 1.5 秒後停在 `failed` 並帶 `needTurn` 且不自動重試；關閉主機分頁後唯讀分頁接手、裝置自動重連並以原授權取回資料。根目錄與子路徑各一次，本機連跑 3 次穩定（單次約 16 秒）。
+  - 主機分頁直接關閉時，對方的 DataChannel 不一定立刻觸發 `close`：`PeerLink` 另外監看 `connectionState`，並提供 `reconnect()` 讓上層在 RPC 心跳判定主機失聯時呼叫（P5 的 `RemotePosSession` 要接上）。
+  - GitHub Actions 上的 WebRTC 結果要等推上去才能確認（見 P3 spike）。
 
 ### P5 店員裝置
 

@@ -213,9 +213,10 @@ peer 端另有兩個只在本機產生、不經過網路的狀態：`HOST_UNAVAI
 
 ## 7. 中斷恢復
 
-- peer 送出 `order.place` 前，先把 `{requestId, items, createdAt}` 存進 localStorage `vanilla_solution:<ns>:pending:<roomId>`，收到成功或明確失敗的回覆後才刪除。
-- 重連後依序：`auth` → 對每筆待確認的請求以原 `requestId` 重送 `order.place` → `sync`。畫面在這段期間顯示「待確認」，不顯示送出失敗。
-- 主機重新整理：從 IndexedDB 讀回房間、授權雜湊、桌位與場次，重新取得 Web Lock 與主機席位。peer 收到 `host-online` 後重新握手並 `auth`，不需要重新配對或輸入入桌碼。
+- peer 送出 `order.place` 前，先把 `{requestId, items, createdAt, kind}` 存進 localStorage `vanilla_solution:<ns>:pending:<roomId>`，收到成功或明確失敗的回覆後才刪除。`kind` 是 `device`（店員點餐裝置）或 `table`（顧客），兩者分開重送。逾時或通道關閉（`HOST_UNAVAILABLE`）不算明確失敗：保留，畫面顯示「等待主機確認」並清空購物車，下一筆換新的 `requestId`，同一個 `requestId` 不會被拿去送不同的內容。
+- 重連後依序：`auth` → 對每筆待確認的請求以原 `requestId` 重送 `order.place` → `sync`。主機已寫入的回原訂單（`noop`），沒寫入的照常建立；明確被拒絕（例如 `SESSION_CLOSED`）的刪掉並告知。重送中又斷線就停下，留給下一次重連。畫面在這段期間顯示「等待主機確認」，不顯示送出失敗；重新整理頁面後仍顯示。
+- 授權失效（`auth` 沒有回授權、收到 `grant.revoked`）時，舊授權下的待確認請求**不改用新的授權重送**：去重鍵是「身分＋`requestId`」，換了身分，主機若已寫入就會變成兩筆。逐筆告知使用者向店員確認後刪掉。
+- 主機重新整理：從 IndexedDB 讀回房間、授權雜湊、桌位與場次，重新取得 Web Lock 與主機席位。peer 收到 `host-online` 後重新握手並 `auth`，不需要重新配對或輸入入桌碼。直連還開著卻收到 `host-online`，表示主機換了一個執行個體，舊的直連已經沒有對象：立即重連，不等心跳逾時。
 
 ## 8. 主機端資料
 

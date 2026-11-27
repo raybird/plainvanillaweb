@@ -703,16 +703,18 @@ async function runPosV2StaffTests(openTab, base) {
  * 廚房與主機看到正確的桌位與場次、前面待備餐筆數隨認領減少、查單只看得到自己的訂單、
  * 櫃檯訂單 QR Code 交接、入桌碼錯誤冷卻、關桌再開桌後舊授權與舊碼都不能送單到新場次。
  */
-async function runPosV2CustomerTests(openTab, base) {
+/**
+ * POS v2 多裝置測試的共用環境：自己的信令伺服器與 namespace，每台裝置（主機、店員、手機）各自獨立的瀏覽器環境，
+ * localStorage 不互通。`setup()` 開主機分頁並連上信令；`finish()` 收集每個分頁的問題、關閉分頁與信令。
+ * @param {string} label 失敗訊息的前綴
+ */
+function posV2Rig(openTab, base, label) {
     const failures = [];
-    const check = (ok, message) => { if (!ok) failures.push(`POS v2 顧客端：${message}`); };
-    const ns = `e2e-pos-v2-customer-${Date.now().toString(36)}`;
-    const signaling = createSignalingServer();
-    const { port } = await signaling.listen(0);
-    const sig = `ws://127.0.0.1:${port}`;
+    const check = (ok, message) => { if (!ok) failures.push(`${label}：${message}`); };
+    const ns = `e2e-pos-v2-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     const adminUrl = `${base}#/solutions/pos-v2/admin?ns=${ns}`;
     const tabs = [];
-    /** 每台裝置（主機、店員、手機）各自獨立的瀏覽器環境，localStorage 不互通 */
+    let signaling = null;
     const open = async (url, ready) => {
         const tab = await openTab({ newWindow: true, isolated: true });
         tab.tracker = trackProblems(tab.page);
@@ -729,40 +731,159 @@ async function runPosV2CustomerTests(openTab, base) {
         await ev(tab, `${q(selector)}.click()`);
     };
     const table = 'page-pos-v2-table';
-    const phase = (name) => `${q(`[data-remote-phase="${name}"]`)} !== null`;
-    const enterCode = (tab, code) => ev(tab, `(() => {
-        const form = ${q('form[data-form="table-code"]')};
-        form.elements.code.value = ${JSON.stringify(code)};
-        form.requestSubmit();
-    })()`);
-    /** 以畫面上的工作階段直接呼叫 RPC，回傳結果或錯誤碼 */
-    const rpc = (tab, method, params) => ev(tab, `${q(table)}.session._remote.request(${JSON.stringify(method)}, ${JSON.stringify(params)})
-        .then((value) => ({ ok: true, value }), (err) => ({ ok: false, code: err.code }))`, 15000);
-    const placeVia = (tab, element, items, requestId) => ev(tab, `${q(element)}.session.placeOrder(${JSON.stringify(items)}, ${JSON.stringify(requestId)})
-        .then((r) => ({ ok: true, result: r.result, number: r.order.number, id: r.order.id }), (err) => ({ ok: false, code: err.code }))`, 15000);
-    const order = async (tab, product) => {
-        await click(tab, `[data-action="add"][data-product="${product}"]`);
-        await click(tab, '[data-action="submit"]');
+    const rig = {
+        failures, check, ns, adminUrl, open, ev, q, click, table,
+        phase: (name) => `${q(`[data-remote-phase="${name}"]`)} !== null`,
+        enterCode: (tab, code) => ev(tab, `(() => {
+            const form = ${q('form[data-form="table-code"]')};
+            form.elements.code.value = ${JSON.stringify(code)};
+            form.requestSubmit();
+        })()`),
+        /** 以畫面上的工作階段直接呼叫 RPC，回傳結果或錯誤碼 */
+        rpc: (tab, method, params) => ev(tab, `${q(table)}.session._remote.request(${JSON.stringify(method)}, ${JSON.stringify(params)})
+            .then((value) => ({ ok: true, value }), (err) => ({ ok: false, code: err.code }))`, 15000),
+        placeVia: (tab, element, items, requestId) => ev(tab, `${q(element)}.session.placeOrder(${JSON.stringify(items)}, ${JSON.stringify(requestId)})
+            .then((r) => ({ ok: true, result: r.result, number: r.order.number, id: r.order.id }), (err) => ({ ok: false, code: err.code }))`, 15000),
+        order: async (tab, product) => {
+            await click(tab, `[data-action="add"][data-product="${product}"]`);
+            await click(tab, '[data-action="submit"]');
+        },
+        tableCode: (host, id) => ev(host, `${q(`[data-table="${id}"] [data-table-code]`)}?.dataset.tableCode ?? null`),
+        /** 主機目前的訂單（取餐號、requestId） */
+        hostOrders: (host) => ev(host, `${q('page-pos-v2-admin')}.host.repository.listOrders().then((list) => list.map((o) => ({ id: o.id, number: o.number, requestId: o.requestId })))`),
+        async setup() {
+            signaling = createSignalingServer();
+            const { port } = await signaling.listen(0);
+            const sig = `ws://127.0.0.1:${port}`;
+            const host = await open(adminUrl, `${q('[data-host-role="primary"]')} !== null`);
+            await ev(host, `localStorage.setItem(${JSON.stringify(`vanilla_solution:${ns}:signaling`)}, ${JSON.stringify(sig)})`);
+            await host.page.send('Page.navigate', { url: `${base}tests/pos-v2-peer.html` });
+            await host.page.send('Page.navigate', { url: adminUrl });
+            check(await waitFor(host.page, `${q('[data-signaling-state="open"]')} !== null && ${q('[data-table="A1"]')} !== null`, 15000), '主機應連上信令並列出桌位');
+            const roomId = await ev(host, `${q('[data-room-id]')}.dataset.roomId`);
+            const remoteHash = (path, extra = {}) => `#${path}?${new URLSearchParams({ ns, room: roomId, sig, ...extra })}`;
+            /** 店員裝置：由主機簽發授權，放進這個分頁的 localStorage 後開啟角色畫面 */
+            const staff = async (role, station) => {
+                const issued = await ev(host, `${q('page-pos-v2-admin')}.host.repository.approveDevice({ role: ${JSON.stringify(role)}, station: ${JSON.stringify(station ?? null)} })
+                    .then((r) => ({ credential: r.credential, role: r.device.role, station: r.device.station }))`);
+                const tab = await open(`${base}tests/pos-v2-peer.html`);
+                await ev(tab, `localStorage.setItem(${JSON.stringify(`vanilla_solution:${ns}:credential:${roomId}`)}, ${JSON.stringify(JSON.stringify({ ...issued, label: '' }))})`);
+                await tab.page.send('Page.navigate', { url: `${base}${remoteHash(`/solutions/pos-v2/${role}`)}` });
+                check(await waitFor(tab.page, `${q('.pos-pill[data-online="true"]')} !== null`, 15000), `${role} 裝置應連上主機`);
+                return tab;
+            };
+            /** 開桌，回傳入桌碼與桌牌網址 */
+            const openTable = async (id) => {
+                await click(host, `[data-table="${id}"] [data-action="open-table"]`);
+                check(await waitFor(host.page, `${q(`[data-table="${id}"][data-table-status="open"] [data-table-code]`)} !== null`, 5000), `開桌後應顯示 ${id} 的入桌碼`);
+                return {
+                    code: await rig.tableCode(host, id),
+                    tableUrl: await ev(host, `${q(`[data-table-card="${id}"] [data-table-url]`)}.dataset.tableUrl`),
+                };
+            };
+            return { host, sig, roomId, remoteHash, staff, openTable };
+        },
+        fail(err) {
+            failures.push(`${label}：測試中斷：${err.message.split('\n')[0]}`);
+        },
+        async finish() {
+            for (const tab of tabs) {
+                failures.push(...tab.tracker.take().map((p) => `${label}：${p}`));
+                await tab.close();
+            }
+            await signaling?.close();
+        },
     };
-    const tableCode = (host, id) => ev(host, `${q(`[data-table="${id}"] [data-table-code]`)}?.dataset.tableCode ?? null`);
+    return rig;
+}
+
+/**
+ * A7 中斷恢復：送單後主機在回覆前消失（寫入後、寫入前兩種），裝置把這筆列為等待確認、重新整理後仍在，
+ * 主機回來後自動以同一個 requestId 重送，只會有一筆；主機分頁重新整理後各裝置不用重新配對或輸入入桌碼。
+ */
+async function runPosV2RecoveryTests(openTab, base) {
+    const rig = posV2Rig(openTab, base, 'POS v2 中斷恢復');
+    const { check, open, ev, q, click, phase, enterCode, order } = rig;
     try {
-        const host = await open(adminUrl, `${q('[data-host-role="primary"]')} !== null`);
-        await ev(host, `localStorage.setItem(${JSON.stringify(`vanilla_solution:${ns}:signaling`)}, ${JSON.stringify(sig)})`);
-        await host.page.send('Page.navigate', { url: `${base}tests/pos-v2-peer.html` });
-        await host.page.send('Page.navigate', { url: adminUrl });
-        check(await waitFor(host.page, `${q('[data-signaling-state="open"]')} !== null && ${q('[data-table="A1"]')} !== null`, 15000), '主機應連上信令並列出桌位');
-        const roomId = await ev(host, `${q('[data-room-id]')}.dataset.roomId`);
-        const remoteHash = (path, extra = {}) => `#${path}?${new URLSearchParams({ ns, room: roomId, sig, ...extra })}`;
-        /** 店員裝置：由主機簽發授權，放進這個分頁的 localStorage 後開啟角色畫面 */
-        const staff = async (role, station) => {
-            const issued = await ev(host, `${q('page-pos-v2-admin')}.host.repository.approveDevice({ role: ${JSON.stringify(role)}, station: ${JSON.stringify(station ?? null)} })
-                .then((r) => ({ credential: r.credential, role: r.device.role, station: r.device.station }))`);
-            const tab = await open(`${base}tests/pos-v2-peer.html`);
-            await ev(tab, `localStorage.setItem(${JSON.stringify(`vanilla_solution:${ns}:credential:${roomId}`)}, ${JSON.stringify(JSON.stringify({ ...issued, label: '' }))})`);
-            await tab.page.send('Page.navigate', { url: `${base}${remoteHash(`/solutions/pos-v2/${role}`)}` });
-            check(await waitFor(tab.page, `${q('.pos-pill[data-online="true"]')} !== null`, 15000), `${role} 裝置應連上主機`);
-            return tab;
+        const { host, roomId, staff, openTable } = await rig.setup();
+        const { code, tableUrl } = await openTable('A1');
+        const phone = await open(tableUrl, phase('need-code'));
+        await enterCode(phone, code);
+        check(await waitFor(phone.page, `${phase('ready')} && ${q('[data-action="add"]')} !== null`, 10000), '手機應能入桌點餐');
+        const counter = await staff('order');
+        const pendingKey = `vanilla_solution:${rig.ns}:pending:${roomId}`;
+        const readPending = (tab) => ev(tab, `JSON.parse(localStorage.getItem(${JSON.stringify(pendingKey)}) ?? '[]')`);
+        const hostReady = `${q('[data-host-role="primary"]')} !== null && ${q('[data-signaling-state="open"]')} !== null`;
+        /**
+         * 下一筆送單時主機在回覆前消失：關掉這條 DataChannel 並離開主機頁。
+         * writeFirst 為 true 時先寫入再消失（裝置不知道已經成立），否則收到就消失（沒有寫入）。
+         */
+        const vanishOnNextOrder = (writeFirst) => ev(host, `(() => {
+            const hub = ${q('page-pos-v2-admin')}.host.hub;
+            const original = hub._handlers['order.place'];
+            hub._handlers['order.place'] = async function (conn, params) {
+                hub._handlers['order.place'] = original;
+                if (${writeFirst}) await original.call(this, conn, params);
+                conn.channel.close();
+                location.href = ${JSON.stringify(`${base}tests/pos-v2-peer.html`)};
+                return new Promise(() => {});
+            };
+            return true;
+        })()`);
+        const bringHostBack = async () => {
+            await host.page.send('Page.navigate', { url: rig.adminUrl });
+            check(await waitFor(host.page, hostReady, 15000), '主機分頁回來後應重新取得主機席位並連上信令');
         };
+        const countByRequest = async (requestId) => (await rig.hostOrders(host)).filter((o) => o.requestId === requestId).length;
+
+        // 寫入後、回覆送達前中斷：手機列為等待確認，重新整理後仍在
+        const before = (await rig.hostOrders(host)).length;
+        await vanishOnNextOrder(true);
+        await order(phone, 'burger');
+        check(await waitFor(phone.page, `${q('[data-pending-orders="1"]')} !== null && ${q('[data-remote-phase="connecting"]')} !== null`, 10000), '回覆沒送達時，手機應顯示 1 筆等待主機確認');
+        const [pendingA] = await readPending(phone);
+        check(pendingA?.items?.[0]?.productId === 'burger', `等待確認的送單應存在本機：${JSON.stringify(pendingA)}`);
+        await phone.page.send('Page.reload');
+        check(await waitFor(phone.page, `${q('[data-pending-orders="1"]')} !== null`, 10000), '手機重新整理後，等待確認的送單應仍顯示');
+        await bringHostBack();
+        check(await waitFor(phone.page, `${q('[data-pending-orders]')} === null && ${q('[data-my-order]')} !== null && ${phase('ready')}`, 15000), '主機回來後，手機應自動重送並看到自己的訂單');
+        check(await ev(phone, `${q('.pos-alert')}?.textContent.includes('恢復連線，訂單已確認') ?? false`), '手機應提示訂單已確認');
+        check((await readPending(phone)).length === 0, '確認後本機不應再留待確認的送單');
+        check(await countByRequest(pendingA.requestId) === 1 && (await rig.hostOrders(host)).length === before + 1, '主機已寫入的那筆重送後不應重複建立');
+
+        // 寫入前中斷（店員點餐裝置）：主機回來後重送才建立，送單後顯示訂單 QR Code
+        await vanishOnNextOrder(false);
+        await order(counter, 'fries');
+        check(await waitFor(counter.page, `${q('[data-pending-orders="1"]')} !== null`, 10000), '點餐裝置應顯示 1 筆等待主機確認');
+        const [pendingB] = await readPending(counter);
+        await bringHostBack();
+        check(await waitFor(counter.page, `${q('[data-pending-orders]')} === null && ${q('[data-handover]')} !== null`, 15000), '主機回來後，點餐裝置應自動重送並顯示訂單 QR Code');
+        check(await countByRequest(pendingB.requestId) === 1, '主機沒寫入的那筆重送後應建立一筆');
+
+        // 主機分頁重新整理：裝置不用重新配對、不用重輸入桌碼
+        const total = (await rig.hostOrders(host)).length;
+        await host.page.send('Page.reload');
+        check(await waitFor(host.page, hostReady, 15000), '主機重新整理後應恢復房間與席位');
+        const online = `${q('.pos-pill[data-online="true"]')} !== null`;
+        check(await waitFor(phone.page, `${online} && ${phase('ready')}`, 15000), '主機重新整理後，手機應自動重連、不用重輸入桌碼');
+        check(await waitFor(counter.page, online, 15000), '主機重新整理後，點餐裝置應自動重連、不用重新配對');
+        await order(phone, 'cola');
+        check(await waitFor(phone.page, `document.querySelectorAll('[data-my-order]').length === 2`, 10000), '主機重新整理後，手機應能繼續點餐');
+        check((await rig.hostOrders(host)).length === total + 1, '主機重新整理後送單應正常建立');
+    } catch (err) {
+        rig.fail(err);
+    } finally {
+        await rig.finish();
+    }
+    console.log('  POS v2 中斷恢復：回覆前中斷（已寫入與未寫入）、等待確認跨重新整理、主機回來自動重送不重複、主機重新整理後自動重連');
+    return rig.failures;
+}
+
+async function runPosV2CustomerTests(openTab, base) {
+    const rig = posV2Rig(openTab, base, 'POS v2 顧客端');
+    const { check, open, ev, q, click, table, phase, enterCode, rpc, placeVia, order, tableCode } = rig;
+    try {
+        const { host, roomId, staff } = await rig.setup();
 
         // 開桌，取得入桌碼、店家入口與桌牌網址
         await click(host, '[data-table="A1"] [data-action="open-table"]');
@@ -799,7 +920,7 @@ async function runPosV2CustomerTests(openTab, base) {
 
         // A6：只看得到自己的訂單；前面筆數隨認領減少；查不到別人的訂單
         check(await ev(phone1, `${q('[data-my-order="002"]')} === null`), '手機一不應看到手機二的訂單');
-        const ids = await ev(host, `${q('page-pos-v2-admin')}.host.repository.listOrders().then((list) => list.map((o) => ({ id: o.id, number: o.number, requestId: o.requestId })))`);
+        const ids = await rig.hostOrders(host);
         const first = ids.find((o) => o.number === '001');
         const secondOrder = ids.find((o) => o.number === '002');
         await click(kitchen, `[data-column="pending"] [data-order-id="${first.id}"] [data-action="claim"]`);
@@ -853,16 +974,12 @@ async function runPosV2CustomerTests(openTab, base) {
         const newSession = await ev(host, `${q('[data-table="A1"]')}.dataset.tableSession`);
         check(newSession && newSession !== sessionId, '再開桌應是新的場次');
     } catch (err) {
-        failures.push(`POS v2 顧客端：測試中斷：${err.message.split('\n')[0]}`);
+        rig.fail(err);
     } finally {
-        for (const tab of tabs) {
-            failures.push(...tab.tracker.take().map((p) => `POS v2 顧客端：${p}`));
-            await tab.close();
-        }
-        await signaling.close();
+        await rig.finish();
     }
     console.log('  POS v2 顧客端：店家入口與桌牌兩種入口、同桌共用入桌碼、廚房與主機的桌位與場次、前面筆數隨認領減少、只看得到自己的訂單、櫃檯訂單 QR Code 交接、入桌碼冷卻、關桌再開桌');
-    return failures;
+    return rig.failures;
 }
 
 async function runSmokeTests(page, base, tracker, network) {
@@ -2967,6 +3084,7 @@ async function main() {
                 ...(await runPosV2HubTests(openTab, base)),
                 ...(await runPosV2StaffTests(openTab, base)),
                 ...(await runPosV2CustomerTests(openTab, base)),
+                ...(await runPosV2RecoveryTests(openTab, base)),
                 ...(await runFarmTests(openTab, base)),
             ];
             const offlineServer = await startServer(prefix);

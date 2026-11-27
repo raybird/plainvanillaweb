@@ -25,7 +25,7 @@ import {
     saveWatch,
 } from './pos-v2-remote.js';
 import { REMOTE_PHASE, RemoteTableSession } from './remote-pos-session.js';
-import { remotePage } from './remote-page.js';
+import { recoverableOrderPage, remotePage } from './remote-page.js';
 
 /** 錯誤碼對應給顧客看的說明 */
 function describeCustomerError(err) {
@@ -70,7 +70,7 @@ const PROGRESS_STYLE = `
 
 // ---------- 桌邊點餐 ----------
 
-export class PosV2TablePage extends remotePage(PosOrderPage) {
+export class PosV2TablePage extends recoverableOrderPage(remotePage(PosOrderPage)) {
     static Session = RemoteTableSession;
     static meta = { title: '桌邊點餐', icon: '📱' };
     static hubPath = HOME_PATH;

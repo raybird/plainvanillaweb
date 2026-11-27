@@ -8,9 +8,9 @@ import { PosOrderPage } from '../pos/PosOrderPage.js';
 import { PosKitchenPage } from '../pos/PosKitchenPage.js';
 import { PosDisplayPage } from '../pos/PosDisplayPage.js';
 import { TRACK_PATH, buildRemoteHash } from './pos-v2-remote.js';
-import { QR_STYLE, qrCode, remotePage } from './remote-page.js';
+import { QR_STYLE, qrCode, recoverableOrderPage, remotePage } from './remote-page.js';
 
-export class PosV2OrderPage extends remotePage(PosOrderPage) {
+export class PosV2OrderPage extends recoverableOrderPage(remotePage(PosOrderPage)) {
     renderBody(snapshot) {
         const body = super.renderBody(snapshot);
         const session = this.session;

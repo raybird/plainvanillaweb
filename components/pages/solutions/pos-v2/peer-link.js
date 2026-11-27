@@ -183,8 +183,15 @@ export class PeerLink extends BaseService {
             }),
             s.on('host-online', () => {
                 this._hostOnline = true;
+                // 直連還開著卻收到 host-online：主機換了一個執行個體（例如主機分頁重新整理），舊的直連已經沒有對象。
+                // 不等心跳逾時（15 秒），立即重連（協定規格 7）
+                if (this._state === LINK_STATE.OPEN) {
+                    this.reconnect();
+                    this._connectNow();
+                    return;
+                }
                 // 收到 host-online 立即重試：等待中、退避中或上一次已失敗都一樣（協定規格 4.4）
-                if (this._state !== LINK_STATE.OPEN && this._state !== LINK_STATE.CONNECTING) this._connectNow();
+                if (this._state !== LINK_STATE.CONNECTING) this._connectNow();
             }),
             s.on('host-offline', () => {
                 this._hostOnline = false;

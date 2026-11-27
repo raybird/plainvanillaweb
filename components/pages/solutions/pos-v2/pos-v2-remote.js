@@ -144,6 +144,34 @@ export function removeWatches(namespace, roomId, orderIds) {
     localStorage.setItem(watchStorageKey(namespace, roomId), JSON.stringify(loadWatches(namespace, roomId).filter((w) => !drop.has(w.orderId))));
 }
 
+/**
+ * 待確認的送單（協定規格 7）：送出前存起來，收到成功或明確失敗的回覆才刪除；重連後以原 requestId 重送。
+ * 同一個瀏覽器可能同時是店員裝置與顧客（測試時），以 `kind` 區分。
+ */
+export const pendingStorageKey = (namespace, roomId) => `${solutionStorageName(namespace, 'pending')}:${roomId}`;
+
+/** @returns {Array<{ requestId: string, items: Array<{ productId: string, qty: number }>, createdAt: number, kind: string }>} */
+export function loadPending(namespace, roomId, kind) {
+    try {
+        const list = JSON.parse(localStorage.getItem(pendingStorageKey(namespace, roomId)) ?? '[]');
+        return Array.isArray(list) ? list.filter((p) => typeof p?.requestId === 'string' && Array.isArray(p.items) && (!kind || p.kind === kind)) : [];
+    } catch {
+        return [];
+    }
+}
+
+export function addPending(namespace, roomId, entry) {
+    const list = loadPending(namespace, roomId).filter((p) => !(p.requestId === entry.requestId && p.kind === entry.kind));
+    list.push(entry);
+    localStorage.setItem(pendingStorageKey(namespace, roomId), JSON.stringify(list));
+}
+
+export function removePending(namespace, roomId, kind, requestId) {
+    const list = loadPending(namespace, roomId).filter((p) => !(p.requestId === requestId && p.kind === kind));
+    if (list.length) localStorage.setItem(pendingStorageKey(namespace, roomId), JSON.stringify(list));
+    else localStorage.removeItem(pendingStorageKey(namespace, roomId));
+}
+
 /** 遠端裝置需要的瀏覽器能力 */
 export const remoteSupported = () => typeof RTCPeerConnection === 'function' && typeof WebSocket === 'function' && typeof localStorage !== 'undefined';
 

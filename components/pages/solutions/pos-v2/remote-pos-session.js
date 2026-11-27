@@ -9,18 +9,21 @@
  * - `RemoteTableSession`：顧客手機的桌邊點餐（入桌授權；用入桌碼取得）。
  */
 import { LINK_STATE } from './peer-link.js';
-import { POS_V2_ERROR_CODES } from './pos-v2-model.js';
+import { POS_V2_ERROR_CODES, PosError } from './pos-v2-model.js';
 import { PEER_ERROR_CODES } from './pos-v2-rpc-client.js';
 import {
     DEFAULT_NAMESPACE,
     LINK_STATE_LABEL,
     PosV2Remote,
+    addPending,
     clearStaffCredential,
     clearTableCredential,
+    loadPending,
     loadStaffCredential,
     loadTableCredential,
     readRemoteParams,
     remoteSupported,
+    removePending,
     saveTableCredential,
 } from './pos-v2-remote.js';
 
@@ -62,6 +65,12 @@ class RemoteSessionBase {
         this.params = params;
         /** 送單回覆附的訂單查詢 token（店員點餐裝置的訂單 QR Code 用）：orderId → token */
         this.viewTokens = new Map();
+        /**
+         * 待確認的送單重送後有了結果：`{ requestId, outcome }` 或 `{ requestId, error }`。
+         * 畫面用它清掉購物車並顯示取餐號（第一代的點餐元件只在自己送出成功時才會清）。
+         * @type {((result: object) => void) | null}
+         */
+        this.onResolved = null;
         this._onChange = onChange;
         this._remoteOptions = remoteOptions;
         this._remote = null;
@@ -74,6 +83,8 @@ class RemoteSessionBase {
             peers: [],
             online: false,
             error: null,
+            /** 待確認的送單（已送出、還沒收到回覆） */
+            pending: [],
             connection: { phase: REMOTE_PHASE.CONNECTING, link: LINK_STATE.IDLE, label: LINK_STATE_LABEL[LINK_STATE.IDLE] },
         };
     }
@@ -84,6 +95,62 @@ class RemoteSessionBase {
 
     get phase() {
         return this.snapshot.connection.phase;
+    }
+
+    /** 待確認送單的分類：店員裝置與顧客分開存 */
+    get pendingKind() {
+        return 'device';
+    }
+
+    _syncPending() {
+        const pending = this.roomId ? loadPending(this.namespace, this.roomId, this.pendingKind) : [];
+        this.snapshot = { ...this.snapshot, pending };
+    }
+
+    /**
+     * 重連並驗證後，以原 requestId 重送待確認的送單（協定規格 7）。主機已經寫入過的會回傳原訂單（noop），
+     * 沒寫入的照常建立；明確被拒絕的刪掉並通知畫面。又斷線時停下，等下一次重連。
+     */
+    async _flushPending(run) {
+        this._syncPending();
+        for (const entry of this.snapshot.pending) {
+            // 又斷線重連：交給新的一輪重送
+            if (this._stale(run)) return;
+            let result;
+            try {
+                result = { requestId: entry.requestId, outcome: await this._remote.request('order.place', { items: entry.items, requestId: entry.requestId }) };
+            } catch (err) {
+                if (err?.code === PEER_ERROR_CODES.HOST_UNAVAILABLE) return;
+                result = { requestId: entry.requestId, error: err };
+            }
+            removePending(this.namespace, this.roomId, this.pendingKind, entry.requestId);
+            if (result.outcome) this._acceptPlaced(result.outcome);
+            this._syncPending();
+            this._emit();
+            this.onResolved?.(result);
+        }
+        if (!this._stale(run)) await this.refresh();
+    }
+
+    /**
+     * 授權失效：舊授權下的待確認送單不能改用新的授權重送（主機若已寫入會變成兩筆），逐筆告知畫面後刪掉。
+     * @param {string} message
+     */
+    _dropPending(message) {
+        if (!this.roomId) return;
+        for (const entry of loadPending(this.namespace, this.roomId, this.pendingKind)) {
+            removePending(this.namespace, this.roomId, this.pendingKind, entry.requestId);
+            this.onResolved?.({ requestId: entry.requestId, error: new PosError(POS_V2_ERROR_CODES.UNAUTHORIZED, message) });
+        }
+        this._syncPending();
+    }
+
+    /** 送單成功：記下查詢 token，訂單先放進畫面（推送稍後才到，避免「取餐號碼」閃一下才出現） */
+    _acceptPlaced(outcome) {
+        if (outcome.viewToken) this.viewTokens.set(outcome.order.id, outcome.viewToken);
+        if (!this.snapshot.orders.some((o) => o.id === outcome.order.id)) {
+            this.snapshot = { ...this.snapshot, orders: [...this.snapshot.orders, outcome.order] };
+        }
     }
 
     _connect() {
@@ -163,13 +230,26 @@ class RemoteSessionBase {
      */
     async placeOrder(items, requestId) {
         if (!this._remote) throw new Error('還沒有連上主機');
-        const outcome = await this._remote.request('order.place', { items, requestId });
-        if (outcome.viewToken) this.viewTokens.set(outcome.order.id, outcome.viewToken);
-        // 推送稍後才到：先把回覆的訂單放進畫面，避免「取餐號碼」閃一下才出現
-        if (!this.snapshot.orders.some((o) => o.id === outcome.order.id)) {
-            this.snapshot = { ...this.snapshot, orders: [...this.snapshot.orders, outcome.order] };
+        // 先存起來：送出後才斷線時，不知道主機有沒有寫入，重連後以同一個 requestId 重送就能取回同一筆
+        addPending(this.namespace, this.roomId, { requestId, items, createdAt: Date.now(), kind: this.pendingKind });
+        this._syncPending();
+        let outcome;
+        try {
+            outcome = await this._remote.request('order.place', { items, requestId });
+        } catch (err) {
+            if (err?.code === PEER_ERROR_CODES.HOST_UNAVAILABLE) {
+                this._emit();
+                throw new PosError(PEER_ERROR_CODES.PENDING, '已送出，正在等待主機確認；恢復連線後會自動以同一筆重送，不會重複建立訂單。');
+            }
+            removePending(this.namespace, this.roomId, this.pendingKind, requestId);
+            this._syncPending();
             this._emit();
+            throw err;
         }
+        removePending(this.namespace, this.roomId, this.pendingKind, requestId);
+        this._syncPending();
+        this._acceptPlaced(outcome);
+        this._emit();
         return outcome;
     }
 
@@ -205,6 +285,7 @@ export class RemotePosSession extends RemoteSessionBase {
             this._setConnection({ phase: REMOTE_PHASE.MISSING });
             return;
         }
+        this._syncPending();
         this.stored = loadStaffCredential(this.namespace, this.roomId);
         if (!this.stored) {
             this._setConnection({ phase: REMOTE_PHASE.UNPAIRED });
@@ -230,11 +311,13 @@ export class RemotePosSession extends RemoteSessionBase {
         if (this.role === 'order' && !(await this._loadMenu(run))) return;
         this._applyTopics(result.topics);
         this._setConnection({ phase: REMOTE_PHASE.READY, state: LINK_STATE.OPEN });
+        if (this.role === 'order') await this._flushPending(run);
     }
 
     _onRevoked({ credentialId } = {}) {
         if (credentialId !== this.stored?.credential.id) return;
         clearStaffCredential(this.namespace, this.roomId);
+        this._dropPending('這台裝置的授權已撤銷，請向管理端確認這筆是否已經送到廚房');
         this.device = null;
         this._setConnection({ phase: REMOTE_PHASE.REVOKED });
         this._remote?.dispose();
@@ -292,11 +375,16 @@ export class RemoteTableSession extends RemoteSessionBase {
         return null;
     }
 
+    get pendingKind() {
+        return 'table';
+    }
+
     async start() {
         if (!this.roomId || !this.sig || !this.tableId) {
             this._setConnection({ phase: REMOTE_PHASE.MISSING });
             return;
         }
+        this._syncPending();
         const stored = loadTableCredential(this.namespace, this.roomId);
         this.stored = stored?.tableId === this.tableId ? stored : null;
         this._connect();
@@ -311,6 +399,7 @@ export class RemoteTableSession extends RemoteSessionBase {
             // 授權無效（例如主機重新產生了房間）：刪掉，改輸入入桌碼
             clearTableCredential(this.namespace, this.roomId);
             this.stored = null;
+            this._dropPending('入桌授權已失效，請向店員確認這筆是否已經送出');
         }
         this.grant = result.table;
         if (!this.grant) {
@@ -322,6 +411,8 @@ export class RemoteTableSession extends RemoteSessionBase {
         }
         if (!(await this._loadMenu(run))) return;
         this._applyTopics(result.topics);
+        // 場次已關閉時也要重送：主機若已寫入，會取回原訂單（協定規格 5.4 先查去重鍵）
+        await this._flushPending(run);
     }
 
     async _checkTableOpen(run) {
@@ -354,6 +445,7 @@ export class RemoteTableSession extends RemoteSessionBase {
     _onRevoked({ credentialId } = {}) {
         if (credentialId !== this.grant?.id) return;
         clearTableCredential(this.namespace, this.roomId);
+        this._dropPending('入桌授權已失效，請向店員確認這筆是否已經送出');
         this.stored = null;
         this.grant = null;
         this.snapshot = { ...this.snapshot, orders: [] };

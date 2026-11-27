@@ -5,6 +5,7 @@
 import { html, unsafe } from '../../../../lib/html.js';
 import { isKioskMode } from '../../../../app/kiosk.js';
 import { LINK_STATE } from './peer-link.js';
+import { PEER_ERROR_CODES } from './pos-v2-rpc-client.js';
 import { JOIN_PATH, ROLE_LABEL, STAFF_ROLE_PATHS, buildRemoteHash } from './pos-v2-remote.js';
 import { REMOTE_PHASE, RemotePosSession } from './remote-pos-session.js';
 import { encodeQr, qrToSvg } from './qr-code.js';
@@ -111,5 +112,58 @@ export const remotePage = (Base) => class extends Base {
                 }
                 return html`<p class="pos-muted">${connection.label}</p>`;
         }
+    }
+};
+
+/**
+ * 點餐畫面的中斷恢復（協定規格 7）：送出後沒有收到回覆時，這筆改列為「等待主機確認」並清空購物車，
+ * 重連後工作階段自動以同一個 requestId 重送，有結果再顯示取餐號碼。斷線期間也看得到等待中的送單。
+ * @param {ReturnType<typeof remotePage>} Base 套用過 `remotePage` 的點餐元件
+ */
+export const recoverableOrderPage = (Base) => class extends Base {
+    connectedCallback() {
+        super.connectedCallback();
+        // 工作階段在 super.connectedCallback 建立，驗證（以及重送）要等連線之後，這裡設定來得及
+        if (this.session) this.session.onResolved = (result) => this.onPendingResolved(result);
+    }
+
+    async submit() {
+        try {
+            await super.submit();
+        } catch (err) {
+            if (err?.code !== PEER_ERROR_CODES.PENDING) throw err;
+            // 內容已存成待確認送單：購物車清空、下一筆換新的 requestId，同一個 requestId 不會被拿去送不同的內容
+            this.state.cart = {};
+            this._requestId = null;
+            this.notify(err.message, 'warn');
+        }
+    }
+
+    onPendingResolved({ outcome, error }) {
+        if (outcome) {
+            this.state.lastOrderId = outcome.order.id;
+            this.notify(`恢復連線，訂單已確認，取餐號碼 ${outcome.order.number}`);
+        } else {
+            this.notify(`等待確認的訂單沒有成立：${error?.message ?? error}`, 'warn');
+        }
+    }
+
+    renderBody(snapshot) {
+        const body = super.renderBody(snapshot);
+        const pending = snapshot.pending ?? [];
+        if (!pending.length) return body;
+        const byId = new Map((snapshot.products ?? []).map((p) => [p.id, p]));
+        const describe = ({ productId, qty }) => {
+            const product = byId.get(productId);
+            return product ? `${product.emoji ?? ''} ${product.name} × ${qty}`.trim() : `${productId} × ${qty}`;
+        };
+        return html`
+            ${body}
+            <section class="pos-card" data-pending-orders="${pending.length}" aria-label="等待主機確認的訂單">
+                <h3>等待主機確認</h3>
+                <p class="pos-muted">已送出，但還沒收到主機的回覆。恢復連線後會自動以同一筆重送，不會重複建立訂單。</p>
+                ${pending.map((entry) => html`<p data-pending-order="${entry.requestId}">${entry.items.map(describe).join('、')}</p>`)}
+            </section>
+        `;
     }
 };

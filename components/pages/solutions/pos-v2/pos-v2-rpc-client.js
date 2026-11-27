@@ -13,6 +13,8 @@ import { encode, parseMessage, pong, request } from './pos-v2-wire.js';
 /** 只在 peer 端產生、不經過網路的錯誤碼（協定規格 6.5） */
 export const PEER_ERROR_CODES = Object.freeze({
     HOST_UNAVAILABLE: 'HOST_UNAVAILABLE',
+    /** 送單已送出但沒有收到回覆：保留在本機，重連後以同一個 requestId 重送 */
+    PENDING: 'PENDING',
 });
 
 export class PosV2RpcClient extends BaseService {

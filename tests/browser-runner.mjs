@@ -599,7 +599,7 @@ async function runPosV2StaffTests(openTab, base) {
         await host.page.send('Page.navigate', { url: adminUrl });
         check(await waitFor(host.page, `${q('[data-signaling-state="open"]')} !== null`, 15000), '主機應連上信令');
         await click(host, '[data-action="create-pairing"]');
-        check(await waitFor(host.page, `${q('[data-pairing-url]')} !== null && ${q('.pos-qr svg')} !== null`, 5000), '應顯示配對 QR Code');
+        check(await waitFor(host.page, `${q('[data-pairing-url] svg')} !== null && ${q('.pos-qr-error')} === null`, 5000), '應顯示配對 QR Code');
         const pairingUrl = await ev(host, `${q('[data-pairing-url]')}.dataset.pairingUrl`);
         const joinUrl = await ev(host, `${q('[data-join-url]')}.href`);
         const code = await ev(host, `${q('[data-pairing-code]')}.dataset.pairingCode`);
@@ -932,6 +932,8 @@ async function runPosV2CustomerTests(openTab, base) {
         const homeUrl = await ev(host, `${q('[data-home-url]')}.dataset.homeUrl`);
         const tableUrl = await ev(host, `${q('[data-table-card="A1"] [data-table-url]')}.dataset.tableUrl`);
         check(tableUrl.includes('t=A1') && tableUrl.includes(`room=${roomId}`), `桌牌網址應帶桌號與房間：${tableUrl}`);
+        // 審查 M2：QR Code 真的畫出來（內容放不下時畫面改顯示 .pos-qr-error，不能只看連結在不在）
+        check(await ev(host, `${q('[data-home-url] svg')} !== null && document.querySelectorAll('[data-table-url]').length > 0 && [...document.querySelectorAll('[data-table-url]')].every((a) => a.querySelector('svg')) && ${q('.pos-qr-error')} === null`), '店家入口與每張桌牌都應畫出 QR Code');
 
         // A4：手機一由店家入口選桌
         const phone1 = await open(homeUrl, `${q('[data-open-table="A1"]')} !== null`);
@@ -976,6 +978,7 @@ async function runPosV2CustomerTests(openTab, base) {
         await order(counter, 'burger');
         check(await waitFor(counter.page, `${q('[data-handover-url]')} !== null`, 10000), '點餐裝置送單後應顯示訂單 QR Code');
         const handoverUrl = await ev(counter, `${q('[data-handover-url]')}.dataset.handoverUrl`);
+        check(await ev(counter, `${q('[data-handover-url] svg')} !== null && ${q('.pos-qr-error')} === null`), `櫃檯訂單 QR Code 應畫得出來（${new TextEncoder().encode(handoverUrl).length} bytes）`);
         const counterNumber = await ev(counter, `${q('[data-handover]')}.dataset.handover`);
         const phone3 = await open(handoverUrl, `${q(`[data-track-order="${counterNumber}"][data-status="pending"]`)} !== null`);
         check(await ev(phone3, "document.querySelectorAll('[data-track-order]').length === 1"), '查單頁只應顯示那一筆');

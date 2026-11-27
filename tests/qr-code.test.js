@@ -10,6 +10,9 @@ import { QR_BYTE_CAPACITY, QR_MAX_VERSION, encodeQr, qrToSvg } from '../componen
  * 產生向量時把它的 write_padding_bits 換成 `(8 - length % 8) % 8`；其餘照 segno 原樣。
  * 矩陣轉成每列一行的 0／1 字串（不含留白），以 '\n' 連接後取 SHA-256。
  */
+/** 正式長度的櫃檯訂單 QR Code 網址（帶 ns、Quick Tunnel 信令、訂單 id 與完整查詢 token） */
+const TRACK_URL = 'https://raybird.github.io/plainvanillaweb/#/solutions/pos-v2/track?ns=demo-2&room=AbCdEfGhIjKlMnOpQrStUv&sig=wss%3A%2F%2Fabcd-efgh-ijkl-mnop.trycloudflare.com&o=7563381a-0d3d-43e1-abb2-25ad53026ba1&k=Zz9-Yy8_Xx7Ww6Vv5Uu4Tt3Ss2Rr1Qq0Pp-Oo_NnMmL';
+
 const VECTORS = [
     ['HELLO', 1, 0, 'b664c5ebcc2451fb6630e63f516abd72b3cdfbf16b9ceb0d92d226f6a6d0cde0'],
     ['桌號 A1', 1, 1, '6a92fd8938bb6c1995120286a7df33fe03dbf6edbccd86469c73693ded56e431'],
@@ -42,12 +45,31 @@ const VECTORS = [
     ['a'.repeat(122), 7, 6, '6ac1f12a53b176bfeaa600cb98edf1ffe76354d566542d7fc53e6ad5b4d99804'],
     ['a'.repeat(152), 8, 7, '57a31dbc38ceeac52702fc5963777d2b06f6367d52007c4a05778262942a4d52'],
     ['a'.repeat(180), 9, 0, '10544625b001c3005211a459102f0034f538ece84219c5dab8f8384abfa59636'],
+    // 版本 11–15（審查 M2），2026-11-27 以同樣方式產生：正式長度的櫃檯訂單網址八種遮罩，加上各版本容量的邊界
+    [TRACK_URL, 11, 0, 'dbed33144a7e925f271cd74935ef103491164b5cb39cb9ce9eb9494ce518ac2d'],
+    [TRACK_URL, 11, 1, 'c7fa9b5836103678d134b271ab8511f1dea8e08945348e5c707b334bf19091ae'],
+    [TRACK_URL, 11, 2, '1660cc0eaa276b53738d3df69dda09d51190c46a38e4e5e6346d0b04824cf29b'],
+    [TRACK_URL, 11, 3, '43c5b70b47128584d2973de0187e85aff6526470284b98af947eed70ba1e9189'],
+    [TRACK_URL, 11, 4, '98aba02cf8c28758e92fea2c74238a50d5298fc9d631e797a66079e77af1b503'],
+    [TRACK_URL, 11, 5, '5fa94d7f39fec61bda8adef4e0452c3d068a3aac716bfd2218502eacc9487936'],
+    [TRACK_URL, 11, 6, 'cc507cebcdb9f10f137de7e40939621f5f8a7dfa1e1ef6a132f8e7d061164abe'],
+    [TRACK_URL, 11, 7, '8ebb3fecc3f200e82da4c709c893cde915db1919b72b8779138d0d61c722d46a'],
+    ['b'.repeat(214), 11, 0, '1f1be8ef542132be156303326c496d97348a970091357635172ecbda782cbe01'],
+    ['b'.repeat(251), 11, 1, 'e88bb77794183ce3bbf6e976dae6b64e8bf963f3b13fd6c72611f58942b116c6'],
+    ['b'.repeat(252), 12, 2, '69cf499e589b22d05149e6c8f668b2e730597fb9412bd5559a75c3d219d3af03'],
+    ['b'.repeat(287), 12, 3, '375285fadcf515746210a0ab845a8c98d76774f20637d1594eaa91b43942c841'],
+    ['b'.repeat(288), 13, 4, 'cf4a59ef9be21de3c03588e886b995f4b48bb304b78f2e502303c98c53371e5e'],
+    ['b'.repeat(331), 13, 5, 'c96ac0435980d0e38ce2265e96fde1ffb4e754a722748945467eb34946b2be10'],
+    ['b'.repeat(332), 14, 6, 'b2a53dfdf472c3b370351e63b400fd3b7212cecdb3a139504988311084e5bb0a'],
+    ['b'.repeat(362), 14, 7, '76b749f230904785c752b325ec39b02efe847e530efc006b754282b6dedcd21e'],
+    ['b'.repeat(363), 15, 0, '617d91a07364901dfeb061b88bc7e3862b180538473fb84f86628e7a85ffea95'],
+    ['b'.repeat(412), 15, 1, '4ae9381fd8f0ae7a08ee70f257c92d69e91e49e00510ca05e4b535a26520e00e'],
 ];
 
 const digest = (qr) => createHash('sha256').update(qr.modules.map((row) => row.map((dark) => (dark ? '1' : '0')).join('')).join('\n')).digest('hex');
 
 test('指定遮罩時，每個版本與遮罩的模組矩陣都和參考實作一致', () => {
-    assert.deepEqual([...new Set(VECTORS.map(([, version]) => version))].sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    assert.deepEqual([...new Set(VECTORS.map(([, version]) => version))].sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
     assert.deepEqual([...new Set(VECTORS.map(([, , mask]) => mask))].sort(), [0, 1, 2, 3, 4, 5, 6, 7]);
     for (const [text, version, mask, sha256] of VECTORS) {
         const qr = encodeQr(text, { mask });
@@ -66,15 +88,17 @@ test('自動選遮罩：結果等於以選定遮罩產生的矩陣', () => {
     }
 });
 
-test('版本依 UTF-8 長度選最小的；超過版本 10 的容量報錯', () => {
-    assert.deepEqual(QR_BYTE_CAPACITY.slice(1), [14, 26, 42, 62, 84, 106, 122, 152, 180, 213]);
-    assert.equal(QR_MAX_VERSION, 10);
+test('版本依 UTF-8 長度選最小的；超過版本 15 的容量報錯', () => {
+    assert.deepEqual(QR_BYTE_CAPACITY.slice(1), [14, 26, 42, 62, 84, 106, 122, 152, 180, 213, 251, 287, 331, 362, 412]);
+    assert.equal(QR_MAX_VERSION, 15);
     assert.equal(encodeQr('a'.repeat(14)).version, 1);
     assert.equal(encodeQr('a'.repeat(15)).version, 2);
     assert.equal(encodeQr('桌'.repeat(4)).version, 1, '12 bytes');
     assert.equal(encodeQr('桌'.repeat(5)).version, 2, '15 bytes');
     assert.equal(encodeQr('a'.repeat(213)).version, 10);
-    assert.throws(() => encodeQr('a'.repeat(214)), RangeError);
+    assert.equal(encodeQr('a'.repeat(214)).version, 11);
+    assert.equal(encodeQr('a'.repeat(412)).version, 15);
+    assert.throws(() => encodeQr('a'.repeat(413)), RangeError);
     assert.equal(encodeQr('').version, 1);
 });
 

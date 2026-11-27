@@ -243,6 +243,13 @@ export class PosV2Repository {
         return requestToPromise(db.transaction(STORE.ORDERS).objectStore(STORE.ORDERS).index('sequence').getAll());
     }
 
+    /** 這個身分是否已經用過這個 requestId（送單去重的同一個索引） */
+    async hasOrderRequest(principal, requestId) {
+        const db = await this._orders.get();
+        const count = await requestToPromise(db.transaction(STORE.ORDERS).objectStore(STORE.ORDERS).index('principalRequest').count([principal, String(requestId ?? '')]));
+        return count > 0;
+    }
+
     async getOrder(id) {
         assertString(id, 'orderId');
         const db = await this._orders.get();

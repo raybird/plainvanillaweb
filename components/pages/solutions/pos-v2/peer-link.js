@@ -52,7 +52,7 @@ export class HostLinks extends BaseService {
         super();
         this.signaling = signaling;
         this._RTCPeerConnection = RTCPeerConnectionImpl;
-        /** @type {Map<string, { pc: RTCPeerConnection, candidates: CandidateQueue, open: boolean }>} */
+        /** @type {Map<string, { pc: RTCPeerConnection, candidates: CandidateQueue, open: boolean, channel: RTCDataChannel | null }>} */
         this._links = new Map();
         this._offs = [
             signaling.on('signal', ({ from, data }) => this._onSignal(from, data)),
@@ -88,7 +88,7 @@ export class HostLinks extends BaseService {
         // 同一個 peer 重新發起：放棄舊的 PeerConnection
         this.close(peerId);
         const pc = new this._RTCPeerConnection({ iceServers: this.signaling.iceServers });
-        const link = { pc, candidates: new CandidateQueue(pc), open: false };
+        const link = { pc, candidates: new CandidateQueue(pc), open: false, channel: null };
         this._links.set(peerId, link);
         onCreated?.(link);
         pc.addEventListener('icecandidate', (event) => {
@@ -102,6 +102,7 @@ export class HostLinks extends BaseService {
             const opened = () => {
                 if (this._links.get(peerId) !== link) return;
                 link.open = true;
+                link.channel = channel;
                 this.emit('channel', { peerId, channel });
             };
             if (channel.readyState === 'open') opened();
@@ -118,6 +119,11 @@ export class HostLinks extends BaseService {
         await pc.setLocalDescription(answer);
         if (this._links.get(peerId) !== link) return;
         this.signaling.sendSignal({ kind: 'answer', sdp: pc.localDescription.sdp }, peerId);
+    }
+
+    /** 只在這條 DataChannel 仍是該 peer 目前的連線時才關：同一個 peer 重新握手後，舊通道晚到的關閉不能關掉新的 */
+    closeChannel(peerId, channel) {
+        if (this._links.get(peerId)?.channel === channel) this.close(peerId);
     }
 
     close(peerId) {

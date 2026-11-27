@@ -152,7 +152,7 @@ npx wrangler@4 deploy
 
 ## 5. 資源與清理
 
-- 主機分頁：IndexedDB 連線、主機 Web Lock、信令 WebSocket、每台裝置一條 RTCPeerConnection、心跳與在線計時器、`beforeprint` 監聽。離開路由時（`disconnectedCallback`）全部釋放。
+- 主機分頁：IndexedDB 連線、主機 Web Lock、信令 WebSocket、每台裝置一條 RTCPeerConnection、心跳與在線計時器、`beforeprint` 監聽。裝置的 DataChannel 關閉或心跳逾時時，主機立即釋放那台裝置的 RTCPeerConnection；離開路由時（`disconnectedCallback`）全部釋放。
 - 遠端裝置：信令 WebSocket、一條 RTCPeerConnection、RPC 計時器；離開路由時釋放。
 - 重設 demo 資料：刪除 `vanilla_solution:<ns>:orders`，保留 `vanilla_solution:<ns>:room`。
 - 裝置上的 localStorage：信令網址（主機）、`credential:<roomId>`（店員授權）、`table:<roomId>`（入桌授權）、`watches:<roomId>`（訂單查詢，最多 50 筆）、`pending:<roomId>`（等待確認的送單），都以 `vanilla_solution:<ns>:` 開頭。
@@ -167,6 +167,6 @@ npx wrangler@4 deploy
 
 ## 7. 測試
 
-- 單元測試：`tests/pos-v2-model.test.js`（授權判斷、送單與轉移）、`tests/pos-v2-hub.test.js`（RPC 授權、推送、背壓、在線與接手）、`tests/pos-v2-remote-session.test.js`（待確認送單的保留與重送）、`tests/signaling.test.js`（信令協定；設定 `SIGNALING_URL` 時也對 Worker 跑同一組）、`tests/signaling-client.test.js`、`tests/signaling-settings.test.js`、`tests/qr-code.test.js`、`tests/pos-v2-docs.test.js`（本文件的指令與 SHA-256 和實際檔案一致）。
+- 單元測試：`tests/pos-v2-model.test.js`（授權判斷、送單與轉移）、`tests/pos-v2-hub.test.js`（RPC 授權、推送、背壓、在線與接手）、`tests/pos-v2-remote-session.test.js`（待確認送單的保留與重送）、`tests/signaling.test.js`（信令協定；設定 `SIGNALING_URL` 時也對 Worker 跑同一組）、`tests/signaling-client.test.js`、`tests/peer-link.test.js`（主機端連線的釋放）、`tests/signaling-settings.test.js`、`tests/qr-code.test.js`、`tests/pos-v2-docs.test.js`（本文件的指令與 SHA-256 和實際檔案一致）。
 - 瀏覽器測試（`tests/browser-runner.mjs`，每台裝置各自獨立的瀏覽器環境）：主機與唯讀分頁、信令設定（A9）、連線層、店員裝置配對與完整流程（A1–A3）、顧客端（A4–A6）、中斷恢復（A7）。第一代的 `runPosTests` 不修改照常通過（A8）。
 - 實機驗收（A10）：筆電 Chrome 當主機，iOS Safari 與 Android Chrome 在同一個 Wi-Fi，兩種自架信令各走一次。

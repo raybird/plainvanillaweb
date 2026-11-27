@@ -89,6 +89,9 @@ class FakeRepository {
     async listProducts() {
         return DEFAULT_MENU;
     }
+    async hasOrderRequest(principal, requestId) {
+        return this.orders.some((o) => o.principal === principal && o.requestId === requestId);
+    }
     async listTables() {
         return this.tables.map((table) => {
             const sessions = [...this.sessions.values()].filter((s) => s.tableId === table.id);
@@ -397,9 +400,39 @@ test('送單速率：已經存在的 requestId 重送不計入，主機已寫入
     const { connect, repository } = setup(t);
     const a = connect();
     await a.client.request('auth', { credentials: [repository.device('order')] });
-    for (let i = 0; i < ORDER_RATE.max; i++) await a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: `a${i}` });
+    let lookups = 0;
+    const has = repository.hasOrderRequest.bind(repository);
+    repository.hasOrderRequest = (...args) => {
+        lookups += 1;
+        return has(...args);
+    };
+    // 上限內的重送回 noop 並還回名額：重送幾次都不占新單的額度
+    await a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'a0' });
+    for (let i = 0; i < 5; i++) assert.equal((await a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'a0' })).result, 'noop');
+    for (let i = 1; i < ORDER_RATE.max; i++) await a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: `a${i}` });
+    assert.equal(lookups, 0, '沒超過上限時不查索引（審查 3 N18）');
     const again = await a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'a0' });
     assert.equal(again.result, 'noop');
+    await assert.rejects(a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'a-new' }), (err) => err.code === E.RATE_LIMITED);
+});
+
+test('回應超過訊息上限時回 INTERNAL，連線不關閉（審查 N10）', async (t) => {
+    const { connect, repository, hub } = setup(t);
+    const { client } = connect();
+    await client.request('auth', { credentials: [repository.device('order')] });
+    repository.listProducts = async () => Array.from({ length: 2000 }, (_, i) => ({ ...DEFAULT_MENU[0], id: `p${i}`, name: 'x'.repeat(40) }));
+    await assert.rejects(client.request('menu.get'), (err) => err.code === 'INTERNAL');
+    assert.equal(hub.listConnections().length, 1);
+});
+
+test('連線關閉時發出 closed（含 DataChannel），主機頁據此釋放 PeerConnection（審查 3 N20）', async (t) => {
+    const { connect, hub } = setup(t);
+    const closed = [];
+    hub.on('closed', (detail) => closed.push(detail));
+    const { hostSide, client, id } = connect();
+    client.close();
+    await sleep(10);
+    assert.deepEqual(closed, [{ id, channel: hostSide }]);
 });
 
 test('送單速率：同一個身分一分鐘內超過上限回 RATE_LIMITED，其他身分不受影響；時間過了恢復', async (t) => {

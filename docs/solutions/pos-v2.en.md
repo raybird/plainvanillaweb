@@ -152,7 +152,7 @@ Authorization:
 
 ## 5. Resources and cleanup
 
-- Host tab: IndexedDB connections, the host Web Lock, the signaling WebSocket, one RTCPeerConnection per device, heartbeat and presence timers, a `beforeprint` listener. All released when leaving the route (`disconnectedCallback`).
+- Host tab: IndexedDB connections, the host Web Lock, the signaling WebSocket, one RTCPeerConnection per device, heartbeat and presence timers, a `beforeprint` listener. When a device's DataChannel closes or its heartbeat times out, the host releases that device's RTCPeerConnection right away; everything is released when leaving the route (`disconnectedCallback`).
 - Remote device: the signaling WebSocket, one RTCPeerConnection, RPC timers; released when leaving the route.
 - Reset demo data: deletes `vanilla_solution:<ns>:orders` and keeps `vanilla_solution:<ns>:room`.
 - localStorage on devices: the signaling URL (host), `credential:<roomId>` (staff credential), `table:<roomId>` (table credential), `watches:<roomId>` (order tracking, up to 50), `pending:<roomId>` (orders awaiting confirmation), all prefixed with `vanilla_solution:<ns>:`.
@@ -167,6 +167,6 @@ Authorization:
 
 ## 7. Tests
 
-- Unit tests: `tests/pos-v2-model.test.js` (authorization decisions, orders and transitions), `tests/pos-v2-hub.test.js` (RPC authorization, pushes, backpressure, presence and takeover), `tests/pos-v2-remote-session.test.js` (keeping and resending pending orders), `tests/signaling.test.js` (signaling protocol; with `SIGNALING_URL` set it also runs against the Worker), `tests/signaling-client.test.js`, `tests/signaling-settings.test.js`, `tests/qr-code.test.js`, `tests/pos-v2-docs.test.js` (this document's commands and SHA-256 values match the real files).
+- Unit tests: `tests/pos-v2-model.test.js` (authorization decisions, orders and transitions), `tests/pos-v2-hub.test.js` (RPC authorization, pushes, backpressure, presence and takeover), `tests/pos-v2-remote-session.test.js` (keeping and resending pending orders), `tests/signaling.test.js` (signaling protocol; with `SIGNALING_URL` set it also runs against the Worker), `tests/signaling-client.test.js`, `tests/peer-link.test.js` (releasing host-side connections), `tests/signaling-settings.test.js`, `tests/qr-code.test.js`, `tests/pos-v2-docs.test.js` (this document's commands and SHA-256 values match the real files).
 - Browser tests (`tests/browser-runner.mjs`, each device in its own browser context): host and read-only tabs, signaling settings (A9), the connection layer, staff pairing and the full flow (A1–A3), customers (A4–A6), recovery (A7). v1's `runPosTests` passes unmodified (A8).
 - Real-device acceptance (A10): Chrome on a laptop as the host, iOS Safari and Android Chrome on the same Wi-Fi, once with each signaling option.

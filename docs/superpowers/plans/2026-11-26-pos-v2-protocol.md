@@ -210,6 +210,7 @@
 | `RATE_LIMITED` | 嘗試次數或送單次數超過上限，冷卻中 |
 | `PAIRING_EXPIRED` | 配對票已過期 |
 | `BAD_MESSAGE` | 不合格訊息 |
+| `INTERNAL` | 主機處理請求時發生非預期的錯誤，或回應超過訊息上限（64 KiB）送不出去；連線不關閉（審查 N10） |
 
 peer 端另有兩個只在本機產生、不經過網路的狀態：`HOST_UNAVAILABLE`（主機失聯）、`PENDING`（已送出但尚未收到回覆）。
 

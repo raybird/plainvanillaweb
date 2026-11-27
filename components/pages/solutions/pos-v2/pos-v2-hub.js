@@ -193,7 +193,7 @@ export class PosV2Hub extends BaseService {
         return conn;
     }
 
-    /** 主動關閉一條連線（管理頁或信令通知 peer 離開時） */
+    /** 主動關閉一條連線（管理頁的重設、重新產生房間等） */
     disconnect(id, reason = 'closed by host') {
         const conn = this._connections.get(id);
         if (conn) this._close(conn, reason);
@@ -218,6 +218,8 @@ export class PosV2Hub extends BaseService {
         conn.channel.removeEventListener('close', conn.onClose);
         conn.channel.removeEventListener('bufferedamountlow', conn.onLow);
         if (this._connections.get(conn.id) === conn) this._connections.delete(conn.id);
+        // 給主機頁釋放這條連線的 RTCPeerConnection（審查 3 N20：心跳逾時只關得掉 DataChannel）
+        this.emit('closed', { id: conn.id, channel: conn.channel });
         const station = this._stationOf(conn);
         if (station && !this._stationConnections(station).length) {
             this._presence.set(station, { connected: false, lastSeenAt: conn.lastSeenAt });
@@ -405,17 +407,31 @@ export class PosV2Hub extends BaseService {
     }
 
     /** 同一個身分送單太頻繁時拒絕：一支手機狂送單會讓廚房快照與 IndexedDB 一直長大 */
-    _assertOrderRate(principal) {
+    /**
+     * 先占一個送單名額（同步，並行送出也不能超過上限），回傳占用的時間；已達上限時回傳 null。
+     */
+    _reserveOrderSlot(principal) {
         const now = this._now();
         const recent = (this._orderTimes.get(principal) ?? []).filter((at) => now - at < ORDER_RATE.windowMs);
-        if (recent.length >= ORDER_RATE.max) {
-            this._orderTimes.set(principal, recent);
-            throw Object.assign(new PosError(POS_V2_ERROR_CODES.RATE_LIMITED, '送單太頻繁，請稍後再試'), { retryAfterMs: recent[0] + ORDER_RATE.windowMs - now });
-        }
-        recent.push(now);
         this._orderTimes.delete(principal);
         this._orderTimes.set(principal, recent);
         if (this._orderTimes.size > MAX_ORDER_PRINCIPALS) this._orderTimes.delete(this._orderTimes.keys().next().value);
+        if (recent.length >= ORDER_RATE.max) return null;
+        recent.push(now);
+        return now;
+    }
+
+    /** 這次沒有建立訂單（重送回原訂單）：還回占用的名額 */
+    _releaseOrderSlot(principal, at) {
+        const recent = this._orderTimes.get(principal);
+        const index = recent?.indexOf(at) ?? -1;
+        if (index >= 0) recent.splice(index, 1);
+    }
+
+    _orderRateError(principal) {
+        const recent = this._orderTimes.get(principal) ?? [];
+        const retryAfterMs = recent.length ? Math.max(0, recent[0] + ORDER_RATE.windowMs - this._now()) : ORDER_RATE.windowMs;
+        return Object.assign(new PosError(POS_V2_ERROR_CODES.RATE_LIMITED, '送單太頻繁，請稍後再試'), { retryAfterMs });
     }
 
     // ---------- 嘗試次數 ----------
@@ -544,10 +560,12 @@ export class PosV2Hub extends BaseService {
             const { device, table } = conn.grants;
             const grant = table ?? device;
             const principal = principalOf(grant);
-            // 已經存在的 requestId（重送）不計入速率：主機已寫入的那筆重送時要回原訂單，不能回 RATE_LIMITED（審查 S7）
-            const resend = (await this.repository.listOrders()).some((o) => o.principal === principal && o.requestId === requestId);
-            if (!resend) this._assertOrderRate(principal);
+            // 已經存在的 requestId（重送）不計入速率：主機已寫入的那筆重送時要回原訂單，不能回 RATE_LIMITED（審查 S7）。
+            // 只有超過上限時才查索引（審查 3 N18）；重送回 noop 時還回名額
+            const reserved = this._reserveOrderSlot(principal);
+            if (reserved === null && !(await this.repository.hasOrderRequest(principal, requestId))) throw this._orderRateError(principal);
             const outcome = await this.repository.placeOrder({ grant, items, requestId, tableId: table ? null : tableId });
+            if (reserved !== null && outcome.result === 'noop') this._releaseOrderSlot(principal, reserved);
             if (outcome.result === 'applied') this.notifyChanged();
             const { orders } = await this._loadData();
             return {

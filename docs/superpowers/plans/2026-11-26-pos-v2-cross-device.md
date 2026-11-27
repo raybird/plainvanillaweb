@@ -186,6 +186,15 @@
 - N10：回應太大時回 `INTERNAL`。N11：`_assertCanTry` 直接拋 `RATE_LIMITED`；送單速率的身分上限改名 `MAX_ORDER_PRINCIPALS`。N14：沒有記錄配對時信令的授權不顯示「使用配對時的信令」。N15：瀏覽器測試涵蓋「改用這個網址的信令」。N16：刪掉根目錄未追蹤的 segno wheel。
 - 記入待確認：N12、N13（見下）。
 
+## 審查 3 的處理（2026-11-27）
+
+審查報告：[2026-11-27-pos-v2-review-3.md](../reviews/2026-11-27-pos-v2-review-3.md)（增量覆審 63658c2..f6cc03a，PASS，附 N17–N20）。使用者 2026-11-27 決定：N17–N20 **全部修正再審**；審查 2 的 N12、N13 **維持待確認**。
+
+- N17：hub `disconnect()` 的註解改成目前的用途。
+- N18：送單時先同步占一個速率名額，只有超過上限時才用 `principalRequest` 索引（`hasOrderRequest`）查是不是重送；上限內的重送回 `noop` 時還回名額。
+- N19：協定規格 6.5 錯誤碼表加上 `INTERNAL`；N10 補單元測試。
+- N20：hub 的連線關閉時發出 `closed`（含 DataChannel），主機頁呼叫 `HostLinks.closeChannel()` 立即釋放 RTCPeerConnection；只在那條 DataChannel 仍是該 peer 目前的連線時才關，不誤關重新握手後的新連線。新增 `tests/peer-link.test.js`。
+
 ### 待確認事項
 
 - N12：推送截斷時（`truncated`），廚房與叫號畫面沒有提示還有沒列出的訂單。畫面沿用第一代，要提示得改第一代的元件或在 v2 包一層；待決定。

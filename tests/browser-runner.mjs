@@ -612,6 +612,18 @@ async function runPosV2StaffTests(openTab, base) {
         check(await waitFor(k1.page, `${q('[data-pair-pending]')} !== null`, 5000), '送出申請後應等待核准');
         const before = await ev(k1, `${q('page-pos-v2-join')}.remote.request('order.act', { orderId: 'x', action: 'claim' }).then(() => 'ok', (err) => err.code)`);
         check(before === 'UNAUTHORIZED', `未核准的裝置認領應回 UNAUTHORIZED：${before}`);
+        // A10 實機驗收：角色由主機核准時指定，兩端都說明；沒選角色不能核准
+        check(await ev(k1, `${q('[data-role-hint]')} !== null`), '等待核准的裝置應說明角色由管理端指定');
+        check(await ev(host, `${q('[data-role-hint]')} !== null`), '主機的待核准清單應說明角色決定裝置的畫面');
+        const unchosen = await ev(host, `(() => {
+            const item = ${q('[data-pairing]')};
+            const value = item.querySelector('select[name="role"]').value;
+            item.querySelector('[data-action="approve"]').click();
+            return value;
+        })()`);
+        check(unchosen === '', `待核准的角色不應預先選好：${unchosen}`);
+        check(await waitFor(host.page, `${q('.pos-alert[data-level="error"]')}?.textContent.includes('先選擇這台裝置的角色') === true`, 5000), '沒選角色就核准應提示先選角色');
+        check(await ev(host, `${q('[data-pairing]')} !== null`) && await ev(k1, `${q('[data-pair-pending]')} !== null`), '沒選角色時申請應維持待核准');
         await approve(host, 'kitchen', 'K1');
         check(await waitFor(k1.page, pageOnline('kitchen'), 15000), '核准後應自動前往廚房畫面並連上主機');
         check(await ev(k1, `${q('[data-station="K1"]')} !== null`), '廚房畫面應顯示站台 K1');

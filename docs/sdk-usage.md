@@ -11,7 +11,7 @@
 **只需要核心？** 只用到元件、模板、Store 與路由時，改用只含核心的入口 `lib/core.js`，不會載入任何前沿 Web API service（[ADR 0101](./decisions/0101-core-entry-point.md)）：
 
 ```javascript
-import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/lib/core.js';
+import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/lib/core.js';
 ```
 
 ## 🚀 快速開始 (Quick Start)
@@ -20,7 +20,7 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 
 ```javascript
 // 一站式全量引入
-import { VanillaSDK } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/lib/vanilla-sdk.js';
+import { VanillaSDK } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/lib/vanilla-sdk.js';
 
 // 或按需解構具名匯出
 import { 
@@ -31,7 +31,7 @@ import {
     FormGroup, 
     FormControl, 
     Validators 
-} from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/lib/vanilla-sdk.js';
+} from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/lib/vanilla-sdk.js';
 
 // 1. 初始化 SDK (自動配置 WebRTC 與 國際化)
 const sdk = await VanillaSDK.init();

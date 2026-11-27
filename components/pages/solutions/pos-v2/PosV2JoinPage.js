@@ -158,7 +158,8 @@ export class PosV2JoinPage extends BaseComponent {
                         <button type="submit" class="btn btn-primary" ${this.state.busy ? 'disabled' : ''}>申請加入</button>
                     </form>`;
             case 'pending':
-                return html`<p data-pair-pending>等待管理端核准…核准後會自動前往指定的畫面。</p>`;
+                return html`<p data-pair-pending>等待管理端核准…核准後會自動前往指定的畫面。</p>
+                    <p class="pos-muted" data-role-hint>這台裝置是點餐、廚房還是叫號，由管理主機核准時指定，這裡不用設定；要換角色請管理端撤銷後重新申請。</p>`;
             case 'rejected':
                 return html`<button type="button" class="btn" data-action="again">重新申請</button>`;
             default:

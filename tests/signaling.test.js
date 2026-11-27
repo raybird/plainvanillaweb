@@ -16,6 +16,7 @@ import {
     extractTunnelUrl,
     hostPageLink,
     isOriginAllowed,
+    listenErrorMessage,
     publicOrigin,
     parseFrame,
     parseOptions,
@@ -411,4 +412,26 @@ test('單一檔案：複製到空目錄就能執行；不匯入任何本地模�
     assert.match(output, /找不到 cloudflared/);
     const health = await (await fetch(`http://127.0.0.1:${port}/healthz`)).json();
     assert.deepEqual(health, { ok: true, protocol: 1, rooms: 0 });
+});
+
+test('連接埠被佔用：印出怎麼用 --port 換一個連接埠，以代碼 1 結束（A10 實機驗收）', INTERNAL_ONLY, async (t) => {
+    const blocker = http.createServer();
+    await new Promise((resolve) => blocker.listen(0, '127.0.0.1', resolve));
+    t.after(() => blocker.close());
+    const { port } = blocker.address();
+    const child = spawn(process.execPath, [SERVER_FILE, '--port', String(port)], { env: { PATH: '' } });
+    t.after(() => child.kill());
+    let stderr = '';
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    const code = await new Promise((resolve) => child.once('exit', resolve));
+    assert.equal(code, 1);
+    assert.match(stderr, new RegExp(`連接埠 ${port} 已被其他程式使用`));
+    assert.match(stderr, new RegExp(`--port ${port + 1}`));
+    assert.doesNotMatch(stderr, /at Server\.setupListenHandle/, '不應印出 Node 的堆疊');
+});
+
+test('listenErrorMessage：沒有權限與其他錯誤', () => {
+    assert.match(listenErrorMessage({ code: 'EACCES' }, 80), /沒有權限使用連接埠 80。.*--port 81/);
+    assert.match(listenErrorMessage({ code: 'EADDRINUSE' }, 65535), /--port 8788/);
+    assert.equal(listenErrorMessage(new Error('boom'), 8787), '無法在連接埠 8787 啟動：boom');
 });

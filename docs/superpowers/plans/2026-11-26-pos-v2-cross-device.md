@@ -176,9 +176,15 @@
   - 方式二（自有 Cloudflare Worker）一輪，以及 Worker 版執行 `tests/signaling.test.js`（使用者 2026-11-27 決定之後再測）。
   - iOS Safari 的 A1、A4、A6 與背景重連。
   - 用手機相機實際掃店家入口、桌牌與櫃檯訂單 QR Code（最長的版本 11）。
-- **實機驗收時的發現**（之後開 issue 改善）：
+- **實機驗收時的發現**（使用者 2026-11-27 決定補在 #16 修正，發版 v3.4.1，見下方「A10 發現的修正」）：
   - 8787 埠被佔用時只有 Node 的 `EADDRINUSE` 錯誤，主機頁與文件沒有提到 `--port`。
   - 店員的角色在主機核准時指定，第一次使用時不容易發現：申請加入的裝置上看不到也改不了角色，使用者第一次核准時沿用預設的「點餐」，找不到廚房畫面。
+
+#### A10 發現的修正（v3.4.1，2026-11-27）
+
+- 連接埠被佔用：`server/signaling.mjs` 的 `listenErrorMessage()` 在 `EADDRINUSE`／`EACCES` 時說明加上 `--port <下一個埠>`（或 `SIGNALING_PORT`），以代碼 1 結束、不印堆疊。主機頁方式一（`[data-guide-port]`）與 `pos-v2.md`／`.en.md` 加上同樣的說明；主機頁的指令本身不變。`tests/signaling.test.js` 以子程序實測佔用中的埠。
+- 角色指定：待核准申請的角色選單預設「選擇角色…」（空值），沒選就按核准會提示先選角色、申請維持待核准；主機的待核准清單與裝置的等待核准畫面都加上說明（`[data-role-hint]`）。瀏覽器測試在 A1 的第一台裝置核准前檢查這三點。
+- 升版 3.4.1：`lib/version.js`、CHANGELOG、README／docs 的 `@v3.4.1` 網址，`signaling.mjs` 的 SHA-256 更新（`worker.js`、`wrangler.jsonc` 不變）。
 
 ## 審查 1 的處理（2026-11-27）
 

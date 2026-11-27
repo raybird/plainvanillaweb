@@ -334,6 +334,7 @@ async function runPosV2AdminTests(openTab, base) {
             node: document.querySelector('pre[data-command="node"]')?.textContent ?? '',
             worker: document.querySelector('pre[data-command="worker"]')?.textContent ?? '',
             copies: document.querySelectorAll('[data-action="copy"]').length,
+            port: document.querySelector('[data-guide-option="node"] [data-guide-port]')?.textContent ?? '',
         })`);
         const cdn = `https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v${VERSION}/server/`;
         check(guide.version === `v${VERSION}`, `自架指令的版本應為 v${VERSION}：${guide.version}`);
@@ -341,6 +342,7 @@ async function runPosV2AdminTests(openTab, base) {
         check(guide.worker.includes(`${cdn}cloudflare/worker.js`) && guide.worker.includes(`${cdn}cloudflare/wrangler.jsonc`) && guide.worker.includes('wrangler@4 deploy'), `Worker 指令不正確：${guide.worker}`);
         check(!/\|\s*(ba)?sh\b/.test(guide.node + guide.worker), '不應提供 curl | sh');
         check(guide.copies === 2, `應有兩個複製按鈕：${guide.copies}`);
+        check(guide.port.includes('8787') && guide.port.includes('--port 8788'), `方式一應說明連接埠被佔用時加 --port：${guide.port}`);
 
         // 貼 http:// 轉成 ws://（本機）並以真的信令伺服器測試
         check(await submit(`http://127.0.0.1:${port}/`), '找不到信令網址表單');
@@ -389,7 +391,7 @@ async function runPosV2AdminTests(openTab, base) {
         await allowed.close();
         await foreign.close();
     }
-    console.log('  POS v2 主機頁：自架指令與版本、信令網址儲存與連線測試、Origin 白名單、sig 參數確認');
+    console.log('  POS v2 主機頁：自架指令與版本、連接埠被佔用的說明、信令網址儲存與連線測試、Origin 白名單、sig 參數確認');
     return failures;
 }
 
@@ -623,6 +625,8 @@ async function runPosV2StaffTests(openTab, base) {
         })()`);
         check(unchosen === '', `待核准的角色不應預先選好：${unchosen}`);
         check(await waitFor(host.page, `${q('.pos-alert[data-level="error"]')}?.textContent.includes('先選擇這台裝置的角色') === true`, 5000), '沒選角色就核准應提示先選角色');
+        check(await ev(host, `document.activeElement === ${q('[data-pairing] select[name="role"]')}`), '沒選角色時焦點應移到這一筆的角色選單');
+        check(await ev(host, `${q('[data-pairing] select[name="role"]')}.getAttribute('aria-describedby') === ${q('[data-role-hint]')}.id`), '角色選單應以 aria-describedby 連到角色說明');
         check(await ev(host, `${q('[data-pairing]')} !== null`) && await ev(k1, `${q('[data-pair-pending]')} !== null`), '沒選角色時申請應維持待核准');
         await approve(host, 'kitchen', 'K1');
         check(await waitFor(k1.page, pageOnline('kitchen'), 15000), '核准後應自動前往廚房畫面並連上主機');
@@ -706,7 +710,7 @@ async function runPosV2StaffTests(openTab, base) {
         }
         await signaling.close();
     }
-    console.log('  POS v2 店員裝置：配對 QR Code 與連線碼、未核准與角色不符被拒、遠端點餐／廚房／叫號完整流程、並行認領只成功一次、站台在線拒絕接手與離線後接手、撤銷授權');
+    console.log('  POS v2 店員裝置：配對 QR Code 與連線碼、未核准與角色不符被拒、沒選角色不能核准、遠端點餐／廚房／叫號完整流程、並行認領只成功一次、站台在線拒絕接手與離線後接手、撤銷授權');
     return failures;
 }
 

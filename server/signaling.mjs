@@ -567,13 +567,16 @@ function startTunnel(port, appUrl) {
 
 /**
  * 啟動時 listen 失敗的說明：連接埠被佔用或沒有權限時，告訴使用者怎麼換一個連接埠。
+ * 建議的連接埠：下一個埠；1024 以下（需要系統權限）或已是最大值時改建議 8788。
  * @param {NodeJS.ErrnoException} err
  * @param {number} port
+ * @param {{ tunnel?: boolean }} [options] 這次啟動是否帶 --tunnel：照抄建議的指令時維持原本的用法
  * @returns {string}
  */
-export function listenErrorMessage(err, port) {
-    const next = port === 65535 ? 8788 : port + 1;
-    const hint = `改用其他連接埠，例如：node signaling.mjs --tunnel --port ${next}（或設定環境變數 SIGNALING_PORT=${next}）。使用 --tunnel 時 Quick Tunnel 會跟著用這個連接埠，其他步驟不變。`;
+export function listenErrorMessage(err, port, { tunnel = false } = {}) {
+    const next = port < 1024 || port >= 65535 ? 8788 : port + 1;
+    const command = `node signaling.mjs${tunnel ? ' --tunnel' : ''} --port ${next}`;
+    const hint = `改用其他連接埠，例如：${command}（或設定環境變數 SIGNALING_PORT=${next}）。${tunnel ? 'Quick Tunnel 會跟著用這個連接埠，' : ''}其他步驟不變。`;
     if (err?.code === 'EADDRINUSE') return `連接埠 ${port} 已被其他程式使用。${hint}`;
     if (err?.code === 'EACCES') return `沒有權限使用連接埠 ${port}。${hint}`;
     return `無法在連接埠 ${port} 啟動：${err?.message ?? err}`;
@@ -592,7 +595,7 @@ async function main() {
     try {
         address = await signaling.listen(options.port, options.host);
     } catch (err) {
-        console.error(listenErrorMessage(err, options.port));
+        console.error(listenErrorMessage(err, options.port, { tunnel: options.tunnel }));
         process.exit(1);
     }
     console.log(`POS v2 信令伺服器：http://${address.address}:${address.port}（協定 v${PROTOCOL_VERSION}）`);

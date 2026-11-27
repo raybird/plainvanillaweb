@@ -139,8 +139,8 @@
 
 前提：主機頁要在 Origin 白名單內的 https 網站（預設 `https://raybird.github.io`），所以實機驗收在 PR 合併、GitHub Pages 部署之後進行；tag 還沒推之前，主機頁指令裡的 `@v3.4.0` 會 404，改用合併提交的 SHA（`@<sha>`）下載同一批檔案。
 
-1. **Node＋Quick Tunnel**（筆電 Chrome 當主機）
-   - [x] 空目錄執行主機頁的方式一指令（`@v3.4.0` 換成 `@<sha>`），`--tunnel` 印出帶 `sig=` 的主機頁連結；用它打開主機頁並確認儲存。
+1. **Node＋Quick Tunnel**（筆電 Chrome 當主機；2026-11-27 實際用 Edge）
+   - [x] 空目錄執行主機頁的方式一指令（`@v3.4.0` 換成 `@<sha>`），`--tunnel` 印出帶 `sig=` 的主機頁連結；用它打開主機頁並確認儲存。2026-11-27 實際是推 tag 後直接用 `@v3.4.0`，加上 `--port 8788`（見「實機驗收結果」）。
    - [ ] A1：iPhone（Safari）掃配對 QR Code、Android（Chrome）輸入連線碼，主機核准為點餐與廚房；核准前無法操作。
    - [x] A2：點餐 → 廚房認領 → 備餐完成 → 叫號畫面取餐（叫號可用筆電另一個分頁配對），主機統計與各裝置一致。
    - [ ] A4：開 A1 桌，iPhone 由店家入口選桌、Android 掃列印的桌牌，用同一組入桌碼各送一筆，廚房與主機看到同桌同場次。
@@ -176,6 +176,7 @@
   - 方式二（自有 Cloudflare Worker）一輪，以及 Worker 版執行 `tests/signaling.test.js`（使用者 2026-11-27 決定之後再測）。
   - iOS Safari 的 A1、A4、A6 與背景重連。
   - 用手機相機實際掃店家入口、桌牌與櫃檯訂單 QR Code（最長的版本 11）。
+  - v3.4.1 的兩個修正（連接埠被佔用的說明、先選角色才能核准）的實機確認：使用者 2026-11-27 決定併入下一輪實機，這次以自動化測試為準發版（審查 5 R5-S2）。
 - **實機驗收時的發現**（使用者 2026-11-27 決定補在 #16 修正，發版 v3.4.1，見下方「A10 發現的修正」）：
   - 8787 埠被佔用時只有 Node 的 `EADDRINUSE` 錯誤，主機頁與文件沒有提到 `--port`。
   - 店員的角色在主機核准時指定，第一次使用時不容易發現：申請加入的裝置上看不到也改不了角色，使用者第一次核准時沿用預設的「點餐」，找不到廚房畫面。
@@ -185,6 +186,22 @@
 - 連接埠被佔用：`server/signaling.mjs` 的 `listenErrorMessage()` 在 `EADDRINUSE`／`EACCES` 時說明加上 `--port <下一個埠>`（或 `SIGNALING_PORT`），以代碼 1 結束、不印堆疊。主機頁方式一（`[data-guide-port]`）與 `pos-v2.md`／`.en.md` 加上同樣的說明；主機頁的指令本身不變。`tests/signaling.test.js` 以子程序實測佔用中的埠。
 - 角色指定：待核准申請的角色選單預設「選擇角色…」（空值），沒選就按核准會提示先選角色、申請維持待核准；主機的待核准清單與裝置的等待核准畫面都加上說明（`[data-role-hint]`）。瀏覽器測試在 A1 的第一台裝置核准前檢查這三點。
 - 升版 3.4.1：`lib/version.js`、CHANGELOG、README／docs 的 `@v3.4.1` 網址，`signaling.mjs` 的 SHA-256 更新（`worker.js`、`wrangler.jsonc` 不變）。
+
+#### v3.4.1 發版後待辦（審查 5 R5-S2）
+
+- [ ] 合併後 GitHub Pages 的主機頁立刻顯示 `@v3.4.1` 的指令，tag 推上去之前照指令下載會 404，jsDelivr 也會把 404 快取起來：合併後盡快推 tag `v3.4.1`（需使用者同意）。推 tag 前被請求過的網址，以 `https://purge.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/<路徑>` 清除。
+- [ ] 推 tag 後從 `cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/` 下載 `server/signaling.mjs`、`server/cloudflare/worker.js`、`server/cloudflare/wrangler.jsonc`，SHA-256 和 `pos-v2.md` 列的一致。
+
+#### 審查 5 的處理（2026-11-27）
+
+審查報告：[2026-11-27-pos-v2-review-5.md](../reviews/2026-11-27-pos-v2-review-5.md)（PASS，適用 `60e2a17`）。使用者 2026-11-27 的決定：SHOULD FIX 兩項都修、NICE TO HAVE 全部修，兩個修正的實機確認併入下一輪實機。
+
+- R5-S1：連接埠測試改等子程序的 `close`（stdout／stderr 讀完才觸發），並設 10 秒 timeout。
+- R5-S2：補上「v3.4.1 發版後待辦」，實機確認列入「留待之後」。
+- R5-N1：建議的指令沿用這次是否帶 `--tunnel`；1024 以下（需要系統權限）與最大埠改建議 8788。
+- R5-N2：清單第 1 項註明實際用 Edge、推 tag 後用 `@v3.4.0`。
+- R5-N3：角色選單以 `aria-describedby` 連到角色說明；沒選角色就按核准時，焦點移到那一筆的角色選單。
+- R5-N4：瀏覽器測試檢查主機頁方式一的連接埠說明、沒選角色時的焦點與 `aria-describedby`；連接埠測試帶 `--tunnel`，確認 listen 失敗時不啟動 Quick Tunnel。
 
 ## 審查 1 的處理（2026-11-27）
 

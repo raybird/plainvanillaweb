@@ -65,7 +65,7 @@ npx wrangler@4 deploy
 
 | 檔案 | SHA-256 |
 | --- | --- |
-| `server/signaling.mjs` | `a5955e787a3362e473e635305cf3dc5b2aab3288683bff79616bbe4ec6c6b111` |
+| `server/signaling.mjs` | `e02ed4451e96bd433ff50e0e08b853a69003be8d9494bf6b0421ffb5bd44fc47` |
 | `server/cloudflare/worker.js` | `284c76c8c8f5dcc3621240eaf2e251d44fa011b73412418034db029192854315` |
 | `server/cloudflare/wrangler.jsonc` | `4ab58993fdbcb7cecc7e521d3bb141c6c64e0bf5b5ad89d2fc5936a3335c2a76` |
 

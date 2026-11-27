@@ -210,8 +210,11 @@ export class PosV2AdminPage extends BaseComponent {
                 });
             case 'approve': {
                 const item = button.closest('[data-pairing]');
-                const role = item.querySelector('select[name="role"]').value;
+                const select = item.querySelector('select[name="role"]');
+                const role = select.value;
                 const station = role === 'kitchen' ? item.querySelector('input[name="station"]').value.trim() : null;
+                // 沒選角色：焦點移到這一筆的選單（錯誤訊息在頁首，離清單較遠）
+                if (!role) select.focus();
                 return this.runHostAction(async () => {
                     if (!role) throw new Error('先選擇這台裝置的角色（點餐、廚房或叫號），再按核准');
                     if (role === 'kitchen' && !station) throw new Error('廚房要指定站台名稱');
@@ -433,14 +436,14 @@ export class PosV2AdminPage extends BaseComponent {
                 <button type="button" class="btn ${pairing && !expired ? '' : 'btn-primary'}" data-action="create-pairing">${pairing && !expired ? '產生新的配對碼' : '產生配對 QR Code'}</button>
             </div>
             <h4>待核准（<span data-pairing-count>${this.pairings.length}</span>）</h4>
-            <p class="pos-muted" data-role-hint>裝置的畫面（點餐、廚房、叫號）由這裡選的角色決定，裝置端不能自己改；選錯時在下方「已配對」清單撤銷後重新配對。</p>
+            <p class="pos-muted" id="pos-v2-role-hint" data-role-hint>裝置的畫面（點餐、廚房、叫號）由這裡選的角色決定，裝置端不能自己改；選錯時在下方「已配對」清單撤銷後重新配對。</p>
             ${this.pairings.length ? html`
                 <ul class="pos-approvals">
                     ${this.pairings.map((p) => html`
                         <li id="pos-v2-pairing-${p.id}" data-pairing="${p.id}">
                             <div><strong>${p.label || '未命名裝置'}</strong> <span class="pos-muted">${formatClock(p.requestedAt)} · ${p.connectionId.slice(0, 6)}</span></div>
                             <div class="pos-actions">
-                                <select name="role" aria-label="角色" required>
+                                <select name="role" aria-label="角色" aria-describedby="pos-v2-role-hint" required>
                                     <option value="" selected disabled>選擇角色…</option>
                                     ${Object.entries(STAFF_ROLE_LABEL).map(([value, label]) => html`<option value="${value}">${label}</option>`)}
                                 </select>

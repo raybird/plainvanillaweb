@@ -1,6 +1,6 @@
 # Multi-Window POS
 
-> **更新日期**：2026-11-25  
+> **更新日期**：2026-11-27  
 > **English**：[Multi-Window POS](./pos.en.md)  
 > **入口**：[#/solutions/pos](#/solutions/pos) · **Issue**：#10 · **慣例**：[Reference App 慣例](./conventions.md)
 
@@ -101,7 +101,7 @@
 
 - **授權與身分**：任何同源頁面都能讀寫這份資料，namespace 不是安全邊界。正式系統需要登入、角色權限與操作稽核。
 - **交易與付款**：沒有收款、發票、退款與對帳；營收只是訂單金額加總。
-- **跨裝置同步與後端**：只在同一台機器的同一個瀏覽器設定檔內協作。多台收銀機、廚房平板需要後端（見 [ADR 0107](../decisions/0107-sharedworker-and-cross-device-transport-evaluation.md) 的跨裝置評估）與衝突處理。
+- **跨裝置同步與後端**：只在同一台機器的同一個瀏覽器設定檔內協作。多台收銀機、廚房平板需要後端（見 [ADR 0107](../decisions/0107-sharedworker-and-cross-device-transport-evaluation.md) 的跨裝置評估）與衝突處理。第二代 [Multi-Window POS v2](./pos-v2.md)（#16）以 WebRTC DataChannel 讓其他裝置加入，主機分頁是唯一的權威。
 - **個資與稽核**：不收集顧客資料；正式系統要處理個資保存期限與存取紀錄。
 - **其他**：菜單管理、庫存、尖峰負載、印表機與叫號硬體整合都不在範圍內；瀏覽器可能在儲存空間不足時清除資料，正式系統需要 `navigator.storage.persist()` 與備份。
 

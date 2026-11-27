@@ -9,6 +9,11 @@ import { PosRolePage, formatTime, renderItems } from './pos-page.js';
 export class PosKitchenPage extends PosRolePage {
     static role = 'kitchen';
 
+    /** 訂單卡片標頭的額外資訊（POS v2 #16 用來顯示桌號）；第一代沒有 */
+    renderTicketExtra(_order) {
+        return '';
+    }
+
     renderHeaderExtra() {
         return this.session?.stationId ? html`<span class="pos-pill" data-station="${this.session.stationId}">站台 ${this.session.stationId}</span>` : '';
     }
@@ -31,6 +36,7 @@ export class PosKitchenPage extends PosRolePage {
                 <div class="pos-ticket-head">
                     <span class="pos-ticket-number">${order.number}</span>
                     <span class="pos-muted">${formatTime(order.createdAt)}</span>
+                    ${this.renderTicketExtra(order)}
                 </div>
                 ${renderItems(order)}
                 ${actions}

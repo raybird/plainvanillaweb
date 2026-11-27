@@ -109,8 +109,9 @@
 | 0106 | [IndexedDB Durable Task Queue 與 Browser Cluster Lab](./0106-durable-task-queue-and-cluster-lab.md) | [已實作] |
 | 0107 | [Phase 5 延伸評估 — SharedWorker 與跨裝置 Transport Adapters](./0107-sharedworker-and-cross-device-transport-evaluation.md) | [已實作] |
 | 0108 | [Solutions 分類與 Reference App 慣例](./0108-solutions-reference-app-conventions.md) | [已實作] |
+| 0109 | [POS v2 跨裝置協作 — 主機權威、WebRTC DataChannel 與自架信令](./0109-pos-v2-webrtc-host-authority.md) | [已實作] |
 
 ---
-*未使用的編號：0064、0085、0089、0090、0091（保留空號，不回填）。新增 ADR 請使用 0109。*
+*未使用的編號：0064、0085、0089、0090、0091（保留空號，不回填）。新增 ADR 請使用 0110。*
 *詳細內容請參閱 `docs/decisions/*.md`。*
 *此檔案由 `scripts/update-adr-index.js` 自動生成。*

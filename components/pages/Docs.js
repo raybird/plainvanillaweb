@@ -94,6 +94,7 @@ export class Documentation extends BaseComponent {
       "solutions/conventions": "/solutions",
       "solutions/reference-app-template": "/solutions",
       "solutions/pos": "/solutions/pos",
+      "solutions/pos-v2": "/solutions/pos-v2/admin",
       "solutions/farm": "/solutions/farm",
     };
     return map[docId] || null;
@@ -153,6 +154,7 @@ export class Documentation extends BaseComponent {
       { id: "solutions/conventions", title: "🧱 Solutions Reference App 慣例" },
       { id: "solutions/reference-app-template", title: "🧱 Solutions 文件範本" },
       { id: "solutions/pos", title: "🧱 Multi-Window POS" },
+      { id: "solutions/pos-v2", title: "🧱 Multi-Window POS v2" },
       { id: "solutions/farm", title: "🧱 Browser Computing Farm" },
       { id: "pwa", title: "PWA 離線技術" },
       { id: "i18n", title: "原生國際化實作" },

@@ -1,6 +1,6 @@
 # Solutions Reference App Conventions
 
-> **Updated**: 2026-11-25  
+> **Updated**: 2026-11-27  
 > **中文**：[Reference App 慣例](./conventions.md)  
 > **Decisions**: [ADR 0108](../decisions/0108-solutions-reference-app-conventions.md) · [ADR 0101](../decisions/0101-core-entry-point.md) · [ADR 0102](../decisions/0102-route-owned-page-lifecycle.md)  
 > **Shared helpers**: `components/pages/solutions/solution-kit.js`, `app/kiosk.js`
@@ -16,6 +16,7 @@ Entry point: [Solutions](#/solutions).
 | App | Route | Delivered by | Status |
 | --- | --- | --- | --- |
 | Multi-Window POS | `#/solutions/pos/*` | #10 | Available ([doc](./pos.en.md)) |
+| Multi-Window POS v2 | `#/solutions/pos-v2/*` | #16 | Available ([doc](./pos-v2.en.md)) |
 | Browser Computing Farm | `#/solutions/farm` | #11 | Available ([doc](./farm.en.md)) |
 | Browser Cluster | `#/lab/browser-cluster` | #6 (Lab) | Done; Solutions only links to it |
 

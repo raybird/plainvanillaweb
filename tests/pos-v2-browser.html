@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>POS v2 repository 瀏覽器測試</title>
+    <link rel="icon" href="data:,">
+    <!-- 依實際部署路徑設定 <base> 為 tests/ 的上一層（應用根目錄） -->
+    <script>
+        (function () {
+            var base = document.createElement('base');
+            base.href = location.pathname.replace(/tests\/[^/]*$/, '');
+            document.head.appendChild(base);
+        })();
+    </script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+        h1 { font-size: 1.3rem; }
+        #summary { font-weight: bold; padding: .6rem 1rem; border-radius: 8px; margin: 1rem 0; }
+        #summary.pass { background: #d4f7d4; color: #0a5d0a; }
+        #summary.fail { background: #ffd6d6; color: #8a0a0a; }
+        ul { list-style: none; padding: 0; }
+        li { padding: .4rem .6rem; border-bottom: 1px solid #eee; font-family: ui-monospace, monospace; font-size: .9rem; }
+        .ok::before { content: "✅ "; }
+        .ng::before { content: "❌ "; }
+        .ng { color: #b00020; }
+        .err { color: #b00020; white-space: pre-wrap; padding-left: 1.6rem; font-size: .8rem; }
+    </style>
+</head>
+<body>
+    <h1>🧾 POS v2 repository 瀏覽器測試</h1>
+    <p>需透過 HTTP 開啟（<code>python3 -m http.server</code> → <code>/tests/pos-v2-browser.html</code>）。需要真實 IndexedDB 與 WebCrypto，故不在 Node 執行。</p>
+    <div id="summary">執行中…</div>
+    <ul id="results"></ul>
+
+    <script type="module">
+        import { createPosV2Repository } from './components/pages/solutions/pos-v2/pos-v2-repository.js';
+        import { LIMITS, ORDER_STATUS } from './components/pages/solutions/pos-v2/pos-v2-model.js';
+
+        // --- 極簡測試骨架 (零依賴) ---
+        const results = [];
+        const tests = [];
+        const test = (name, fn) => tests.push({ name, fn });
+        const assert = (cond, msg = '斷言失敗') => { if (!cond) throw new Error(msg); };
+        const assertEq = (actual, expected, msg = '') => {
+            if (actual !== expected) throw new Error(`${msg} 預期 ${JSON.stringify(expected)}，實際 ${JSON.stringify(actual)}`);
+        };
+        const rejectsWith = async (promise, code, msg = '') => {
+            try {
+                await promise;
+            } catch (err) {
+                if (err.code === code) return err;
+                throw new Error(`${msg} 預期 ${code}，實際 ${err.code ?? ''} ${err.message}`);
+            }
+            throw new Error(`${msg} 預期 ${code}，實際沒有拋錯`);
+        };
+
+        // 每個測試各自一份資料庫，結束時刪除
+        const created = [];
+        const clock = { now: Date.now() };
+        const newRepo = () => {
+            const id = crypto.randomUUID();
+            const repo = createPosV2Repository({
+                dbName: `vanilla_solution:pos-v2-test-${id}:orders`,
+                roomDbName: `vanilla_solution:pos-v2-test-${id}:room`,
+                now: () => clock.now,
+            });
+            created.push(repo);
+            return repo;
+        };
+        const items = [{ productId: 'burger', qty: 1 }];
+        const joinedTable = async (repo, tableId = 'A1') => {
+            const { code } = await repo.openTable(tableId);
+            const { credential } = await repo.joinTable({ tableId, code });
+            return { code, credential, grant: await repo.verifyCredential(credential) };
+        };
+
+        test('房間：第一次讀取時建立，之後沿用；並行第一次讀取得到同一份', async () => {
+            const repo = newRepo();
+            const [a, b] = await Promise.all([repo.loadRoom(), repo.loadRoom()]);
+            assertEq(a.roomId, b.roomId, '並行讀取');
+            assert(/^[A-Za-z0-9_-]{22}$/.test(a.roomId), 'roomId 為 22 字元 base64url');
+            assert(/^[A-Za-z0-9_-]{43}$/.test(a.hostSecret), 'hostSecret 為 43 字元 base64url');
+            assertEq((await repo.loadRoom()).hostSecret, a.hostSecret);
+        });
+
+        test('重設 demo 資料保留房間；訂單、場次與授權清空，菜單與桌位補回', async () => {
+            const repo = newRepo();
+            const room = await repo.loadRoom();
+            const { grant, credential } = await joinedTable(repo);
+            await repo.placeOrder({ grant, items, requestId: 'r1' });
+            const report = await repo.reset();
+            assertEq(report.databases[repo.dbName], 'deleted');
+            assertEq((await repo.loadRoom()).roomId, room.roomId, 'roomId 不變');
+            assertEq((await repo.listOrders()).length, 0);
+            assertEq((await repo.listProducts()).length > 0, true);
+            const tables = await repo.listTables();
+            assertEq(tables.length, 6);
+            assert(tables.every((t) => t.session === null), '沒有場次');
+            await rejectsWith(repo.verifyCredential(credential), 'UNAUTHORIZED', '重設後舊授權無效');
+        });
+
+        test('重新產生房間：換 roomId 與 hostSecret，撤銷所有授權', async () => {
+            const repo = newRepo();
+            const room = await repo.loadRoom();
+            const { credential } = await joinedTable(repo);
+            const fresh = await repo.regenerateRoom();
+            assert(fresh.roomId !== room.roomId && fresh.hostSecret !== room.hostSecret, '換新');
+            assertEq((await repo.loadRoom()).roomId, fresh.roomId);
+            await rejectsWith(repo.verifyCredential(credential), 'UNAUTHORIZED');
+        });
+
+        test('開桌：回傳 6 位數入桌碼，清單不含雜湊；同一桌再開拒絕；沒有這張桌拒絕', async () => {
+            const repo = newRepo();
+            const { session, code } = await repo.openTable('A1');
+            assert(/^\d{6}$/.test(code), '6 位數');
+            assert(!('codeHash' in session), '回傳的場次不含雜湊');
+            const listed = (await repo.listTables()).find((t) => t.id === 'A1');
+            assertEq(listed.session.id, session.id);
+            assert(!('codeHash' in listed.session), '清單不含雜湊');
+            await rejectsWith(repo.openTable('A1'), 'CONFLICT');
+            await rejectsWith(repo.openTable('Z9'), 'NOT_FOUND');
+        });
+
+        test('入桌：錯誤的碼拒絕；同桌多支手機共用入桌碼，各自取得授權', async () => {
+            const repo = newRepo();
+            const { code } = await repo.openTable('A1');
+            const wrong = code === '000000' ? '000001' : '000000';
+            await rejectsWith(repo.joinTable({ tableId: 'A1', code: wrong }), 'CODE_INVALID');
+            await rejectsWith(repo.joinTable({ tableId: 'A1', code: 'abc' }), 'CODE_INVALID');
+            await rejectsWith(repo.joinTable({ tableId: 'A2', code }), 'SESSION_CLOSED', '其他桌沒開');
+            const one = await repo.joinTable({ tableId: 'A1', code });
+            const two = await repo.joinTable({ tableId: 'A1', code });
+            assert(one.credential.id !== two.credential.id, '各自一份授權');
+            const g1 = await repo.verifyCredential(one.credential);
+            const g2 = await repo.verifyCredential(two.credential);
+            const o1 = await repo.placeOrder({ grant: g1, items, requestId: 'r1' });
+            const o2 = await repo.placeOrder({ grant: g2, items, requestId: 'r1' });
+            assert(o1.order.id !== o2.order.id, '同一個 requestId、不同身分是兩筆單');
+            assertEq(o1.order.tableId, 'A1');
+            assertEq(o2.order.diningSessionId, o1.order.diningSessionId, '同一個場次');
+            assertEq(o1.viewToken, undefined, '顧客訂單不回傳查詢 token');
+        });
+
+        test('授權驗證：secret 錯誤、種類不符、不存在都拒絕；回傳的紀錄不含雜湊', async () => {
+            const repo = newRepo();
+            const { credential, grant } = await joinedTable(repo);
+            assert(!('secretHash' in grant), '不含雜湊');
+            await rejectsWith(repo.verifyCredential({ ...credential, secret: 'x' }), 'UNAUTHORIZED');
+            await rejectsWith(repo.verifyCredential({ ...credential, kind: 'device' }), 'UNAUTHORIZED');
+            await rejectsWith(repo.verifyCredential({ ...credential, id: 'nope' }), 'UNAUTHORIZED');
+            await rejectsWith(repo.verifyCredential({ kind: 'admin', id: 'a', secret: 'b' }), 'UNAUTHORIZED');
+        });
+
+        test('關桌再開桌：舊入桌碼與舊授權都不能送單到新場次，新入桌碼可以', async () => {
+            const repo = newRepo();
+            const old = await joinedTable(repo);
+            await repo.closeTable('A1');
+            await rejectsWith(repo.placeOrder({ grant: old.grant, items, requestId: 'r1' }), 'SESSION_CLOSED', '關桌後');
+            await rejectsWith(repo.joinTable({ tableId: 'A1', code: old.code }), 'SESSION_CLOSED', '關桌後的入桌碼');
+            const { code } = await repo.openTable('A1');
+            await rejectsWith(repo.placeOrder({ grant: old.grant, items, requestId: 'r2' }), 'SESSION_CLOSED', '舊授權到新場次');
+            if (code !== old.code) await rejectsWith(repo.joinTable({ tableId: 'A1', code: old.code }), 'CODE_INVALID', '舊碼到新場次');
+            const fresh = await repo.joinTable({ tableId: 'A1', code });
+            const placed = await repo.placeOrder({ grant: await repo.verifyCredential(fresh.credential), items, requestId: 'r3' });
+            assert(placed.order.diningSessionId !== old.grant.diningSessionId, '新場次');
+        });
+
+        test('輪換入桌碼：舊碼失效，已取得的授權不受影響', async () => {
+            const repo = newRepo();
+            const first = await joinedTable(repo);
+            const { code } = await repo.rotateTableCode('A1');
+            if (code !== first.code) await rejectsWith(repo.joinTable({ tableId: 'A1', code: first.code }), 'CODE_INVALID');
+            await repo.joinTable({ tableId: 'A1', code });
+            await repo.placeOrder({ grant: first.grant, items, requestId: 'r1' });
+        });
+
+        test('冪等：同一身分同一 requestId 並行送出只有一筆，序號只遞增一次', async () => {
+            const repo = newRepo();
+            const { grant } = await joinedTable(repo);
+            const [a, b] = await Promise.all([
+                repo.placeOrder({ grant, items, requestId: 'dup' }),
+                repo.placeOrder({ grant, items, requestId: 'dup' }),
+            ]);
+            assertEq(a.order.id, b.order.id);
+            assertEq([a.result, b.result].sort().join(), 'applied,noop');
+            const next = await repo.placeOrder({ grant, items, requestId: 'next' });
+            assertEq(next.order.sequence, 2, '序號只用掉一個');
+            assertEq((await repo.listOrders()).length, 2);
+        });
+
+        test('回覆遺失後重送：取回原訂單與原取餐號，即使期間已關桌', async () => {
+            const repo = newRepo();
+            const { grant } = await joinedTable(repo);
+            const first = await repo.placeOrder({ grant, items, requestId: 'lost' });
+            await repo.closeTable('A1');
+            const retry = await repo.placeOrder({ grant, items, requestId: 'lost' });
+            assertEq(retry.result, 'noop');
+            assertEq(retry.order.number, first.order.number);
+            assertEq((await repo.listOrders()).length, 1);
+        });
+
+        test('店員裝置：廚房站台唯一；撤銷後不能驗證也不能送單', async () => {
+            const repo = newRepo();
+            const kitchen = await repo.approveDevice({ role: 'kitchen', station: 'A', label: '廚房平板' });
+            assert(!('secretHash' in kitchen.device), '不含雜湊');
+            await rejectsWith(repo.approveDevice({ role: 'kitchen', station: 'A' }), 'CONFLICT');
+            const order = await repo.approveDevice({ role: 'order' });
+            const grant = await repo.verifyCredential(order.credential);
+            await repo.placeOrder({ grant, items, requestId: 'r1' });
+            await repo.revokeCredential(order.device.id);
+            await rejectsWith(repo.verifyCredential(order.credential), 'UNAUTHORIZED');
+            await rejectsWith(repo.placeOrder({ grant, items, requestId: 'r2' }), 'UNAUTHORIZED', '已驗證的 grant 送單時重新檢查撤銷');
+            await repo.revokeCredential(kitchen.device.id);
+            await repo.approveDevice({ role: 'kitchen', station: 'A' });
+            assertEq((await repo.listDevices()).length, 3);
+        });
+
+        test('店員點餐：回傳查詢 token；重送取得同一個 token；token 只能看那一筆', async () => {
+            const repo = newRepo();
+            const device = await repo.approveDevice({ role: 'order' });
+            const grant = await repo.verifyCredential(device.credential);
+            const placed = await repo.placeOrder({ grant, items, requestId: 'r1' });
+            assert(/^[A-Za-z0-9_-]{43}$/.test(placed.viewToken), '查詢 token');
+            assertEq(placed.order.tableId, null, '外帶不需要桌號');
+            const retry = await repo.placeOrder({ grant, items, requestId: 'r1' });
+            assertEq(retry.viewToken, placed.viewToken, '重送同一個 token');
+            const other = await repo.placeOrder({ grant, items, requestId: 'r2' });
+            assertEq((await repo.verifyViewToken({ orderId: placed.order.id, token: placed.viewToken })).id, placed.order.id);
+            await rejectsWith(repo.verifyViewToken({ orderId: other.order.id, token: placed.viewToken }), 'UNAUTHORIZED', '拿這筆的 token 查別筆');
+            await rejectsWith(repo.verifyViewToken({ orderId: placed.order.id, token: 'x' }), 'UNAUTHORIZED');
+            await repo.regenerateRoom();
+            await rejectsWith(repo.verifyViewToken({ orderId: placed.order.id, token: placed.viewToken }), 'UNAUTHORIZED', '重新產生房間後失效');
+        });
+
+        test('店員點餐指定桌號：該桌要開桌；非點餐角色不能送單', async () => {
+            const repo = newRepo();
+            const grant = await repo.verifyCredential((await repo.approveDevice({ role: 'order' })).credential);
+            await rejectsWith(repo.placeOrder({ grant, items, requestId: 'r1', tableId: 'B1' }), 'SESSION_CLOSED');
+            const { session } = await repo.openTable('B1');
+            const placed = await repo.placeOrder({ grant, items, requestId: 'r1', tableId: 'B1' });
+            assertEq(placed.order.diningSessionId, session.id);
+            const display = await repo.verifyCredential((await repo.approveDevice({ role: 'display' })).credential);
+            await rejectsWith(repo.placeOrder({ grant: display, items, requestId: 'r2' }), 'FORBIDDEN');
+        });
+
+        test('配對票：連線碼與 token 都找得到；錯誤的碼回 CODE_INVALID；過期回 PAIRING_EXPIRED', async () => {
+            const repo = newRepo();
+            const ticket = await repo.createPairing();
+            assertEq((await repo.findPairing({ code: ticket.code })).id, ticket.id);
+            assertEq((await repo.findPairing({ token: ticket.token })).id, ticket.id);
+            const wrong = ticket.code === '000000' ? '000001' : '000000';
+            await rejectsWith(repo.findPairing({ code: wrong }), 'CODE_INVALID');
+            await rejectsWith(repo.findPairing({ token: 'unknown' }), 'PAIRING_EXPIRED');
+            const saved = clock.now;
+            clock.now += LIMITS.PAIRING_TTL_MS;
+            try {
+                await rejectsWith(repo.findPairing({ code: ticket.code }), 'PAIRING_EXPIRED');
+                await repo.createPairing(); // 順便清掉過期的票
+                await rejectsWith(repo.findPairing({ token: ticket.token }), 'PAIRING_EXPIRED');
+            } finally {
+                clock.now = saved;
+            }
+        });
+
+        test('兩個遠端廚房同時認領同一筆單：只有一個成功', async () => {
+            const repo = newRepo();
+            const { grant } = await joinedTable(repo);
+            const { order } = await repo.placeOrder({ grant, items, requestId: 'r1' });
+            const outcomes = await Promise.allSettled([
+                repo.transition(order.id, { action: 'claim', actor: 'A' }),
+                repo.transition(order.id, { action: 'claim', actor: 'B' }),
+            ]);
+            assertEq(outcomes.filter((o) => o.status === 'fulfilled').length, 1);
+            assertEq(outcomes.find((o) => o.status === 'rejected').reason.code, 'CONFLICT');
+            assertEq((await repo.getOrder(order.id)).status, ORDER_STATUS.PREPARING);
+        });
+
+        // === 執行 ===
+        (async () => {
+            for (const { name, fn } of tests) {
+                try {
+                    await fn();
+                    results.push({ name, ok: true });
+                } catch (e) {
+                    results.push({ name, ok: false, error: e.message });
+                }
+            }
+            for (const repo of created) {
+                await repo.reset().catch(() => {});
+                repo.close();
+                await new Promise((resolve) => {
+                    const request = indexedDB.deleteDatabase(repo.roomDbName);
+                    request.onsuccess = request.onerror = request.onblocked = resolve;
+                });
+            }
+
+            const ul = document.getElementById('results');
+            ul.innerHTML = results.map(r =>
+                `<li class="${r.ok ? 'ok' : 'ng'}">${r.name}` +
+                (r.ok ? '' : `<div class="err">${r.error}</div>`) + `</li>`
+            ).join('');
+
+            const passed = results.filter(r => r.ok).length;
+            const summary = document.getElementById('summary');
+            const allPass = passed === results.length;
+            summary.className = allPass ? 'pass' : 'fail';
+            summary.textContent = `${passed} / ${results.length} 通過` + (allPass ? ' 🎉' : '');
+
+            // 供自動化擷取
+            window.__TEST_RESULTS__ = { passed, total: results.length, results };
+        })();
+    </script>
+</body>
+</html>

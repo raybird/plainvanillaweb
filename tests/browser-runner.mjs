@@ -535,6 +535,165 @@ async function runPosV2HubTests(openTab, base) {
     return failures;
 }
 
+/**
+ * POS v2 店員裝置（#16 P5，A1–A3）：以配對 QR Code 與連線碼加入、未核准與角色不符時被拒、
+ * 遠端點餐／廚房／叫號完成整個流程、兩個遠端廚房並行認領只有一個成功、站台在線時拒絕接手、
+ * 站台離線逾時後可以接手，以及撤銷授權。
+ */
+async function runPosV2StaffTests(openTab, base) {
+    const failures = [];
+    const check = (ok, message) => { if (!ok) failures.push(`POS v2 店員裝置：${message}`); };
+    const ns = `e2e-pos-v2-staff-${Date.now().toString(36)}`;
+    const signaling = createSignalingServer();
+    const { port } = await signaling.listen(0);
+    const sig = `ws://127.0.0.1:${port}`;
+    const adminUrl = `${base}#/solutions/pos-v2/admin?ns=${ns}`;
+    const tabs = [];
+    const open = async (url, ready) => {
+        // 各自開新視窗：背景分頁的 requestAnimationFrame 會暫停，畫面不會重繪
+        const tab = await openTab({ newWindow: true });
+        tab.tracker = trackProblems(tab.page);
+        tabs.push(tab);
+        await tab.page.send('Page.navigate', { url });
+        if (ready && !(await waitFor(tab.page, ready, 15000))) throw new Error(`${url} 未就緒：${ready}`);
+        return tab;
+    };
+    const ev = (tab, expr, timeoutMs) => tab.page.evaluate(expr, timeoutMs);
+    const q = (selector) => `document.querySelector(${JSON.stringify(selector)})`;
+    /** 等元素出現且可按（畫面在下一個 animation frame 才重繪）再點 */
+    const click = async (tab, selector) => {
+        const ready = await waitFor(tab.page, `${q(selector)} !== null && !${q(selector)}.disabled`, 10000);
+        if (!ready) throw new Error(`找不到可按的 ${selector}`);
+        await ev(tab, `${q(selector)}.click()`);
+    };
+    const pageOnline = (role) => `${q(`[data-pos-role="${role}"]`)} !== null && ${q('.pos-pill[data-online="true"]')} !== null`;
+    /** 主機核准畫面上第一筆待核准申請 */
+    const approve = async (host, role, station) => {
+        check(await waitFor(host.page, `${q('[data-pairing]')} !== null`, 10000), `主機應出現待核准的申請（${role}）`);
+        await ev(host, `(() => {
+            const item = ${q('[data-pairing]')};
+            item.querySelector('select[name="role"]').value = ${JSON.stringify(role)};
+            item.querySelector('input[name="station"]').value = ${JSON.stringify(station ?? '')};
+            item.querySelector('[data-action="approve"]').click();
+        })()`);
+    };
+    /** 在配對頁填名稱（與連線碼）後送出 */
+    const submitJoin = (tab, label, code) => ev(tab, `(() => {
+        const form = ${q('form[data-form="pair"]')};
+        form.elements.label.value = ${JSON.stringify(label)};
+        if (form.elements.code) form.elements.code.value = ${JSON.stringify(code ?? '')};
+        form.requestSubmit();
+    })()`);
+    const joinForm = `${q('form[data-form="pair"]')} !== null`;
+    /** 以畫面上的工作階段呼叫 order.act，回傳結果或錯誤碼 */
+    const act = (tab, element, orderId, action, extra = {}) => ev(tab, `${q(element)}.session.act(${JSON.stringify(orderId)}, ${JSON.stringify(action)}, ${JSON.stringify(extra)})
+        .then((r) => ({ ok: true, result: r.result }), (err) => ({ ok: false, code: err.code }))`, 15000);
+    try {
+        const host = await open(adminUrl, `${q('[data-host-role="primary"]')} !== null`);
+        await ev(host, `localStorage.setItem(${JSON.stringify(`vanilla_solution:${ns}:signaling`)}, ${JSON.stringify(sig)})`);
+        await host.page.send('Page.navigate', { url: `${base}tests/pos-v2-peer.html` });
+        await host.page.send('Page.navigate', { url: adminUrl });
+        check(await waitFor(host.page, `${q('[data-signaling-state="open"]')} !== null`, 15000), '主機應連上信令');
+        await click(host, '[data-action="create-pairing"]');
+        check(await waitFor(host.page, `${q('[data-pairing-url]')} !== null && ${q('.pos-qr svg')} !== null`, 5000), '應顯示配對 QR Code');
+        const pairingUrl = await ev(host, `${q('[data-pairing-url]')}.dataset.pairingUrl`);
+        const joinUrl = await ev(host, `${q('[data-join-url]')}.href`);
+        const code = await ev(host, `${q('[data-pairing-code]')}.dataset.pairingCode`);
+        check(/^\d{6}$/.test(code), `連線碼格式不對：${code}`);
+        check(pairingUrl.includes(`sig=${encodeURIComponent(sig)}`) && pairingUrl.includes(`ns=${ns}`), `配對網址應帶信令與 namespace：${pairingUrl}`);
+
+        // A1：配對 QR Code。核准前不能操作
+        const k1 = await open(pairingUrl, joinForm);
+        await submitJoin(k1, '廚房一');
+        check(await waitFor(k1.page, `${q('[data-pair-pending]')} !== null`, 5000), '送出申請後應等待核准');
+        const before = await ev(k1, `${q('page-pos-v2-join')}.remote.request('order.act', { orderId: 'x', action: 'claim' }).then(() => 'ok', (err) => err.code)`);
+        check(before === 'UNAUTHORIZED', `未核准的裝置認領應回 UNAUTHORIZED：${before}`);
+        await approve(host, 'kitchen', 'K1');
+        check(await waitFor(k1.page, pageOnline('kitchen'), 15000), '核准後應自動前往廚房畫面並連上主機');
+        check(await ev(k1, `${q('[data-station="K1"]')} !== null`), '廚房畫面應顯示站台 K1');
+
+        // A1：連線碼。輸錯被拒，輸對後核准
+        const k2 = await open(joinUrl, joinForm);
+        check(await ev(k2, `${q('input[name="code"]')} !== null`), '沒有配對 token 時應要求輸入連線碼');
+        await submitJoin(k2, '廚房二', code === '000000' ? '111111' : '000000');
+        check(await waitFor(k2.page, `${q('[data-code="CODE_INVALID"]')} !== null`, 5000), '輸錯連線碼應被拒');
+        await submitJoin(k2, '廚房二', code);
+        check(await waitFor(k2.page, `${q('[data-pair-pending]')} !== null`, 5000), '輸對連線碼後應等待核准');
+        await approve(host, 'kitchen', 'K2');
+        check(await waitFor(k2.page, pageOnline('kitchen'), 15000), '以連線碼配對的廚房應連上主機');
+
+        const orderTab = await open(pairingUrl, joinForm);
+        await submitJoin(orderTab, '櫃台');
+        await approve(host, 'order');
+        check(await waitFor(orderTab.page, `${pageOnline('order')} && ${q('[data-action="add"]')} !== null`, 15000), '點餐裝置應連上主機並顯示菜單');
+        const display = await open(pairingUrl, joinForm);
+        await submitJoin(display, '叫號螢幕');
+        await approve(host, 'display');
+        check(await waitFor(display.page, pageOnline('display'), 15000), '叫號裝置應連上主機');
+        check(await waitFor(host.page, "document.querySelectorAll('[data-device]').length === 4", 5000), '主機應列出 4 台已配對裝置');
+
+        // A2：遠端點餐
+        await click(orderTab, '[data-action="add"][data-product="burger"]');
+        await click(orderTab, '[data-action="submit"]');
+        check(await waitFor(orderTab.page, `${q('[data-last-order="001"]')} !== null`, 10000), '點餐裝置應顯示取餐號 001');
+        const orderId = await ev(orderTab, `${q('page-pos-v2-order')}.state.lastOrderId`);
+
+        // A1：角色不符的操作被拒
+        const wrongRole = await act(display, 'page-pos-v2-display', orderId, 'claim');
+        check(!wrongRole.ok && wrongRole.code === 'FORBIDDEN', `叫號裝置認領應回 FORBIDDEN：${JSON.stringify(wrongRole)}`);
+
+        // A3：兩個遠端廚房同時按「認領」，只有一個成功，另一個顯示已由其他站台處理
+        const claimButton = '[data-column="pending"] [data-action="claim"]';
+        check(await waitFor(k1.page, `${q(claimButton)} !== null`, 5000) && await waitFor(k2.page, `${q(claimButton)} !== null`, 5000), '兩個廚房都應看到待處理訂單');
+        await Promise.all([click(k1, claimButton), click(k2, claimButton)]);
+        const notice = (tab) => ev(tab, `${q('.pos-notice .pos-alert')}?.dataset.code ?? (${q('.pos-notice .pos-alert')}?.textContent ?? '')`);
+        await waitFor(k1.page, `${q('.pos-notice .pos-alert')} !== null`, 5000);
+        await waitFor(k2.page, `${q('.pos-notice .pos-alert')} !== null`, 5000);
+        const notices = [await notice(k1), await notice(k2)];
+        check(notices.filter((n) => n === 'CONFLICT').length === 1 && notices.filter((n) => n === '').length === 1, `並行認領應一個成功、一個 CONFLICT：${JSON.stringify(notices)}`);
+        const winner = notices[0] === '' ? k1 : k2;
+        const loser = winner === k1 ? k2 : k1;
+        const winnerStation = winner === k1 ? 'K1' : 'K2';
+        check(await waitFor(loser.page, `${q(`[data-column="others"] [data-station="${winnerStation}"]`)} !== null`, 5000), '失敗的廚房應在「其他站台」看到這筆單');
+
+        // A2：備餐完成 → 叫號取餐
+        await click(winner, '[data-column="mine"] [data-action="ready"]');
+        check(await waitFor(display.page, `${q('[data-column="ready"] [data-order-number="001"]')} !== null`, 5000), '叫號畫面應顯示 001 請取餐');
+        await click(display, '[data-column="ready"] [data-action="pickup"]');
+        check(await waitFor(orderTab.page, `${q('[data-last-status="picked_up"]')} !== null`, 5000), '點餐裝置應看到 001 已取餐');
+        check(await waitFor(host.page, `${q('[data-order-count="1"]')} !== null`, 5000), '主機統計應只有 1 筆訂單');
+
+        // A3：站台在線時拒絕接手；離線逾時後可以接手
+        await click(orderTab, '[data-action="add"][data-product="burger"]');
+        await click(orderTab, '[data-action="submit"]');
+        check(await waitFor(orderTab.page, `${q('[data-last-order="002"]')} !== null`, 10000), '點餐裝置應顯示取餐號 002');
+        const second = await ev(orderTab, `${q('page-pos-v2-order')}.state.lastOrderId`);
+        check((await act(k1, 'page-pos-v2-kitchen', second, 'claim')).ok, 'K1 認領 002 應成功');
+        check(await waitFor(k2.page, `${q('[data-column="others"] [data-station-state="active"]')} !== null`, 5000), 'K1 在線時 K2 應看到「備餐中」且沒有接手按鈕');
+        const early = await act(k2, 'page-pos-v2-kitchen', second, 'takeover', { fromStation: 'K1' });
+        check(!early.ok && early.code === 'CONFLICT', `K1 在線時接手應回 CONFLICT：${JSON.stringify(early)}`);
+        await k1.close();
+        tabs.splice(tabs.indexOf(k1), 1);
+        check(await waitFor(k2.page, `${q('[data-column="others"] [data-action="takeover"]')} !== null`, 40000), 'K1 離線逾時後 K2 應出現接手按鈕');
+        await click(k2, '[data-column="others"] [data-action="takeover"]');
+        check(await waitFor(k2.page, `${q('[data-column="mine"] [data-order-number="002"]')} !== null`, 5000), 'K2 接手後 002 應在本站備餐中');
+
+        // 撤銷：叫號裝置立即失去權限
+        await click(host, '[data-device-role="display"] [data-action="revoke"]');
+        check(await waitFor(display.page, `${q('[data-remote-phase="revoked"]')} !== null`, 5000), '撤銷後叫號畫面應顯示需要重新配對');
+    } catch (err) {
+        failures.push(`POS v2 店員裝置：測試中斷：${err.message.split('\n')[0]}`);
+    } finally {
+        for (const tab of tabs) {
+            failures.push(...tab.tracker.take().map((p) => `POS v2 店員裝置：${p}`));
+            await tab.close();
+        }
+        await signaling.close();
+    }
+    console.log('  POS v2 店員裝置：配對 QR Code 與連線碼、未核准與角色不符被拒、遠端點餐／廚房／叫號完整流程、並行認領只成功一次、站台在線拒絕接手與離線後接手、撤銷授權');
+    return failures;
+}
+
 async function runSmokeTests(page, base, tracker, network) {
     const failures = [];
     await page.send('Page.navigate', { url: base });
@@ -2635,6 +2794,7 @@ async function main() {
                 ...(await runPosTests(openTab, base)),
                 ...(await runPosV2AdminTests(openTab, base)),
                 ...(await runPosV2HubTests(openTab, base)),
+                ...(await runPosV2StaffTests(openTab, base)),
                 ...(await runFarmTests(openTab, base)),
             ];
             const offlineServer = await startServer(prefix);

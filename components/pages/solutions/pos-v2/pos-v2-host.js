@@ -179,6 +179,33 @@ export class PosV2Host extends BaseService {
         return value;
     }
 
+    /** 建立配對票：配對 token（放進 QR Code）與 6 位數連線碼，5 分鐘內有效 */
+    createPairing() {
+        this._assertPrimary();
+        return this.repository.createPairing();
+    }
+
+    /** 核准配對申請並指定角色；廚房要有站台名稱（同一個 namespace 內唯一） */
+    approvePairing(pairRequestId, options) {
+        this._assertPrimary();
+        return this.hub.approvePairing(pairRequestId, options);
+    }
+
+    rejectPairing(pairRequestId) {
+        this._assertPrimary();
+        this.hub.rejectPairing(pairRequestId);
+    }
+
+    /** 撤銷店員裝置：連線中的裝置立即失去權限 */
+    revokeDevice(credentialId) {
+        this._assertPrimary();
+        return this.hub.revoke(credentialId);
+    }
+
+    listPairings() {
+        return this.hub?.listPairings() ?? [];
+    }
+
     /** 重設 demo 資料：刪除訂單資料庫（訂單、桌位、授權），保留房間。已連線的裝置全部斷線，要重新配對 */
     async resetData() {
         this._assertPrimary();

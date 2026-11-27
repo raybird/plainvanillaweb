@@ -104,6 +104,8 @@ export class PosV2Hub extends BaseService {
         /** order.act 依序執行：判斷站台離線與寫入不會交錯（協定規格 6.4） */
         this._actQueue = Promise.resolve();
         this._flushTimer = null;
+        /** 站台離線後、到可以接手的時間點再推送一次（廚房畫面才會出現接手按鈕） */
+        this._presenceTimers = new Set();
         this._heartbeat = null;
         this._disposed = false;
     }
@@ -119,6 +121,8 @@ export class PosV2Hub extends BaseService {
         this._heartbeat = null;
         if (this._flushTimer !== null) this._timers.clearTimeout(this._flushTimer);
         this._flushTimer = null;
+        for (const timer of this._presenceTimers) this._timers.clearTimeout(timer);
+        this._presenceTimers.clear();
         for (const conn of [...this._connections.values()]) this._close(conn, 'hub disposed');
     }
 
@@ -188,6 +192,7 @@ export class PosV2Hub extends BaseService {
         if (station && !this._stationConnections(station).length) {
             this._presence.set(station, { connected: false, lastSeenAt: conn.lastSeenAt });
             this.notifyChanged();
+            this._notifyWhenTakeoverAllowed(conn.lastSeenAt);
         }
         let pairingsChanged = false;
         for (const [id, pairing] of this._pairings) {
@@ -198,6 +203,16 @@ export class PosV2Hub extends BaseService {
         }
         if (pairingsChanged) this.emit('pairings', this.listPairings());
         this.emit('connections', this.listConnections());
+    }
+
+    _notifyWhenTakeoverAllowed(lastSeenAt) {
+        if (this._disposed) return;
+        const delay = Math.max(0, lastSeenAt + LIMITS.PEER_TIMEOUT_MS + 50 - this._now());
+        const timer = this._timers.setTimeout(() => {
+            this._presenceTimers.delete(timer);
+            this.notifyChanged();
+        }, delay);
+        this._presenceTimers.add(timer);
     }
 
     _stationOf(conn) {
@@ -322,8 +337,9 @@ export class PosV2Hub extends BaseService {
             };
         }
         if (device?.role === 'display') {
-            const numbers = (status) => orders.filter((o) => o.status === status).map((o) => o.number);
-            topics.display = { preparing: numbers(ORDER_STATUS.PREPARING), ready: numbers(ORDER_STATUS.READY) };
+            // 叫號畫面要用 id 送「已取餐」，只給號碼與狀態
+            const shown = new Set([ORDER_STATUS.PENDING, ORDER_STATUS.PREPARING, ORDER_STATUS.READY]);
+            topics.display = { orders: orders.filter((o) => shown.has(o.status)).map(({ id, number, status }) => ({ id, number, status })) };
         }
         if (device?.role === 'order') {
             const principal = principalOf(device);

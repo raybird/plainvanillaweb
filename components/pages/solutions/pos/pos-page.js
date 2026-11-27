@@ -17,10 +17,21 @@ export const formatTime = (ts) => new Date(ts).toLocaleTimeString('zh-TW', { hou
  *
  * 子類別設定 `static role`，實作 `renderBody(snapshot)` 與 `onAction(name, dataset)`。
  * 快照不放進 reactive state：它含 Set，而且每次都整份替換，直接存在欄位再排程重繪即可。
+ *
+ * 擴充點（POS v2 #16 用來重用點餐、廚房、叫號畫面；預設值就是第一代的行為）：`static Session`
+ * 換成介面相同的工作階段類別，`titlePrefix`、`hubPath`、`hubLabel`、`unsupportedText` 換標頭與提示，
+ * `renderStatusPill(snapshot)` 換標頭的連線狀態。
  */
 export class PosRolePage extends BaseComponent {
     /** @type {'hub' | 'order' | 'kitchen' | 'display' | 'admin'} */
     static role = 'hub';
+
+    /** 工作階段類別：要有 `supported`、建構參數 `{ role, onChange }`，以及 `start`、`dispose`、`namespace`、`nsOption` */
+    static Session = PosSession;
+    static titlePrefix = 'POS';
+    static hubPath = '/solutions/pos';
+    static hubLabel = 'POS 入口';
+    static unsupportedText = '此瀏覽器不支援 IndexedDB 或 BroadcastChannel，無法執行 Multi-Window POS。';
 
     constructor() {
         super();
@@ -32,8 +43,9 @@ export class PosRolePage extends BaseComponent {
 
     connectedCallback() {
         super.connectedCallback();
-        if (!PosSession.supported) return;
-        this.session = new PosSession({
+        const Session = this.constructor.Session;
+        if (!Session.supported) return;
+        this.session = new Session({
             role: this.constructor.role,
             onChange: (snapshot) => {
                 this.snapshot = snapshot;
@@ -97,14 +109,20 @@ export class PosRolePage extends BaseComponent {
         return '';
     }
 
+    /** 標頭的連線狀態 */
+    renderStatusPill(snapshot) {
+        const online = snapshot?.online ?? navigator.onLine;
+        return html`<span class="pos-pill" data-online="${String(online)}">${online ? '連線中' : '離線（本機資料照常運作）'}</span>`;
+    }
+
     render() {
-        const role = this.constructor.role;
+        const { role, titlePrefix, hubPath, hubLabel, unsupportedText } = this.constructor;
         const meta = POS_ROLES[role] ?? { title: '入口', icon: '🏪' };
         const snapshot = this.snapshot;
         const notice = this.state.notice;
         let body;
-        if (!PosSession.supported) {
-            body = html`<p class="pos-alert" data-level="error">此瀏覽器不支援 IndexedDB 或 BroadcastChannel，無法執行 Multi-Window POS。</p>`;
+        if (!this.constructor.Session.supported) {
+            body = html`<p class="pos-alert" data-level="error">${unsupportedText}</p>`;
         } else if (this.startError) {
             body = html`<p class="pos-alert" data-level="error">無法啟動：${this.startError.message}</p>`;
         } else if (!snapshot) {
@@ -136,12 +154,12 @@ export class PosRolePage extends BaseComponent {
             </style>
             <section class="pos-page" data-pos-role="${role}">
                 <header class="pos-header">
-                    <h2>${meta.icon} POS · ${meta.title}</h2>
+                    <h2>${meta.icon} ${titlePrefix} · ${meta.title}</h2>
                     <div class="pos-meta">
                         ${this.renderHeaderExtra()}
                         <span class="pos-pill" title="資料隔離用的 namespace">ns: ${this.session?.namespace ?? ''}</span>
-                        <span class="pos-pill" data-online="${String(snapshot?.online ?? navigator.onLine)}">${(snapshot?.online ?? navigator.onLine) ? '連線中' : '離線（本機資料照常運作）'}</span>
-                        ${role === 'hub' ? '' : html`<a href="${this.link('/solutions/pos')}">POS 入口</a>`}
+                        ${this.renderStatusPill(snapshot)}
+                        ${role === 'hub' || !hubPath ? '' : html`<a href="${this.link(hubPath)}">${hubLabel}</a>`}
                     </div>
                 </header>
                 <div aria-live="polite" class="pos-notice">

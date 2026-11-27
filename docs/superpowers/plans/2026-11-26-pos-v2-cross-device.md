@@ -82,10 +82,17 @@
 
 ### P5 店員裝置
 
-- [ ] 配對：管理端顯示配對 QR Code（網址帶房間與一次性配對碼）與短效連線碼；裝置申請加入；管理端核准並指定角色（廚房還要指定站台）。
-- [ ] `RemotePosSession`：介面和第一代 `PosSession` 一致，讓點餐、廚房、叫號畫面能重用第一代元件。需要修改第一代元件時只做相容的擴充（A8）。
-- [ ] 遠端站台接手：主機判斷 DataChannel 已斷線且心跳逾時，才允許接手；判斷與寫入在主機內依序執行。
-- [ ] 瀏覽器測試：A1、A2、A3。
+- [x] 配對：管理端顯示配對 QR Code（網址帶房間與一次性配對碼）與短效連線碼；裝置申請加入；管理端核准並指定角色（廚房還要指定站台）。
+- [x] `RemotePosSession`：介面和第一代 `PosSession` 一致，讓點餐、廚房、叫號畫面能重用第一代元件。需要修改第一代元件時只做相容的擴充（A8）。
+- [x] 遠端站台接手：主機判斷 DataChannel 已斷線且心跳逾時，才允許接手；判斷與寫入在主機內依序執行。
+- [x] 瀏覽器測試：A1、A2、A3。
+- 結果（2026-11-27）：
+  - 第一代只改 `pos/pos-page.js`：`PosRolePage` 加上擴充點 `static Session`、`titlePrefix`、`hubPath`、`hubLabel`、`unsupportedText` 與 `renderStatusPill()`，預設值就是原本的行為；第一代的測試沒有修改，全部通過（A8）。
+  - 第二代：`pos-v2-remote.js`（網址參數、本機授權、信令＋WebRTC＋RPC 組成的 `PosV2Remote`）、`remote-pos-session.js`（`RemotePosSession`，把主機推送的快照換成第一代畫面用的形狀；廚房的 `activeStations` 由主機的 `takeoverAllowed` 推得）、`PosV2StaffPages.js`（以 mixin 包第一代的點餐、廚房、叫號元件，未連線、未配對、被撤銷或角色不符時顯示連線面板）、`PosV2JoinPage.js`（`/join`：帶 `pair` 時以 token 申請，沒有時輸入連線碼；核准後存授權並前往角色畫面）。
+  - 主機頁：配對 QR Code（深色主題也維持白底黑碼）與連線碼、待核准清單（角色、廚房站台預設下一個沒人用的 `K<n>`）、已配對裝置與撤銷。
+  - hub：叫號推送改帶 `{id, number, status}`（第一代叫號畫面要用 id 送「已取餐」）；站台斷線後，到可以接手的時間點再推送一次，廚房畫面才會出現接手按鈕。
+  - `tests/browser-runner.mjs` 的 `runPosV2StaffTests`：QR Code 與連線碼兩種配對（含輸錯被拒）、核准前 `UNAUTHORIZED`、叫號認領 `FORBIDDEN`、遠端點餐→廚房→叫號→取餐與主機統計一致、兩個遠端廚房同時按認領只有一個成功且另一個顯示 `CONFLICT`、站台在線時接手被拒、關閉站台分頁後約 15–20 秒出現接手按鈕並接手成功、撤銷後畫面要求重新配對。根目錄與子路徑各一次，本機連跑 3 次穩定（單次約 29 秒，多半在等站台逾時）。
+  - 實機部分（A1、A2 的 iOS Safari／Android Chrome）併入 A10 的實機驗收。
 
 ### P6 顧客端
 

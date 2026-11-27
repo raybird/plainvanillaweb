@@ -34,11 +34,11 @@
 | `/solutions/pos-v2/admin` | 管理主機 | 無 |
 | `/solutions/pos-v2/home` | 店家入口：列出已開放的桌號；有「店員加入」入口可輸入連線碼 | 無 |
 | `/solutions/pos-v2/table` | 桌牌入口 | `t`：桌號 |
-| `/solutions/pos-v2/join` | 店員配對（掃配對 QR Code） | `pair`：配對 token |
+| `/solutions/pos-v2/join` | 店員配對：帶 `pair` 時以配對 token 申請（掃配對 QR Code），沒有時輸入連線碼 | `pair`：配對 token（選填） |
 | `/solutions/pos-v2/track` | 訂單查詢（櫃檯交接） | `o`：訂單 id，`k`：查詢 token |
 | `/solutions/pos-v2/order`、`/kitchen`、`/display` | 已配對店員裝置的角色畫面 | 無 |
 
-- **連線碼的前提**：輸入連線碼的裝置要先開啟店家入口（`home`），才知道 `room` 與 `sig`。只有連線碼、沒有店家入口網址時無法加入。連線碼只在 DataChannel 內驗證，不經過信令伺服器。
+- **連線碼的前提**：輸入連線碼的裝置要先開啟帶 `room` 與 `sig` 的網址：店家入口（`home`）的「店員加入」，或主機頁上「店員加入頁」的連結（`join` 不帶 `pair`）。只有連線碼、沒有店家入口網址時無法加入。連線碼只在 DataChannel 內驗證，不經過信令伺服器。
 - 主機頁從網址參數拿到 `sig` 時，要使用者確認才儲存。遠端裝置直接使用 QR Code 帶來的 `sig`：QR Code 由主機產生，信令伺服器由測試者自架，在信任範圍內（ADR 0109 決策 5）。
 
 ## 3. 信令協定
@@ -178,8 +178,8 @@
 
 | topic | 對象 | 內容 |
 | --- | --- | --- |
-| `kitchen` | 廚房 | 待處理與備餐中的訂單（含桌號、場次、品項、站台），加上各站台在線狀態 |
-| `display` | 叫號 | 備餐中與請取餐的號碼 |
+| `kitchen` | 廚房 | 待處理與備餐中的訂單（含桌號、場次、品項、站台），加上各站台在線狀態 `{station, online, takeoverAllowed}`；站台斷線後，主機在可以接手的時間點再推送一次 |
+| `display` | 叫號 | 待處理、備餐中與請取餐的訂單：只有 `{id, number, status}`（`pickup` 要用 id） |
 | `order` | 點餐裝置 | 最近送出的訂單與取餐號 |
 | `myOrders` | 入桌授權、查詢授權 | 自己可見的訂單：取餐號、狀態、`aheadCount`（只有待處理時才有）、桌號 |
 | `session` | 入桌授權 | 場次狀態（開啟中、已關閉） |

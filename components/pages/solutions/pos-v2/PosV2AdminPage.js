@@ -1,10 +1,12 @@
 import { BaseComponent } from '../../../../lib/base-component.js';
-import { html } from '../../../../lib/html.js';
+import { html, unsafe } from '../../../../lib/html.js';
 import { router } from '../../../../lib/router.js';
 import { VERSION } from '../../../../lib/version.js';
 import { resolveNamespace } from '../solution-kit.js';
 import { ORDER_STATUS } from '../pos/pos-model.js';
 import { HOST_ROLE, PosV2Host } from './pos-v2-host.js';
+import { JOIN_PATH, ROLE_LABEL as STAFF_ROLE_LABEL, buildRemoteHash } from './pos-v2-remote.js';
+import { encodeQr, qrToSvg } from './qr-code.js';
 import { SIGNALING_STATE } from './signaling-client.js';
 import {
     CLOUDFLARED_INSTALL_URL,
@@ -37,6 +39,25 @@ const SIGNALING_LABEL = {
     [SIGNALING_STATE.REPLACED]: '另一個主機分頁取代了這個分頁',
     [SIGNALING_STATE.CLOSED]: '未連線',
 };
+
+/** QR Code 的 SVG 只含 qrToSvg 產生的路徑，可以直接插入；網址超過 QR Code 容量時改顯示說明 */
+function unsafeSvg(text) {
+    try {
+        return unsafe(qrToSvg(encodeQr(text)));
+    } catch (err) {
+        return html`<span class="pos-qr-error">${err.message}；請改用連結或連線碼。</span>`;
+    }
+}
+
+/** 下一個沒人用的廚房站台名稱：K1、K2… */
+function nextStationName(devices) {
+    const taken = new Set(devices.filter((d) => d.role === 'kitchen' && d.revokedAt == null).map((d) => d.station));
+    let n = 1;
+    while (taken.has(`K${n}`)) n++;
+    return `K${n}`;
+}
+
+const formatClock = (ts) => new Date(ts).toLocaleTimeString('zh-TW', { hour12: false });
 
 /** 已連線裝置的身分說明 */
 function describeConnection(conn) {
@@ -81,6 +102,10 @@ export class PosV2AdminPage extends BaseComponent {
         this.data = null;
         this.startError = null;
         this.confirmRegenerate = false;
+        /** 目前顯示的配對票 { roomId, token, code, expiresAt } */
+        this.pairing = null;
+        this.pairings = [];
+        this._pairingTimer = null;
     }
 
     connectedCallback() {
@@ -98,6 +123,7 @@ export class PosV2AdminPage extends BaseComponent {
         this.testRun += 1;
         this.host?.dispose();
         this.host = null;
+        clearTimeout(this._pairingTimer);
     }
 
     startHost() {
@@ -109,6 +135,10 @@ export class PosV2AdminPage extends BaseComponent {
         });
         host.on('connections', (list) => {
             this.connections = list;
+            this.scheduleUpdate();
+        });
+        host.on('pairings', (list) => {
+            this.pairings = list;
             this.scheduleUpdate();
         });
         host.on('changed', () => this.reload());
@@ -125,9 +155,9 @@ export class PosV2AdminPage extends BaseComponent {
         const host = this.host;
         if (!host) return;
         try {
-            const [orders, tables] = await Promise.all([host.repository.listOrders(), host.repository.listTables()]);
+            const [orders, tables, devices] = await Promise.all([host.repository.listOrders(), host.repository.listTables(), host.repository.listDevices()]);
             if (this.host !== host) return;
-            this.data = { orders, tables };
+            this.data = { orders, tables, devices };
             this.scheduleUpdate();
         } catch (err) {
             console.warn('[pos-v2] 讀取資料失敗', err);
@@ -146,7 +176,7 @@ export class PosV2AdminPage extends BaseComponent {
             const button = event.target.closest('[data-action]');
             if (!button || !this.contains(button) || button.disabled) return;
             event.preventDefault();
-            this.onAction(button.dataset.action, button.dataset);
+            this.onAction(button.dataset.action, button.dataset, button);
         });
         this.addEventListener('submit', (event) => {
             const form = event.target.closest('form[data-form="signaling"]');
@@ -160,8 +190,36 @@ export class PosV2AdminPage extends BaseComponent {
         }, true);
     }
 
-    onAction(name, dataset) {
+    onAction(name, dataset, button) {
         switch (name) {
+            case 'create-pairing':
+                return this.runHostAction(async () => {
+                    const ticket = await this.host.createPairing();
+                    this.pairing = { ...ticket, roomId: this.hostStatus?.roomId };
+                    clearTimeout(this._pairingTimer);
+                    this._pairingTimer = setTimeout(() => this.scheduleUpdate(), Math.max(0, ticket.expiresAt - Date.now()) + 50);
+                    return `已產生配對 QR Code 與連線碼，${formatClock(ticket.expiresAt)} 前有效。`;
+                });
+            case 'approve': {
+                const item = button.closest('[data-pairing]');
+                const role = item.querySelector('select[name="role"]').value;
+                const station = role === 'kitchen' ? item.querySelector('input[name="station"]').value.trim() : null;
+                return this.runHostAction(async () => {
+                    if (role === 'kitchen' && !station) throw new Error('廚房要指定站台名稱');
+                    const device = await this.host.approvePairing(dataset.pairingId, { role, station });
+                    return `已核准：${STAFF_ROLE_LABEL[device.role]}${device.station ? `（${device.station}）` : ''}${device.label ? ` · ${device.label}` : ''}。`;
+                });
+            }
+            case 'reject':
+                return this.runHostAction(async () => {
+                    this.host.rejectPairing(dataset.pairingId);
+                    return '已拒絕配對申請。';
+                });
+            case 'revoke':
+                return this.runHostAction(async () => {
+                    await this.host.revokeDevice(dataset.deviceId);
+                    return '已撤銷裝置授權。';
+                });
             case 'accept-sig':
                 return this.useUrl(this.state.pending.url, '已改用連結帶來的信令網址。');
             case 'reject-sig':
@@ -306,6 +364,78 @@ export class PosV2AdminPage extends BaseComponent {
         `;
     }
 
+    /** 遠端裝置網址：帶房間與信令，裝置掃碼後不用另外設定（A9） */
+    remoteUrl(path, extra = {}) {
+        const status = this.hostStatus;
+        const hash = buildRemoteHash(path, { roomId: status.roomId, sig: status.signalingUrl, namespace: this.namespace, extra });
+        return new URL(hash, document.baseURI).href;
+    }
+
+    renderPairing() {
+        const status = this.hostStatus;
+        if (status?.role !== HOST_ROLE.PRIMARY) return '';
+        if (!status.signalingUrl || !status.roomId) {
+            return html`<p class="pos-muted">先在下方設定信令網址，才能配對店員裝置。</p>`;
+        }
+        const pairing = this.pairing?.roomId === status.roomId ? this.pairing : null;
+        const expired = pairing && Date.now() >= pairing.expiresAt;
+        const devices = this.data?.devices ?? [];
+        const suggestion = nextStationName(devices);
+        let ticket = '';
+        if (pairing && !expired) {
+            const url = this.remoteUrl(JOIN_PATH, { pair: pairing.token });
+            ticket = html`
+                <div class="pos-pairing">
+                    <a class="pos-qr" href="${url}" target="_blank" rel="noopener" aria-label="配對 QR Code（也可以點開連結）" data-pairing-url="${url}">${unsafeSvg(url)}</a>
+                    <div>
+                        <p>用店員裝置的相機掃 QR Code，或在<a href="${this.remoteUrl(JOIN_PATH)}" target="_blank" rel="noopener" data-join-url>店員加入頁</a>輸入連線碼：</p>
+                        <p class="pos-code" data-pairing-code="${pairing.code}">${pairing.code.slice(0, 3)} ${pairing.code.slice(3)}</p>
+                        <p class="pos-muted">${formatClock(pairing.expiresAt)} 前有效，期限內可以讓多台裝置申請；每次申請都要在下方核准。</p>
+                    </div>
+                </div>`;
+        }
+        return html`
+            ${ticket}
+            ${expired ? html`<p class="pos-muted" data-pairing-expired>配對碼已過期。</p>` : ''}
+            <div class="pos-actions">
+                <button type="button" class="btn ${pairing && !expired ? '' : 'btn-primary'}" data-action="create-pairing">${pairing && !expired ? '產生新的配對碼' : '產生配對 QR Code'}</button>
+            </div>
+            <h4>待核准（<span data-pairing-count>${this.pairings.length}</span>）</h4>
+            ${this.pairings.length ? html`
+                <ul class="pos-approvals">
+                    ${this.pairings.map((p) => html`
+                        <li data-pairing="${p.id}">
+                            <div><strong>${p.label || '未命名裝置'}</strong> <span class="pos-muted">${formatClock(p.requestedAt)} · ${p.connectionId.slice(0, 6)}</span></div>
+                            <div class="pos-actions">
+                                <select name="role" aria-label="角色">
+                                    ${Object.entries(STAFF_ROLE_LABEL).map(([value, label]) => html`<option value="${value}">${label}</option>`)}
+                                </select>
+                                <input name="station" aria-label="廚房站台名稱" maxlength="40" value="${suggestion}" placeholder="站台（廚房才需要）">
+                                <button type="button" class="btn btn-primary" data-action="approve" data-pairing-id="${p.id}">核准</button>
+                                <button type="button" class="btn" data-action="reject" data-pairing-id="${p.id}">拒絕</button>
+                            </div>
+                        </li>`)}
+                </ul>` : html`<p class="pos-muted">裝置送出申請後會出現在這裡。</p>`}
+        `;
+    }
+
+    renderDevices() {
+        const devices = (this.data?.devices ?? []).filter((d) => d.revokedAt == null);
+        if (this.hostStatus?.role !== HOST_ROLE.PRIMARY || !devices.length) return '';
+        const online = new Set(this.connections.map((c) => c.device?.id).filter(Boolean));
+        return html`
+            <h4>已配對（${devices.length}）</h4>
+            <ul class="pos-approvals">
+                ${devices.map((d) => html`
+                    <li data-device="${d.id}" data-device-role="${d.role}" data-device-online="${String(online.has(d.id))}">
+                        <div><strong>${STAFF_ROLE_LABEL[d.role] ?? d.role}${d.station ? ` · ${d.station}` : ''}</strong>${d.label ? ` · ${d.label}` : ''}
+                            <span class="pos-muted">${online.has(d.id) ? '在線' : '離線'}</span></div>
+                        <button type="button" class="btn btn-danger" data-action="revoke" data-device-id="${d.id}">撤銷</button>
+                    </li>`)}
+            </ul>
+        `;
+    }
+
     renderConnections() {
         const list = this.connections;
         if (this.hostStatus?.role !== HOST_ROLE.PRIMARY) return '';
@@ -319,7 +449,8 @@ export class PosV2AdminPage extends BaseComponent {
                                 <span>${describeConnection(conn)}</span>
                                 <span class="pos-muted">${conn.id.slice(0, 6)}${conn.badMessages ? ` · 不合格訊息 ${conn.badMessages}` : ''}${conn.paused ? ' · 推送暫停' : ''}</span>
                             </li>`)}
-                    </ul>` : html`<p class="pos-muted">還沒有裝置連線。配對與桌牌 QR Code 在後續版本加入。</p>`}
+                    </ul>` : html`<p class="pos-muted">還沒有裝置連線。</p>`}
+                ${this.renderDevices()}
             </section>
         `;
     }
@@ -423,6 +554,18 @@ export class PosV2AdminPage extends BaseComponent {
                 .pos-facts dd { margin: 0; font-weight: 600; }
                 .pos-connections { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; }
                 .pos-connections li span + span { margin-left: 0.5rem; }
+                .pos-pairing { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 0.75rem; }
+                .pos-pairing p { margin: 0.25rem 0; }
+                /* QR Code 一律深色模組在淺色底上，深色主題也一樣，相機才掃得到 */
+                .pos-qr { display: block; width: 180px; padding: 0; background: #fff; color: #000; border-radius: 8px; line-height: 0; }
+                .pos-qr svg { width: 100%; height: auto; }
+                .pos-qr-error { display: block; padding: 0.75rem; line-height: 1.4; font-size: 0.85rem; }
+                .pos-code { font-size: 2rem; font-weight: 800; letter-spacing: 0.15em; font-variant-numeric: tabular-nums; }
+                .pos-approvals { list-style: none; margin: 0 0 0.75rem; padding: 0; display: grid; gap: 0.5rem; }
+                .pos-approvals li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; }
+                .pos-approvals select, .pos-approvals input { font: inherit; padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); }
+                .pos-approvals input { width: 9rem; }
+                [data-pairing-panel] h4, .pos-card .pos-connections + h4 { margin-top: 1rem; }
                 details[data-guide] > summary { cursor: pointer; font-weight: 600; }
             </style>
             <section class="pos-page" data-pos-role="admin" data-pos-version="2">
@@ -441,6 +584,11 @@ export class PosV2AdminPage extends BaseComponent {
                     <h3 id="pos-v2-host-title">主機</h3>
                     ${this.renderHost()}
                 </section>
+                ${this.hostStatus?.role === HOST_ROLE.PRIMARY ? html`
+                    <section class="pos-card" aria-labelledby="pos-v2-pair-title" data-pairing-panel>
+                        <h3 id="pos-v2-pair-title">店員裝置配對</h3>
+                        ${this.renderPairing()}
+                    </section>` : ''}
                 <section class="pos-card" aria-labelledby="pos-v2-sig-title">
                     <h3 id="pos-v2-sig-title">信令伺服器</h3>
                     <p class="pos-muted">店員裝置與顧客手機經由信令伺服器和這台主機建立直連；訂單資料只在 DataChannel 裡傳送，不經過信令伺服器。主機產生的 QR Code 都會帶上這個網址，其他裝置不用另外設定。</p>

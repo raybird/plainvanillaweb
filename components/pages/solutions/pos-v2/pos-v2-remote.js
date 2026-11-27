@@ -1,0 +1,179 @@
+/**
+ * POS v2 遠端裝置的共用部分（#16，協定規格第 2、4、5 節）：網址參數、本機授權的存放，
+ * 以及把信令、WebRTC 與 RPC 組成一條「連到主機」的連線。
+ *
+ * `PosV2Remote` 事件：`state`（連線狀態改變）、`open`（DataChannel 開啟、可以送 RPC；每次重連都會再觸發）、
+ * `push`（主機推送）、`gap`（推送跳號，應 `sync`）。
+ */
+import { BaseService } from '../../../../lib/base-service.js';
+import { buildSolutionHash, resolveNamespace, solutionStorageName } from '../solution-kit.js';
+import { LINK_STATE, PeerLink } from './peer-link.js';
+import { PEER_ERROR_CODES, PosV2RpcClient } from './pos-v2-rpc-client.js';
+import { PosError } from './pos-v2-model.js';
+import { SignalingClient, normalizeSignalingUrl } from './signaling-client.js';
+
+export const POS_V2_SLUG = 'pos-v2';
+export const DEFAULT_NAMESPACE = `solution-${POS_V2_SLUG}`;
+
+/** 已配對店員裝置的角色畫面 */
+export const STAFF_ROLE_PATHS = Object.freeze({
+    order: '/solutions/pos-v2/order',
+    kitchen: '/solutions/pos-v2/kitchen',
+    display: '/solutions/pos-v2/display',
+});
+
+export const JOIN_PATH = '/solutions/pos-v2/join';
+
+export const ROLE_LABEL = Object.freeze({ order: '點餐', kitchen: '廚房', display: '叫號' });
+
+export const LINK_STATE_LABEL = Object.freeze({
+    [LINK_STATE.IDLE]: '尚未連線',
+    [LINK_STATE.SIGNALING]: '連線信令中…',
+    [LINK_STATE.WAITING_HOST]: '等待主機上線…',
+    [LINK_STATE.CONNECTING]: '和主機建立直連中…',
+    [LINK_STATE.OPEN]: '已連上主機',
+    [LINK_STATE.RETRYING]: '和主機的連線中斷，重新連線中…',
+    [LINK_STATE.FAILED]: '無法和主機建立直連',
+    [LINK_STATE.STOPPED]: '已停止',
+});
+
+const ROOM_PATTERN = /^[A-Za-z0-9_-]{22}$/;
+
+/**
+ * 讀出網址的 hash query（`room`、`sig`、`ns` 與其他參數）。`room` 或 `sig` 格式不對時視為沒有。
+ * @param {string} [hash]
+ * @returns {{ roomId: string | null, sig: string | null, namespace: string, params: URLSearchParams }}
+ */
+export function readRemoteParams(hash = globalThis.location?.hash ?? '') {
+    const raw = String(hash).replace(/^#/, '');
+    const index = raw.indexOf('?');
+    const params = new URLSearchParams(index === -1 ? '' : raw.slice(index + 1));
+    const room = params.get('room');
+    let sig = null;
+    try {
+        sig = params.get('sig') ? normalizeSignalingUrl(params.get('sig')) : null;
+    } catch {
+        sig = null;
+    }
+    return { roomId: room && ROOM_PATTERN.test(room) ? room : null, sig, namespace: resolveNamespace(POS_V2_SLUG, hash), params };
+}
+
+/**
+ * 組出遠端裝置的網址 hash：帶上房間、信令與（非預設時的）namespace。
+ * @param {string} path
+ * @param {{ roomId: string, sig: string, namespace?: string, kiosk?: boolean, extra?: Record<string, string> }} options
+ */
+export function buildRemoteHash(path, { roomId, sig, namespace = DEFAULT_NAMESPACE, kiosk = false, extra = {} }) {
+    const base = buildSolutionHash(path, { ns: namespace === DEFAULT_NAMESPACE ? undefined : namespace, kiosk });
+    const [route, query = ''] = base.split('?');
+    const params = new URLSearchParams(query);
+    params.set('room', roomId);
+    params.set('sig', sig);
+    for (const [key, value] of Object.entries(extra)) params.set(key, value);
+    return `${route}?${params}`;
+}
+
+/** 店員裝置的授權存在 localStorage，依房間分開（協定規格 5.1） */
+export const credentialStorageKey = (namespace, roomId) => `${solutionStorageName(namespace, 'credential')}:${roomId}`;
+
+/** @returns {{ credential: { kind: string, id: string, secret: string }, role: string, station: string | null, label: string } | null} */
+export function loadStaffCredential(namespace, roomId) {
+    try {
+        const value = JSON.parse(localStorage.getItem(credentialStorageKey(namespace, roomId)) ?? 'null');
+        return value?.credential?.id && value.credential.secret ? value : null;
+    } catch {
+        return null;
+    }
+}
+
+export function saveStaffCredential(namespace, roomId, { credential, role, station = null, label = '' }) {
+    localStorage.setItem(credentialStorageKey(namespace, roomId), JSON.stringify({ credential, role, station, label }));
+}
+
+export function clearStaffCredential(namespace, roomId) {
+    localStorage.removeItem(credentialStorageKey(namespace, roomId));
+}
+
+/** 遠端裝置需要的瀏覽器能力 */
+export const remoteSupported = () => typeof RTCPeerConnection === 'function' && typeof WebSocket === 'function' && typeof localStorage !== 'undefined';
+
+/**
+ * 到主機的一條連線：信令 → WebRTC → RPC。DataChannel 斷線或心跳判定主機失聯時自動重連，
+ * 每次重新開啟都觸發 `open`，呼叫端在那裡重新 `auth`。
+ */
+export class PosV2Remote extends BaseService {
+    /**
+     * @param {{ sig: string, roomId: string, SignalingClientImpl?: typeof SignalingClient, PeerLinkImpl?: typeof PeerLink, linkOptions?: object }} options
+     */
+    constructor({ sig, roomId, SignalingClientImpl = SignalingClient, PeerLinkImpl = PeerLink, linkOptions = {} }) {
+        super();
+        this.signaling = new SignalingClientImpl({ url: sig, roomId, role: 'peer' });
+        this.link = new PeerLinkImpl({ signaling: this.signaling, ...linkOptions });
+        this.rpc = null;
+        /** @type {{ state: string, reason?: string, needTurn?: boolean }} */
+        this.linkState = { state: LINK_STATE.IDLE };
+        this._offs = [];
+        this._disposed = false;
+    }
+
+    get isOpen() {
+        return this.rpc !== null && !this.rpc.closed;
+    }
+
+    start() {
+        const link = this.link;
+        this._offs.push(
+            link.on('state', (detail) => {
+                this.linkState = detail;
+                this.emit('state', detail);
+            }),
+            link.on('open', ({ channel }) => this._attach(channel)),
+            link.on('closed', () => this._dropRpc()),
+        );
+        link.start();
+    }
+
+    _attach(channel) {
+        this._dropRpc();
+        const rpc = new PosV2RpcClient({ channel });
+        this.rpc = rpc;
+        rpc.on('push', (detail) => this.emit('push', detail));
+        rpc.on('gap', (detail) => this.emit('gap', detail));
+        // 心跳判定主機失聯：DataChannel 的 close 可能很久才來，主動要求連線層重連
+        rpc.on('closed', () => {
+            if (this.rpc !== rpc) return;
+            this.rpc = null;
+            this.link.reconnect();
+        });
+        this.emit('open', { rpc });
+    }
+
+    _dropRpc() {
+        const rpc = this.rpc;
+        this.rpc = null;
+        rpc?.close();
+    }
+
+    /**
+     * @param {string} method
+     * @param {object} [params]
+     */
+    request(method, params) {
+        if (!this.rpc) return Promise.reject(new PosError(PEER_ERROR_CODES.HOST_UNAVAILABLE, '還沒有連上主機'));
+        return this.rpc.request(method, params);
+    }
+
+    /** 直連失敗後使用者按下重試 */
+    retry() {
+        this.link.retry();
+    }
+
+    dispose() {
+        if (this._disposed) return;
+        this._disposed = true;
+        for (const off of this._offs) off();
+        this._offs = [];
+        this._dropRpc();
+        this.link.stop();
+    }
+}

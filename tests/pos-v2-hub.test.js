@@ -264,7 +264,7 @@ test('角色權限：點餐裝置送單、廚房認領與完成、叫號取餐�
     await rejects(kitchen.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'k' }), E.FORBIDDEN);
     assert.equal((await kitchen.client.request('order.act', { orderId: placed.order.id, action: 'claim', actor: 'forged' })).order.station, 'K1', 'actor 由主機依授權填入');
     await kitchen.client.request('order.act', { orderId: placed.order.id, action: 'ready' });
-    await until(() => display.pushes.some((p) => p.topic === 'display' && p.data.ready.includes('001')));
+    await until(() => display.pushes.some((p) => p.topic === 'display' && p.data.orders.some((o) => o.number === '001' && o.status === 'ready')));
     assert.equal((await display.client.request('order.act', { orderId: placed.order.id, action: 'pickup' })).order.status, 'picked_up');
 });
 
@@ -405,6 +405,30 @@ test('接手：原站台在線時拒絕；斷線未滿 15 秒仍拒絕；之後�
     ]);
     assert.deepEqual(results.map((r) => r.status).sort(), ['fulfilled', 'rejected']);
     assert.equal(results.find((r) => r.status === 'rejected').reason.code, E.CONFLICT);
+});
+
+test('接手：站台斷線後，到可以接手的時間點再推送一次，其他廚房看得到 takeoverAllowed', async (t) => {
+    // 長延遲的計時器先攔下來，由測試推進假時鐘後手動觸發
+    const delayed = [];
+    const timers = {
+        setTimeout: (fn, ms) => (ms > 1000 ? (delayed.push({ fn, ms }), -delayed.length) : setTimeout(fn, ms)),
+        clearTimeout: (id) => (id < 0 ? (delayed[-id - 1].fn = null) : clearTimeout(id)),
+        setInterval: (fn, ms) => setInterval(fn, ms),
+        clearInterval: (id) => clearInterval(id),
+    };
+    const { connect, repository, clock } = setup(t, { pingIntervalMs: 60_000, timers });
+    const k1 = connect();
+    const k2 = connect();
+    await k1.client.request('auth', { credentials: [repository.device('kitchen', 'K1')] });
+    await k2.client.request('auth', { credentials: [repository.device('kitchen', 'K2')] });
+    k1.client.close();
+    await until(() => delayed.length === 1);
+    assert.equal(delayed[0].ms, 15_050);
+    const stationsOf = (p) => Object.fromEntries(p.data.stations.map((s) => [s.station, s.takeoverAllowed]));
+    await until(() => k2.pushes.some((p) => p.topic === 'kitchen' && stationsOf(p).K1 === false));
+    clock.now += 15_050;
+    delayed[0].fn();
+    await until(() => k2.pushes.some((p) => p.topic === 'kitchen' && stationsOf(p).K1 === true));
 });
 
 // ---------- 連線品質 ----------

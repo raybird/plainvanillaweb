@@ -124,8 +124,28 @@
 
 ### P8 收尾與發版
 
-- [ ] 文件：`docs/solutions/pos-v2.md`／`pos-v2.en.md`（依 reference app 文件範本）、`conventions.md` 範例清單、第一代 `pos.md` 的「正式上線差距」連到第二代、`Docs.js` 清單、Solutions 入口。
-- [ ] 自架信令文件：Node＋Quick Tunnel 與自有 Worker 兩種步驟，寫在 `pos-v2.md`／`pos-v2.en.md`，內容和主機頁顯示的指令一致，並附上 `signaling.mjs`、`worker.js`、`wrangler.jsonc` 的 SHA-256 供比對。
+- [x] 文件：`docs/solutions/pos-v2.md`／`pos-v2.en.md`（依 reference app 文件範本）、`conventions.md` 範例清單、第一代 `pos.md` 的「正式上線差距」連到第二代、`Docs.js` 清單、Solutions 入口。
+- [x] 自架信令文件：Node＋Quick Tunnel 與自有 Worker 兩種步驟，寫在 `pos-v2.md`／`pos-v2.en.md`，內容和主機頁顯示的指令一致，並附上 `signaling.mjs`、`worker.js`、`wrangler.jsonc` 的 SHA-256 供比對。
 - [ ] 發版順序：tag `v<VERSION>` 推上去之前，主機頁指令裡的 jsDelivr 網址會 404。實機驗收先用 commit SHA 的網址；推 tag（需使用者同意）後，再照主機頁指令重跑一次 Node＋Quick Tunnel，確認網址可下載。
 - [ ] 實機驗收清單：管理筆電、iOS Safari、Android Chrome；同一 Wi-Fi；兩種自架信令各走一次，只照主機頁上顯示的指令操作，不參考其他文件（A1、A2、A4、A6、A10）。
-- [ ] `node scripts/update-sw-version.js`、CHANGELOG、`lib/version.js` 升到 v3.4.0 並同步 README／docs 的 CDN 網址、`scripts/check.sh` 全部通過（A10）。
+- [x] `node scripts/update-sw-version.js`、CHANGELOG、`lib/version.js` 升到 v3.4.0 並同步 README／docs 的 CDN 網址、`scripts/check.sh` 全部通過（A10）。
+- 結果（2026-11-27）：
+  - 文件依範本七節，中英章節一致；「如何驗證」欄逐項對照實際測試（沒有單獨測試的情境照實寫明）。按鈕名稱與畫面一致。
+  - `tests/pos-v2-docs.test.js`：兩份文件的自架指令必須和 `selfHostCommands(VERSION)` 逐字相同、寫明 `v<VERSION>`，三個伺服器檔案的 SHA-256 必須和實際檔案相同。之後改了 `server/` 或升版，測試會提醒同步文件。
+  - Solutions 目錄新增 POS v2（入口 `#/solutions/pos-v2/admin`），`Docs.js` 清單與對應路由、`conventions` 範例清單、README 中英版的 Solutions 說明、第一代文件的「跨裝置同步與後端」都連到第二代。
+  - `lib/version.js` 升到 3.4.0、CHANGELOG 新增 3.4.0 一節、README／`docs/sdk-usage.md` 的固定版本網址改為 `@v3.4.0`；核心匯出不變（minor）。
+
+#### 實機驗收清單（A10，待使用者執行）
+
+前提：主機頁要在 Origin 白名單內的 https 網站（預設 `https://raybird.github.io`），所以實機驗收在 PR 合併、GitHub Pages 部署之後進行；tag 還沒推之前，主機頁指令裡的 `@v3.4.0` 會 404，改用合併提交的 SHA（`@<sha>`）下載同一批檔案。
+
+1. **Node＋Quick Tunnel**（筆電 Chrome 當主機）
+   - [ ] 空目錄執行主機頁的方式一指令（`@v3.4.0` 換成 `@<sha>`），`--tunnel` 印出帶 `sig=` 的主機頁連結；用它打開主機頁並確認儲存。
+   - [ ] A1：iPhone（Safari）掃配對 QR Code、Android（Chrome）輸入連線碼，主機核准為點餐與廚房；核准前無法操作。
+   - [ ] A2：點餐 → 廚房認領 → 備餐完成 → 叫號畫面取餐（叫號可用筆電另一個分頁配對），主機統計與各裝置一致。
+   - [ ] A4：開 A1 桌，iPhone 由店家入口選桌、Android 掃列印的桌牌，用同一組入桌碼各送一筆，廚房與主機看到同桌同場次。
+   - [ ] A6：手機「我的訂單」顯示前面筆數並隨認領減少；櫃檯點餐後用另一支手機掃訂單 QR Code 查單。
+2. **自有 Cloudflare Worker**
+   - [ ] 執行方式二指令（同樣用 `@<sha>`）部署，把印出的網址貼到主機頁並通過連線測試；重跑上面 A1、A2、A4、A6 的主要流程。
+3. **推 tag 後**（需使用者同意推 `v3.4.0`）
+   - [ ] 照主機頁顯示的方式一指令（不改網址）重跑一次 Node＋Quick Tunnel，確認 jsDelivr 可下載，下載的檔案 SHA-256 和 `pos-v2.md` 列的一致。

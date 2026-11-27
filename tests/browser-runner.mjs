@@ -2399,11 +2399,12 @@ async function runSolutionsTests(openTab, base) {
         const catalog = await page.evaluate(`(() => {
             const cards = [...document.querySelectorAll('page-solutions-index .solution-card')];
             const open = (id) => document.querySelector('.solution-card[data-solution="' + id + '"] a.btn-primary')?.getAttribute('href') ?? null;
-            return { ids: cards.map((c) => c.dataset.solution), pos: open('pos'), farm: open('farm'), cluster: open('browser-cluster') };
+            return { ids: cards.map((c) => c.dataset.solution), pos: open('pos'), posV2: open('pos-v2'), farm: open('farm'), cluster: open('browser-cluster') };
         })()`);
-        check(JSON.stringify(catalog.ids) === JSON.stringify(['pos', 'farm', 'browser-cluster']), `目錄項目不符：${catalog.ids.join(', ')}`);
+        check(JSON.stringify(catalog.ids) === JSON.stringify(['pos', 'pos-v2', 'farm', 'browser-cluster']), `目錄項目不符：${catalog.ids.join(', ')}`);
         check(catalog.cluster === '#/lab/browser-cluster', 'Browser Cluster 應連回 #/lab/browser-cluster，不在 Solutions 重做');
         check(catalog.pos === '#/solutions/pos', `POS 應連到 #/solutions/pos，實際為 ${catalog.pos}`);
+        check(catalog.posV2 === '#/solutions/pos-v2/admin', `POS v2 應連到主機頁 #/solutions/pos-v2/admin，實際為 ${catalog.posV2}`);
         check(catalog.farm === '#/solutions/farm', `Farm 應連到 #/solutions/farm，實際為 ${catalog.farm}`);
         check(await page.evaluate("document.querySelector('#app-nav a.nav-link[href=\"#/solutions\"]') !== null"), '側欄應有 Solutions 入口');
 

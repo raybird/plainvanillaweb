@@ -5,7 +5,7 @@
 固定版本的引用方式（jsDelivr 依 git tag 提供，內容不會再變）：
 
 ```javascript
-import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.3.0/lib/core.js';
+import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/lib/core.js';
 ```
 
 `https://raybird.github.io/plainvanillaweb/lib/...` 永遠是最新的 master，適合試用，不適合正式專案。
@@ -13,6 +13,21 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 **發版步驟**：更新 `lib/version.js` 的 `VERSION` 與本檔最新一節 → 執行 `scripts/check.sh` → commit → 打 tag `v<VERSION>` 並推送。`tests/core.test.js` 會檢查 `VERSION` 與本檔最新一節一致。
 
 ---
+
+## [3.4.0] - 2026-11-27
+
+POS v2（#16）跨裝置協作與桌邊點餐；核心與 `lib/coordination.js` 的匯出不變。
+
+### 新增
+
+- Multi-Window POS v2（#16，`#/solutions/pos-v2/*`，[文件](./docs/solutions/pos-v2.md)，[ADR 0109](./docs/decisions/0109-pos-v2-webrtc-host-authority.md)）：店員平板與顧客手機從其他裝置加入同一份訂單。管理頁的一個分頁是主機（Web Lock 保證唯一，其他分頁唯讀），訂單只存在主機的 IndexedDB；其他裝置經自架信令完成握手後以 WebRTC DataChannel 直連主機，以 RPC 下單與操作，訂單與授權資料不經過信令伺服器。
+  - 店員裝置：掃配對 QR Code 或輸入連線碼，主機核准並指定角色（點餐、廚房、叫號）後才能操作，畫面沿用第一代；遠端廚房站台離線逾時後才能接手；管理端可撤銷裝置。
+  - 顧客：店家入口與桌牌 QR Code 兩種入口，輸入入桌碼（同桌共用、連錯 5 次冷卻）後點餐與加點；「我的訂單」顯示取餐號、進度與前面待備餐的筆數；櫃檯點餐後顯示訂單 QR Code，查單頁只看得到那一筆。主機頁開桌、關桌、換新入桌碼，桌牌可列印。
+  - 中斷恢復：送單沒收到回覆時存在本機並顯示「等待主機確認」，重連後以同一個 `requestId` 重送，主機已寫入的取回原訂單；主機分頁重新整理後裝置自動重連，不用重新配對或重新輸入入桌碼。
+  - 自架信令：零依賴的 Node 參考伺服器 `server/signaling.mjs`（`--tunnel` 啟動 Cloudflare Quick Tunnel）與 Cloudflare Worker＋Durable Object 版 `server/cloudflare/`，行為相同、跑同一組協定測試；只接受白名單內的 `Origin`，主機席位以 TOFU 綁定。主機頁未設定信令時顯示兩組下載固定版本檔案的自架指令，信令網址帶進所有 QR Code。
+  - 零依賴 QR Code 產生器（`qr-code.js`）。
+- 第一代 POS 新增相容的擴充點（`PosRolePage` 的 `static Session`／`meta`／`titlePrefix`／`hubPath`／`hubLabel`／`unsupportedText`、`renderStatusPill()`，`PosKitchenPage` 的 `renderTicketExtra()`），第一代行為與測試不變。
+- 瀏覽器測試的 `openTab({ isolated: true })`：以獨立的瀏覽器環境（`Target.createBrowserContext`）模擬不同裝置，localStorage 不互通。
 
 ## [3.3.0] - 2026-11-26
 

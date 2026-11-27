@@ -1,6 +1,6 @@
 # Multi-Window POS
 
-> **Updated**: 2026-11-25  
+> **Updated**: 2026-11-27  
 > **中文**：[Multi-Window POS](./pos.md)  
 > **Entry**: [#/solutions/pos](#/solutions/pos) · **Issue**: #10 · **Conventions**: [Reference App Conventions](./conventions.en.md)
 
@@ -101,7 +101,7 @@ Transitions (everything else is rejected with `INVALID_TRANSITION`):
 
 - **Authorization and identity**: any same-origin page can read and write this data; a namespace is not a security boundary. A real system needs sign-in, role permissions and an audit trail.
 - **Transactions and payments**: no payment, receipts, refunds or reconciliation; revenue is just the sum of order totals.
-- **Cross-device sync and backend**: coordination only spans one browser profile on one machine. Several tills and kitchen tablets need a backend (see the cross-device evaluation in [ADR 0107](../decisions/0107-sharedworker-and-cross-device-transport-evaluation.md)) and conflict handling.
+- **Cross-device sync and backend**: coordination only spans one browser profile on one machine. Several tills and kitchen tablets need a backend (see the cross-device evaluation in [ADR 0107](../decisions/0107-sharedworker-and-cross-device-transport-evaluation.md)) and conflict handling. The second version, [Multi-Window POS v2](./pos-v2.en.md) (#16), lets other devices join over WebRTC DataChannels with the host tab as the only authority.
 - **Personal data and auditing**: no customer data is collected; a real system must handle retention periods and access logs.
 - **Other**: menu management, stock, peak load, printers and pager hardware are out of scope; browsers may evict data when storage runs low, so a real system needs `navigator.storage.persist()` and backups.
 

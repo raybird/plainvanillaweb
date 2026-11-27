@@ -1,6 +1,6 @@
 # Solutions Reference App 慣例
 
-> **更新日期**：2026-11-25  
+> **更新日期**：2026-11-27  
 > **English**：[Reference App Conventions](./conventions.en.md)  
 > **架構決策**：[ADR 0108](../decisions/0108-solutions-reference-app-conventions.md) · [ADR 0101](../decisions/0101-core-entry-point.md) · [ADR 0102](../decisions/0102-route-owned-page-lifecycle.md)  
 > **共用工具**：`components/pages/solutions/solution-kit.js`、`app/kiosk.js`
@@ -16,6 +16,7 @@ Labs 解釋單一 API；Solutions 把多個原生能力組成完整的應用與�
 | 範例 | 路由 | 交付 | 狀態 |
 | --- | --- | --- | --- |
 | Multi-Window POS | `#/solutions/pos/*` | #10 | 可使用（[文件](./pos.md)） |
+| Multi-Window POS v2 | `#/solutions/pos-v2/*` | #16 | 可使用（[文件](./pos-v2.md)） |
 | Browser Computing Farm | `#/solutions/farm` | #11 | 可使用（[文件](./farm.md)） |
 | Browser Cluster | `#/lab/browser-cluster` | #6（Lab） | 已完成，Solutions 只放入口 |
 

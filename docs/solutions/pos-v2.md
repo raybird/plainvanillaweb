@@ -139,11 +139,11 @@ npx wrangler@4 deploy
 | 關桌再開桌 | 舊頁面送單回 `SESSION_CLOSED`，舊入桌碼回 `CODE_INVALID`，仍看得到自己的訂單 | 瀏覽器測試 |
 | 主機分頁關閉 | 裝置顯示「等待主機上線…」，主機回來後自動恢復 | 瀏覽器測試 `runPosV2HubTests`、`runPosV2RecoveryTests` |
 | 另一個主機分頁 | 第二個分頁取不到 Web Lock，只能查看 | 瀏覽器測試 |
-| 信令伺服器斷線 | 已建立的直連不再經過信令，不受影響；信令依退避重連。主機信令重連後的 `host-online` 帶同一個執行個體 id，裝置保留直連 | 瀏覽器測試 `runPosV2RecoveryTests`（主機信令重連時手機的直連不重建）、`tests/signaling-client.test.js`（重連退避）、`tests/signaling.test.js`（執行個體 id） |
+| 信令伺服器斷線 | 已建立的直連不再經過信令，不受影響；信令依退避重連。主機信令重連後的 `host-online` 帶同一個執行個體 id，裝置保留直連 | 瀏覽器測試 `runPosV2RecoveryTests`（主機、手機各自的信令重連時，直連都不重建，主機也不關掉手機的連線）、`tests/signaling-client.test.js`（重連退避）、`tests/signaling.test.js`（執行個體 id） |
 | 多台裝置同時重連 | 已驗證的主機在信令上的速率額度依 peer 數放大（50 ×（1 + peer 數）則／10 秒），回應每台裝置的握手時不會被 4008 關閉 | `tests/signaling.test.js` |
 | 網址的信令和配對（入桌）時不同 | 店員裝置先顯示兩個信令網址請使用者確認，確認前不送出授權；顧客手機不自動送出入桌授權，要重新輸入入桌碼 | 瀏覽器測試 `runPosV2RecoveryTests` |
-| 並行猜入桌碼或連線碼 | 驗證中的請求先算成一次錯誤，同一條連線並行送出也最多 5 筆進到驗證 | `tests/pos-v2-hub.test.js` |
-| 推送內容過大、送單太頻繁 | 快照依位元組上限截斷並標 `truncated`，不關閉連線；同一個身分每分鐘最多送單 30 次，超過回 `RATE_LIMITED` | `tests/pos-v2-hub.test.js` |
+| 並行猜入桌碼或連線碼、亂給桌號 | 驗證中的請求先算成一次錯誤，同一條連線並行送出也最多 5 筆進到驗證；不存在的桌號只計入連線的次數，不會擠掉其他桌的冷卻 | `tests/pos-v2-hub.test.js` |
+| 推送內容過大、送單太頻繁 | 快照依位元組上限截斷並標 `truncated`，不關閉連線；同一個身分每分鐘最多送單 30 次，超過回 `RATE_LIMITED`（已存在的 `requestId` 重送不計入） | `tests/pos-v2-hub.test.js` |
 | 直連失敗（對稱型 NAT、行動網路） | 逾時後顯示「無法建立直連，需要 TURN」並提供重試，不無限等待 | 瀏覽器測試 `runPosV2HubTests`（只允許 TURN、沒有 TURN 時判定失敗） |
 | 不合格訊息 | 有 id 的回 `BAD_MESSAGE`、沒有的丟棄，都計數；累計 20 則後關閉連線 | `tests/pos-v2-hub.test.js`、瀏覽器測試 |
 | 裝置收得慢（背壓） | `bufferedAmount` 超過 1 MiB 時暫停推送，緩衝降下來後送一份最新快照 | `tests/pos-v2-hub.test.js` |

@@ -52,11 +52,15 @@ export class HostLinks extends BaseService {
         super();
         this.signaling = signaling;
         this._RTCPeerConnection = RTCPeerConnectionImpl;
-        /** @type {Map<string, { pc: RTCPeerConnection, candidates: CandidateQueue }>} */
+        /** @type {Map<string, { pc: RTCPeerConnection, candidates: CandidateQueue, open: boolean }>} */
         this._links = new Map();
         this._offs = [
             signaling.on('signal', ({ from, data }) => this._onSignal(from, data)),
-            signaling.on('peer-left', ({ peerId }) => this.close(peerId)),
+            // 裝置的信令斷線（例如手機切到背景再回來）不代表直連斷了：只放棄還在握手的連線，
+            // 已開啟的直連交給 DataChannel 的 close 與心跳逾時（ADR 0109 決策 3、審查 S8）
+            signaling.on('peer-left', ({ peerId }) => {
+                if (!this._links.get(peerId)?.open) this.close(peerId);
+            }),
         ];
     }
 
@@ -84,7 +88,7 @@ export class HostLinks extends BaseService {
         // 同一個 peer 重新發起：放棄舊的 PeerConnection
         this.close(peerId);
         const pc = new this._RTCPeerConnection({ iceServers: this.signaling.iceServers });
-        const link = { pc, candidates: new CandidateQueue(pc) };
+        const link = { pc, candidates: new CandidateQueue(pc), open: false };
         this._links.set(peerId, link);
         onCreated?.(link);
         pc.addEventListener('icecandidate', (event) => {
@@ -96,7 +100,9 @@ export class HostLinks extends BaseService {
                 return;
             }
             const opened = () => {
-                if (this._links.get(peerId) === link) this.emit('channel', { peerId, channel });
+                if (this._links.get(peerId) !== link) return;
+                link.open = true;
+                this.emit('channel', { peerId, channel });
             };
             if (channel.readyState === 'open') opened();
             else channel.addEventListener('open', opened, { once: true });

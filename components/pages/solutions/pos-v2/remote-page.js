@@ -113,10 +113,10 @@ export const remotePage = (Base) => class extends Base {
                 return html`
                     <div class="pos-alert" data-level="warn" data-sig-mismatch>
                         <p>這個網址的信令伺服器和這台裝置配對時不同：</p>
-                        <p>配對時：<code data-stored-sig>${connection.storedSig}</code><br>這個網址：<code data-url-sig>${connection.urlSig}</code></p>
+                        <p>配對時：<code data-stored-sig>${connection.storedSig ?? '（沒有記錄）'}</code><br>這個網址：<code data-url-sig>${connection.urlSig}</code></p>
                         <p>只有確定是店家換了信令伺服器（例如重新啟動了 Quick Tunnel）時才改用新的；來路不明的連結可能是要騙取這台裝置的授權。</p>
                     </div>
-                    <button type="button" class="btn btn-primary" data-action="keep-sig">使用配對時的信令</button>
+                    ${connection.storedSig ? html`<button type="button" class="btn btn-primary" data-action="keep-sig">使用配對時的信令</button>` : ''}
                     <button type="button" class="btn" data-action="trust-sig">改用這個網址的信令</button>`;
             }
             case REMOTE_PHASE.WRONG_ROLE: {

@@ -69,8 +69,8 @@ export function fitOrders(list, budget = TOPIC_BUDGET_BYTES) {
 }
 const LABEL_MAX = 40;
 const PAIRING_TARGET = 'pairing-code';
-/** 嘗試次數紀錄的目標數上限（桌號由對方指定） */
-const MAX_TARGETS = 256;
+/** 送單速率記錄的身分數上限 */
+const MAX_ORDER_PRINCIPALS = 256;
 
 /** 給店員裝置的訂單欄位：不含 principal、requestId 與歷程 */
 export function staffOrder(order) {
@@ -287,7 +287,8 @@ export class PosV2Hub extends BaseService {
         } catch (err) {
             // 內容太大（不應發生：推送已經依位元組截斷）。不要關掉連線，否則重連後同一份快照又送不出去
             console.warn('[pos-v2 hub] 訊息太大，未送出', err);
-            if (message.type === 'res') this._send(conn, failure(message.id, new PosError(POS_V2_ERROR_CODES.INVALID_ORDER, '回應內容太大')));
+            // 一般 Error 會回成 INTERNAL（審查 N10：不是送單內容的問題）
+            if (message.type === 'res') this._send(conn, failure(message.id, new Error('response too large')));
             return false;
         }
         try {
@@ -414,7 +415,7 @@ export class PosV2Hub extends BaseService {
         recent.push(now);
         this._orderTimes.delete(principal);
         this._orderTimes.set(principal, recent);
-        if (this._orderTimes.size > MAX_TARGETS) this._orderTimes.delete(this._orderTimes.keys().next().value);
+        if (this._orderTimes.size > MAX_ORDER_PRINCIPALS) this._orderTimes.delete(this._orderTimes.keys().next().value);
     }
 
     // ---------- 嘗試次數 ----------
@@ -431,17 +432,21 @@ export class PosV2Hub extends BaseService {
         assertAttemptAllowed(state, now);
         const recent = state.failures.filter((at) => now - at < policy.windowMs).length;
         if (recent + inFlight >= policy.maxFailures) {
-            assertAttemptAllowed({ lockedUntil: now + 1000 }, now);
+            throw Object.assign(new PosError(POS_V2_ERROR_CODES.RATE_LIMITED, '還有驗證中的請求，請稍後再試'), { retryAfterMs: 1000 });
         }
     }
 
-    /** 入桌碼與連線碼共用：冷卻中直接拒絕；碼錯誤時同時計入連線與目標 */
+    /**
+     * 入桌碼與連線碼共用：冷卻中直接拒絕；碼錯誤時計入連線，有目標時也計入目標。
+     * target 為 null（例如不存在的桌號）時只計入連線：目標的紀錄只為真的桌位與連線碼保留，
+     * 亂給的桌號不會占用紀錄，也就擠不掉其他桌正在冷卻的紀錄（審查 M6）。
+     */
     async _attempt(conn, target, run) {
         const now = this._now();
         this._assertCanTry(conn.attempts, conn.attemptsInFlight, CHANNEL_ATTEMPT_POLICY, now);
-        this._assertCanTry(this._targetState(target), this._targetInFlight.get(target) ?? 0, TARGET_ATTEMPT_POLICY, now);
+        if (target) this._assertCanTry(this._targetState(target), this._targetInFlight.get(target) ?? 0, TARGET_ATTEMPT_POLICY, now);
         conn.attemptsInFlight += 1;
-        this._targetInFlight.set(target, (this._targetInFlight.get(target) ?? 0) + 1);
+        if (target) this._targetInFlight.set(target, (this._targetInFlight.get(target) ?? 0) + 1);
         try {
             const value = await run();
             conn.attempts = registerSuccess(conn.attempts, CHANNEL_ATTEMPT_POLICY);
@@ -449,29 +454,20 @@ export class PosV2Hub extends BaseService {
         } catch (err) {
             if (err?.code === POS_V2_ERROR_CODES.CODE_INVALID) {
                 conn.attempts = registerFailure(conn.attempts, this._now(), CHANNEL_ATTEMPT_POLICY);
-                this._pruneTargets();
-                this._targetAttempts.set(target, registerFailure(this._targetState(target), this._now(), TARGET_ATTEMPT_POLICY));
-                this.emit('attempts', this.listAttempts());
+                if (target) {
+                    this._targetAttempts.set(target, registerFailure(this._targetState(target), this._now(), TARGET_ATTEMPT_POLICY));
+                    this.emit('attempts', this.listAttempts());
+                }
             }
             throw err;
         } finally {
             conn.attemptsInFlight -= 1;
-            const left = (this._targetInFlight.get(target) ?? 1) - 1;
-            if (left > 0) this._targetInFlight.set(target, left);
-            else this._targetInFlight.delete(target);
+            if (target) {
+                const left = (this._targetInFlight.get(target) ?? 1) - 1;
+                if (left > 0) this._targetInFlight.set(target, left);
+                else this._targetInFlight.delete(target);
+            }
         }
-    }
-
-    /** 目標（桌號）由對方指定：過期的紀錄先清掉，避免亂給桌號讓 Map 一直長大 */
-    _pruneTargets() {
-        if (this._targetAttempts.size < MAX_TARGETS) return;
-        const now = this._now();
-        for (const [key, state] of this._targetAttempts) {
-            const active = evaluateAttempt(state, now).retryAfterMs > 0 || state.failures.some((at) => now - at < TARGET_ATTEMPT_POLICY.windowMs);
-            if (!active) this._targetAttempts.delete(key);
-        }
-        // 還是滿的（大量不同的桌號同時在視窗內）：丟掉最舊的一筆
-        if (this._targetAttempts.size >= MAX_TARGETS) this._targetAttempts.delete(this._targetAttempts.keys().next().value);
     }
 
     // ---------- RPC ----------
@@ -515,8 +511,8 @@ export class PosV2Hub extends BaseService {
 
         async 'table.join'(conn, { tableId, code }) {
             if (conn.grants.device) throw new PosError(POS_V2_ERROR_CODES.FORBIDDEN, '店員裝置不能入桌');
-            const target = `table:${String(tableId)}`;
-            const joined = await this._attempt(conn, target, () => this.repository.joinTable({ tableId, code }));
+            const known = (await this.repository.listTables()).some((t) => t.id === tableId);
+            const joined = await this._attempt(conn, known ? `table:${tableId}` : null, () => this.repository.joinTable({ tableId, code }));
             conn.grants.table = { kind: CREDENTIAL_KIND.TABLE, id: joined.credential.id, tableId: joined.session.tableId, diningSessionId: joined.session.id };
             this.emit('connections', this.listConnections());
             return { credential: joined.credential, session: { id: joined.session.id, tableId: joined.session.tableId, status: joined.session.status }, ...(await this._snapshotResult(conn)) };
@@ -547,7 +543,10 @@ export class PosV2Hub extends BaseService {
         async 'order.place'(conn, { items, requestId, tableId = null }) {
             const { device, table } = conn.grants;
             const grant = table ?? device;
-            this._assertOrderRate(principalOf(grant));
+            const principal = principalOf(grant);
+            // 已經存在的 requestId（重送）不計入速率：主機已寫入的那筆重送時要回原訂單，不能回 RATE_LIMITED（審查 S7）
+            const resend = (await this.repository.listOrders()).some((o) => o.principal === principal && o.requestId === requestId);
+            if (!resend) this._assertOrderRate(principal);
             const outcome = await this.repository.placeOrder({ grant, items, requestId, tableId: table ? null : tableId });
             if (outcome.result === 'applied') this.notifyChanged();
             const { orders } = await this._loadData();

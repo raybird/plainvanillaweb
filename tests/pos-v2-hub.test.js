@@ -342,16 +342,22 @@ test('嘗試次數：並行送出的錯誤碼也受限制，同一條連線最�
     assert.equal(spread.filter((r) => r.reason?.code === E.RATE_LIMITED).length, 40 - calls);
 });
 
-test('嘗試次數：亂給的桌號不會讓紀錄無限增加', async (t) => {
-    const { connect, hub, repository } = setup(t);
-    // 真的 repository 對格式不合或不存在的桌也回 CODE_INVALID
-    repository.joinTable = async () => { throw new PosError(E.CODE_INVALID, '入桌碼不正確'); };
-    for (let i = 0; i < 400; i++) {
-        const { client } = connect();
-        await client.request('table.join', { tableId: `X${i}`, code: '000000' }).catch(() => {});
+test('嘗試次數：亂給的桌號不記入每桌紀錄，擠不掉正在冷卻的桌（審查 M6）', async (t) => {
+    const { connect, hub, repository, clock } = setup(t);
+    repository.openTable('A1');
+    for (let i = 0; i < 30; i++) {
+        await rejects(connect().client.request('table.join', { tableId: 'A1', code: '000000' }), E.CODE_INVALID);
+        clock.now += 100;
     }
-    const count = hub.listAttempts().length;
-    assert.ok(count > 100 && count <= 256, `目標數應有上限：${count}`);
+    await rejects(connect().client.request('table.join', { tableId: 'A1', code: '123456' }), E.RATE_LIMITED);
+    // 真的 repository 對格式不合的碼在查桌位之前就回 CODE_INVALID
+    const original = repository.joinTable.bind(repository);
+    repository.joinTable = async (input) => (input.code === 'x' ? Promise.reject(new PosError(E.CODE_INVALID, '入桌碼不正確')) : original(input));
+    for (let i = 0; i < 400; i++) {
+        await connect().client.request('table.join', { tableId: `X${i}`, code: 'x' }).catch(() => {});
+    }
+    assert.deepEqual(hub.listAttempts().map((a) => a.target), ['table:A1'], '不存在的桌號不應留下紀錄');
+    await rejects(connect().client.request('table.join', { tableId: 'A1', code: '123456' }), E.RATE_LIMITED);
 });
 
 // ---------- 推送大小與送單速率（審查 S1） ----------
@@ -385,6 +391,15 @@ test('廚房快照很大時截斷並標 truncated，連線不會被關；每一�
     await sleep(30);
     assert.equal(hub.listConnections().length, 1, '連線不應被關');
     assert.ok(sent.some((raw) => raw.includes('"kitchen"')) && sent.every((raw) => Buffer.byteLength(raw) <= MAX_MESSAGE_BYTES));
+});
+
+test('送單速率：已經存在的 requestId 重送不計入，主機已寫入的那筆照樣回原訂單（審查 S7）', async (t) => {
+    const { connect, repository } = setup(t);
+    const a = connect();
+    await a.client.request('auth', { credentials: [repository.device('order')] });
+    for (let i = 0; i < ORDER_RATE.max; i++) await a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: `a${i}` });
+    const again = await a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'a0' });
+    assert.equal(again.result, 'noop');
 });
 
 test('送單速率：同一個身分一分鐘內超過上限回 RATE_LIMITED，其他身分不受影響；時間過了恢復', async (t) => {

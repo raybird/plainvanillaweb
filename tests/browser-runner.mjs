@@ -807,7 +807,7 @@ async function runPosV2RecoveryTests(openTab, base) {
     const rig = posV2Rig(openTab, base, 'POS v2 中斷恢復');
     const { check, open, ev, q, click, phase, enterCode, order } = rig;
     try {
-        const { host, roomId, remoteHash, staff, openTable } = await rig.setup();
+        const { host, sig, roomId, remoteHash, staff, openTable } = await rig.setup();
         const { code, tableUrl } = await openTable('A1');
         const phone = await open(tableUrl, phase('need-code'));
         await enterCode(phone, code);
@@ -884,6 +884,16 @@ async function runPosV2RecoveryTests(openTab, base) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         check(await ev(phone, 'window.__opens') === 0, `主機信令重連時，手機的直連不應重建（重建 ${await ev(phone, 'window.__opens')} 次）`);
         check(await ev(phone, `${q('.pos-pill[data-online="true"]')} !== null`), '主機信令重連時，手機應維持連線');
+        // 手機自己的信令斷線重連（例如切到背景）：伺服器通知主機 peer-left，主機也不拆掉已開啟的直連（審查 S8）
+        const hostConnections = () => ev(host, `${q('page-pos-v2-admin')}.host.hub.listConnections().length`);
+        const connectionsBefore = await hostConnections();
+        await ev(phone, `${q(rig.table)}.session._remote.link.signaling._socket.close()`);
+        check(await waitFor(phone.page, `${q(rig.table)}.session._remote.link.signaling.state !== 'open'`, 5000), '手機的信令應先斷線');
+        check(await waitFor(phone.page, `${q(rig.table)}.session._remote.link.signaling.state === 'open'`, 10000), '手機的信令應自動重連');
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        check(await ev(phone, 'window.__opens') === 0, `手機信令重連時，直連不應重建（重建 ${await ev(phone, 'window.__opens')} 次）`);
+        check(await hostConnections() === connectionsBefore, '手機信令重連時，主機不應關掉它的連線');
+        check(await ev(phone, `${q('.pos-pill[data-online="true"]')} !== null`), '手機信令重連時應維持連線');
 
         // 主機分頁重新整理：裝置不用重新配對、不用重輸入桌碼
         const total = (await rig.hostOrders(host)).length;
@@ -910,12 +920,20 @@ async function runPosV2RecoveryTests(openTab, base) {
         // 審查 N9（A9）：直連逾時或 ICE 失敗時，畫面提示可能需要 TURN，並提供重試
         await ev(counter, `${q('page-pos-v2-order')}.session._setConnection({ phase: 'connecting', state: 'failed', reason: 'timeout', needTurn: true })`);
         check(await waitFor(counter.page, `${q('[data-need-turn="true"]')}?.textContent.includes('TURN') && ${q('[data-action="retry-link"]')} !== null`, 5000), '直連失敗時應提示可能需要 TURN 伺服器並提供重試');
+
+        // 審查 N15：確認改用網址的信令（同一個伺服器換個寫法，模擬店家換了信令網址）後連上主機，並改記新的信令
+        const sameServer = sig.replace('127.0.0.1', 'localhost');
+        check(await reopen(counter, remoteHash('/solutions/pos-v2/order', { sig: sameServer }), `${q('[data-sig-mismatch]')} !== null`), '信令不同時店員裝置應先請使用者確認（改用新信令）');
+        await click(counter, '[data-action="trust-sig"]');
+        check(await waitFor(counter.page, `${q('.pos-pill[data-online="true"]')} !== null`, 35000), '改用網址的信令後應連上主機');
+        const storedSig = await ev(counter, `JSON.parse(localStorage.getItem(${JSON.stringify(`vanilla_solution:${rig.ns}:credential:${roomId}`)})).sig`);
+        check(storedSig === sameServer, `改用後應記下新的信令：${storedSig}`);
     } catch (err) {
         rig.fail(err);
     } finally {
         await rig.finish();
     }
-    console.log('  POS v2 中斷恢復：信令不同時不送授權、回覆前中斷（已寫入與未寫入）、等待確認跨重新整理、主機回來自動重送不重複、主機信令重連不拆直連、主機重新整理後自動重連、管理頁取消訂單、TURN 提示');
+    console.log('  POS v2 中斷恢復：信令不同時不送授權、回覆前中斷（已寫入與未寫入）、等待確認跨重新整理、主機回來自動重送不重複、主機與手機的信令重連都不拆直連、主機重新整理後自動重連、管理頁取消訂單、TURN 提示、確認改用新信令');
     return rig.failures;
 }
 

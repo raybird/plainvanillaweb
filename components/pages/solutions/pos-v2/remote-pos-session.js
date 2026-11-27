@@ -342,7 +342,7 @@ export class RemotePosSession extends RemoteSessionBase {
 
     /** 不信任網址的信令：改用配對時的信令連線。只在 SIG_MISMATCH 時有效 */
     useStoredSignaling() {
-        if (this.phase !== REMOTE_PHASE.SIG_MISMATCH || !this.stored) return;
+        if (this.phase !== REMOTE_PHASE.SIG_MISMATCH || !this.stored?.sig) return;
         this.sig = this.stored.sig;
         this._setConnection({ phase: REMOTE_PHASE.CONNECTING });
         this._connect();

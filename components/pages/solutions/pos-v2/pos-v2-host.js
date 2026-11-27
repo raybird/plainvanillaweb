@@ -142,7 +142,6 @@ export class PosV2Host extends BaseService {
         this.links = links;
         this._signalingOffs = [
             signaling.on('state', () => this._emitStatus()),
-            signaling.on('peer-left', ({ peerId }) => this.hub?.disconnect(peerId, 'peer left signaling')),
             links.on('channel', ({ peerId, channel }) => this.hub?.attach(peerId, channel)),
         ];
         signaling.connect();

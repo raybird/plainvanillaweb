@@ -68,7 +68,7 @@
 
 1. peer 連線後收到 `{"t":"welcome","peerId":"…","hostOnline":true|false,"hostInstance":"…"|null,"iceServers":[…]}`。`iceServers` 來自伺服器設定，預設是公共 STUN；架設者要用 TURN 時在伺服器設定，主機與 peer 都使用這份清單（主機在 `host-ready` 後也會收到 `{"t":"config","iceServers":[…]}`）。
 2. 主機上線或離線時，伺服器通知所有 peer：`{"t":"host-online","instance":"…"|null}`、`{"t":"host-offline"}`。主機每次通過驗證都會送 `host-online`，包括同一個主機頁的信令重連；peer 依 `instance` 判斷主機是否換了一個（第 7 節）。
-3. peer 斷線時，伺服器通知主機：`{"t":"peer-left","peerId":"…"}`；新 peer 連線時通知主機：`{"t":"peer-joined","peerId":"…"}`。
+3. peer 斷線時，伺服器通知主機：`{"t":"peer-left","peerId":"…"}`（主機只放棄還在握手的 PeerConnection；DataChannel 已開啟的直連照常可用，由 DataChannel 的 close 與心跳逾時判斷是否斷線，審查 2 S8）；新 peer 連線時通知主機：`{"t":"peer-joined","peerId":"…"}`。
 
 ### 3.4 轉送
 
@@ -125,7 +125,7 @@
 1. 開桌時建立用餐場次 `{ id, tableId, openedAt, codeHash }` 與 6 位數入桌碼；同一桌同時只有一個開啟中的場次。管理端可以輪換入桌碼，舊碼立即失效，已取得的入桌授權不受影響。
 2. 顧客送 `table.join {tableId, code}`。成功時主機簽發入桌授權（綁定 `diningSessionId`），每支手機各自一份，principal 為 `table:<credentialId>`。
 3. 關桌時把場次標成已關閉。之後該場次的入桌授權不能送單（`SESSION_CLOSED`），但仍可查看自己已送出的訂單。再開桌會產生新場次與新入桌碼，舊授權不會自動轉移到新場次。
-4. 嘗試次數：每條 DataChannel 連續錯 5 次後冷卻 60 秒；每張桌每分鐘最多 30 次錯誤，超過後該桌 60 秒內一律回 `RATE_LIMITED`，管理頁顯示該桌的錯誤次數。冷卻期間連正確的碼也拒絕。驗證中（還沒有結果）的請求先算成一次錯誤，並行送出也不能超過上限；主機最多記 256 個目標的次數（審查 M1）。
+4. 嘗試次數：每條 DataChannel 連續錯 5 次後冷卻 60 秒；每張桌每分鐘最多 30 次錯誤，超過後該桌 60 秒內一律回 `RATE_LIMITED`，管理頁顯示該桌的錯誤次數。冷卻期間連正確的碼也拒絕。驗證中（還沒有結果）的請求先算成一次錯誤，並行送出也不能超過上限；只有存在的桌位與連線碼記入目標的次數，不存在的桌號只計入連線（審查 M1、審查 2 M6）。
 5. 連線碼（5.1）套用相同的嘗試限制，以配對票為單位計算。
 
 ### 5.3 訂單查詢授權
@@ -188,7 +188,7 @@
 
 `aheadCount` 的定義：全店狀態為待處理、且取餐序號比這筆小的訂單數；備餐中的不算。
 
-訂單清單依位元組上限（訊息上限 64 KiB 的四分之三）截斷：超過時只送前面的部分，並加上 `truncated: <沒送的筆數>`（`kitchen`、`display` 留最早的，`myOrders` 留最新的）。同一個身分每分鐘最多 `order.place` 30 次，超過回 `RATE_LIMITED`（附 `retryAfterMs`）（審查 S1）。
+訂單清單依位元組上限（訊息上限 64 KiB 的四分之三）截斷：超過時只送前面的部分，並加上 `truncated: <沒送的筆數>`（`kitchen`、`display` 留最早的，`myOrders` 留最新的）。同一個身分每分鐘最多 `order.place` 30 次，超過回 `RATE_LIMITED`（附 `retryAfterMs`）；已經存在的 `requestId`（重送）不計入（審查 S1、審查 2 S7）。
 
 ### 6.4 心跳與在線
 

@@ -476,7 +476,7 @@ export function projectCustomerOrder(order, orders) {
  * @param {number} hostStartedAt 主機這次啟動的時間
  * @returns {boolean}
  */
-export function isStationOffline(presence, now, hostStartedAt) {
+export function isStationOffline(presence, now, hostStartedAt, timeoutMs = LIMITS.PEER_TIMEOUT_MS) {
     const { connected, lastSeenAt } = presence ?? { connected: false, lastSeenAt: hostStartedAt };
-    return !connected && now - lastSeenAt > LIMITS.PEER_TIMEOUT_MS;
+    return !connected && now - lastSeenAt > timeoutMs;
 }

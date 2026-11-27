@@ -77,10 +77,13 @@ export function buildRemoteHash(path, { roomId, sig, namespace = DEFAULT_NAMESPA
     return `${route}?${params}`;
 }
 
-/** 店員裝置的授權存在 localStorage，依房間分開（協定規格 5.1） */
+/**
+ * 店員裝置的授權存在 localStorage，依房間分開（協定規格 5.1）。連同配對時的信令網址一起存：
+ * 網址帶了不同的信令時不自動送出授權（審查 S5：任何人都能拿公開桌牌上的房間編號配上自己的信令做成連結）。
+ */
 export const credentialStorageKey = (namespace, roomId) => `${solutionStorageName(namespace, 'credential')}:${roomId}`;
 
-/** @returns {{ credential: { kind: string, id: string, secret: string }, role: string, station: string | null, label: string } | null} */
+/** @returns {{ credential: { kind: string, id: string, secret: string }, role: string, station: string | null, label: string, sig?: string } | null} */
 export function loadStaffCredential(namespace, roomId) {
     try {
         const value = JSON.parse(localStorage.getItem(credentialStorageKey(namespace, roomId)) ?? 'null');
@@ -90,18 +93,18 @@ export function loadStaffCredential(namespace, roomId) {
     }
 }
 
-export function saveStaffCredential(namespace, roomId, { credential, role, station = null, label = '' }) {
-    localStorage.setItem(credentialStorageKey(namespace, roomId), JSON.stringify({ credential, role, station, label }));
+export function saveStaffCredential(namespace, roomId, { credential, role, station = null, label = '', sig }) {
+    localStorage.setItem(credentialStorageKey(namespace, roomId), JSON.stringify({ credential, role, station, label, sig }));
 }
 
 export function clearStaffCredential(namespace, roomId) {
     localStorage.removeItem(credentialStorageKey(namespace, roomId));
 }
 
-/** 顧客的入桌授權：一支手機同一個房間只記一份（最後加入的那張桌） */
+/** 顧客的入桌授權：一支手機同一個房間只記一份（最後加入的那張桌）；連同入桌時的信令網址一起存 */
 export const tableCredentialStorageKey = (namespace, roomId) => `${solutionStorageName(namespace, 'table')}:${roomId}`;
 
-/** @returns {{ credential: { kind: string, id: string, secret: string }, tableId: string, diningSessionId: string } | null} */
+/** @returns {{ credential: { kind: string, id: string, secret: string }, tableId: string, diningSessionId: string, sig?: string } | null} */
 export function loadTableCredential(namespace, roomId) {
     try {
         const value = JSON.parse(localStorage.getItem(tableCredentialStorageKey(namespace, roomId)) ?? 'null');
@@ -150,7 +153,7 @@ export function removeWatches(namespace, roomId, orderIds) {
  */
 export const pendingStorageKey = (namespace, roomId) => `${solutionStorageName(namespace, 'pending')}:${roomId}`;
 
-/** @returns {Array<{ requestId: string, items: Array<{ productId: string, qty: number }>, createdAt: number, kind: string }>} */
+/** @returns {Array<{ requestId: string, items: Array<{ productId: string, qty: number }>, createdAt: number, kind: string, credentialId: string | null }>} */
 export function loadPending(namespace, roomId, kind) {
     try {
         const list = JSON.parse(localStorage.getItem(pendingStorageKey(namespace, roomId)) ?? '[]');

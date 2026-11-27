@@ -51,14 +51,14 @@
 - `roomId` 不是 22 字元的 base64url，或 `role` 不是 `host`／`peer` 時回 400。
 - 只接受文字訊框；超過 16 KiB 的訊息以 close code 1009 關閉，二進位訊框以 1003 關閉。
 - 訊息不是含字串 `t` 的 JSON 物件、或型別不認得時回 `{"t":"error","code":"BAD_MESSAGE"}`，不關閉連線（解析時丟棄 `__proto__`、`constructor`、`prototype`）。
-- 每條連線限速：10 秒內最多 50 則訊息，超過就以 close code 4008 關閉。Worker 版的 `{"t":"ping"}` 由平台自動回應，不經過程式，也不計入限速。
+- 每條連線限速：10 秒內最多 50 則訊息，超過就以 close code 4008 關閉。已驗證的主機要回應每一台 peer 的握手，額度是 50 ×（1 + 房間目前的 peer 數）（審查 M5：裝置一多、同時重連時，固定額度會把主機關掉，主機重連又觸發所有裝置重連）。Worker 版的 `{"t":"ping"}` 由平台自動回應，不經過程式，也不計入限速。
 - 每個房間最多 64 條 peer 連線，超過就以 4009 關閉。
 - keepalive：用戶端可隨時送 `{"t":"ping"}`，伺服器回 `{"t":"pong"}`（Worker 版由平台自動回應，不喚醒 Durable Object）。Node 版另外每 30 秒送 WebSocket ping，60 秒沒有收到任何資料就以 1001 關閉。
 - `GET /healthz` 回 `{"ok":true,"protocol":1,…}`；`GET /` 顯示已帶好信令位址的主機頁連結。
 
 ### 3.2 主機席位
 
-1. 主機連線後送出 `{"t":"host-auth","secret":"<hostSecret>"}`。第一則訊息不是 `host-auth`、secret 不是 22–128 字元的 base64url，或連線 10 秒內沒有送出時，以 4001 關閉。
+1. 主機連線後送出 `{"t":"host-auth","secret":"<hostSecret>","instance":"<執行個體 id>"}`。`instance` 選填，是主機頁每次載入產生的隨機 id（8–64 字元 base64url），同一個主機頁的信令重連沿用同一個；格式不對時當作沒有。第一則訊息不是 `host-auth`、secret 不是 22–128 字元的 base64url，或連線 10 秒內沒有送出時，以 4001 關閉。
 2. **第一個連上的主機綁定房間**：房間還沒有綁定時，伺服器記下 `SHA-256(secret)`，回 `{"t":"host-ready","peers":["<peerId>", …]}`。已經綁定時，雜湊相同才回 `host-ready`，不同就以 4001 關閉（主機頁顯示「這個房間已被其他主機使用」，並提供「重新產生房間」）。
 3. 同一房間已有主機連線時，**新通過驗證的主機取代舊的**：舊連線收到 `{"t":"host-replaced"}` 後以 4002 關閉。這是主機分頁重新整理時的正常情況。
 4. 綁定的保存：Node 伺服器存在記憶體，重啟後清空；Worker 存在 Durable Object storage。房間連續 24 小時沒有主機連線時清除綁定（Node 版每 30 秒檢查一次；Worker 版在主機離線時設 alarm，時間可用 `BINDING_TTL_MS` 調整）。
@@ -66,8 +66,8 @@
 
 ### 3.3 peer
 
-1. peer 連線後收到 `{"t":"welcome","peerId":"…","hostOnline":true|false,"iceServers":[…]}`。`iceServers` 來自伺服器設定，預設是公共 STUN；架設者要用 TURN 時在伺服器設定，主機與 peer 都使用這份清單（主機在 `host-ready` 後也會收到 `{"t":"config","iceServers":[…]}`）。
-2. 主機上線或離線時，伺服器通知所有 peer：`{"t":"host-online"}`、`{"t":"host-offline"}`。
+1. peer 連線後收到 `{"t":"welcome","peerId":"…","hostOnline":true|false,"hostInstance":"…"|null,"iceServers":[…]}`。`iceServers` 來自伺服器設定，預設是公共 STUN；架設者要用 TURN 時在伺服器設定，主機與 peer 都使用這份清單（主機在 `host-ready` 後也會收到 `{"t":"config","iceServers":[…]}`）。
+2. 主機上線或離線時，伺服器通知所有 peer：`{"t":"host-online","instance":"…"|null}`、`{"t":"host-offline"}`。主機每次通過驗證都會送 `host-online`，包括同一個主機頁的信令重連；peer 依 `instance` 判斷主機是否換了一個（第 7 節）。
 3. peer 斷線時，伺服器通知主機：`{"t":"peer-left","peerId":"…"}`；新 peer 連線時通知主機：`{"t":"peer-joined","peerId":"…"}`。
 
 ### 3.4 轉送
@@ -125,7 +125,7 @@
 1. 開桌時建立用餐場次 `{ id, tableId, openedAt, codeHash }` 與 6 位數入桌碼；同一桌同時只有一個開啟中的場次。管理端可以輪換入桌碼，舊碼立即失效，已取得的入桌授權不受影響。
 2. 顧客送 `table.join {tableId, code}`。成功時主機簽發入桌授權（綁定 `diningSessionId`），每支手機各自一份，principal 為 `table:<credentialId>`。
 3. 關桌時把場次標成已關閉。之後該場次的入桌授權不能送單（`SESSION_CLOSED`），但仍可查看自己已送出的訂單。再開桌會產生新場次與新入桌碼，舊授權不會自動轉移到新場次。
-4. 嘗試次數：每條 DataChannel 連續錯 5 次後冷卻 60 秒；每張桌每分鐘最多 30 次錯誤，超過後該桌 60 秒內一律回 `RATE_LIMITED`，管理頁顯示該桌的錯誤次數。冷卻期間連正確的碼也拒絕。
+4. 嘗試次數：每條 DataChannel 連續錯 5 次後冷卻 60 秒；每張桌每分鐘最多 30 次錯誤，超過後該桌 60 秒內一律回 `RATE_LIMITED`，管理頁顯示該桌的錯誤次數。冷卻期間連正確的碼也拒絕。驗證中（還沒有結果）的請求先算成一次錯誤，並行送出也不能超過上限；主機最多記 256 個目標的次數（審查 M1）。
 5. 連線碼（5.1）套用相同的嘗試限制，以配對票為單位計算。
 
 ### 5.3 訂單查詢授權
@@ -188,6 +188,8 @@
 
 `aheadCount` 的定義：全店狀態為待處理、且取餐序號比這筆小的訂單數；備餐中的不算。
 
+訂單清單依位元組上限（訊息上限 64 KiB 的四分之三）截斷：超過時只送前面的部分，並加上 `truncated: <沒送的筆數>`（`kitchen`、`display` 留最早的，`myOrders` 留最新的）。同一個身分每分鐘最多 `order.place` 30 次，超過回 `RATE_LIMITED`（附 `retryAfterMs`）（審查 S1）。
+
 ### 6.4 心跳與在線
 
 - 主機每 5 秒對每條連線送 `ping`；peer 回 `pong`。
@@ -205,7 +207,7 @@
 | `FORBIDDEN` | 授權有效，但角色不能呼叫這個方法 |
 | `SESSION_CLOSED` | 入桌授權所屬的場次已關閉 |
 | `CODE_INVALID` | 入桌碼或連線碼錯誤 |
-| `RATE_LIMITED` | 嘗試次數超過上限，冷卻中 |
+| `RATE_LIMITED` | 嘗試次數或送單次數超過上限，冷卻中 |
 | `PAIRING_EXPIRED` | 配對票已過期 |
 | `BAD_MESSAGE` | 不合格訊息 |
 
@@ -213,10 +215,11 @@ peer 端另有兩個只在本機產生、不經過網路的狀態：`HOST_UNAVAI
 
 ## 7. 中斷恢復
 
-- peer 送出 `order.place` 前，先把 `{requestId, items, createdAt, kind}` 存進 localStorage `vanilla_solution:<ns>:pending:<roomId>`，收到成功或明確失敗的回覆後才刪除。`kind` 是 `device`（店員點餐裝置）或 `table`（顧客），兩者分開重送。逾時或通道關閉（`HOST_UNAVAILABLE`）不算明確失敗：保留，畫面顯示「等待主機確認」並清空購物車，下一筆換新的 `requestId`，同一個 `requestId` 不會被拿去送不同的內容。
+- peer 送出 `order.place` 前，先把 `{requestId, items, createdAt, kind, credentialId}` 存進 localStorage `vanilla_solution:<ns>:pending:<roomId>`，收到成功或明確失敗的回覆後才刪除。`kind` 是 `device`（店員點餐裝置）或 `table`（顧客），兩者分開重送。逾時或通道關閉（`HOST_UNAVAILABLE`）不算明確失敗：保留，畫面顯示「等待主機確認」並清空購物車，下一筆換新的 `requestId`，同一個 `requestId` 不會被拿去送不同的內容。
 - 重連後依序：`auth` → 對每筆待確認的請求以原 `requestId` 重送 `order.place` → `sync`。主機已寫入的回原訂單（`noop`），沒寫入的照常建立；明確被拒絕（例如 `SESSION_CLOSED`）的刪掉並告知。重送中又斷線就停下，留給下一次重連。畫面在這段期間顯示「等待主機確認」，不顯示送出失敗；重新整理頁面後仍顯示。
-- 授權失效（`auth` 沒有回授權、收到 `grant.revoked`）時，舊授權下的待確認請求**不改用新的授權重送**：去重鍵是「身分＋`requestId`」，換了身分，主機若已寫入就會變成兩筆。逐筆告知使用者向店員確認後刪掉。
-- 主機重新整理：從 IndexedDB 讀回房間、授權雜湊、桌位與場次，重新取得 Web Lock 與主機席位。peer 收到 `host-online` 後重新握手並 `auth`，不需要重新配對或輸入入桌碼。直連還開著卻收到 `host-online`，表示主機換了一個執行個體，舊的直連已經沒有對象：立即重連，不等心跳逾時。
+- 授權失效（`auth` 沒有回授權、收到 `grant.revoked`）或換了授權（換桌輸入入桌碼、重新配對）時，舊授權下的待確認請求**不改用新的授權重送**：去重鍵是「身分＋`requestId`」，換了身分，主機若已寫入就會變成兩筆。每筆記下送出時的 `credentialId`，重送時只送和目前授權相同的，其他的逐筆告知使用者向店員確認後刪掉（審查 M4）。
+- 主機重新整理：從 IndexedDB 讀回房間、授權雜湊、桌位與場次，重新取得 Web Lock 與主機席位。peer 收到 `host-online` 後重新握手並 `auth`，不需要重新配對或輸入入桌碼。直連還開著時，只有 `instance` 和之前知道的不同（主機換了一個執行個體，舊的直連已經沒有對象）才立即重連，不等心跳逾時；`instance` 相同表示主機只是信令重連，直連照常可用，不拆掉（ADR 0109 決策 3、審查 M5）。之前或這次沒有 `instance`（舊版信令伺服器）時不重連，交給 DataChannel 的 close 與心跳逾時。
+- 快照與推送依 `rev` 判斷新舊：`auth`／`sync` 的快照晚於較新的推送到達時，不蓋掉較新的主題；每次重新 `auth` 時 rev 從頭算（審查 S2）。
 
 ## 8. 主機端資料
 

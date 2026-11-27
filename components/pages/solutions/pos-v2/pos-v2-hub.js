@@ -33,7 +33,9 @@ import {
     BAD_MESSAGE_LIMIT,
     BUFFER_HIGH_BYTES,
     BUFFER_LOW_BYTES,
+    MAX_MESSAGE_BYTES,
     badMessage,
+    byteLength,
     encode,
     failure,
     parseMessage,
@@ -45,8 +47,30 @@ import {
 
 /** 點餐裝置畫面列出的最近訂單數 */
 const RECENT_ORDER_LIMIT = 20;
+/** 一個推送主題的訂單清單最多占的位元組；超過時只送前面的部分並標 truncated（審查 S1） */
+const TOPIC_BUDGET_BYTES = Math.floor(MAX_MESSAGE_BYTES * 0.75);
+/** 同一個身分（裝置或入桌場次）每分鐘最多送單次數 */
+export const ORDER_RATE = Object.freeze({ max: 30, windowMs: 60_000 });
+
+/**
+ * 依序放進清單，直到序列化後超過 budget 位元組為止。
+ * @returns {{ orders: object[], truncated?: number }} truncated：沒放進去的筆數
+ */
+export function fitOrders(list, budget = TOPIC_BUDGET_BYTES) {
+    const orders = [];
+    let used = 2;
+    for (const order of list) {
+        const size = byteLength(JSON.stringify(order)) + 1;
+        if (used + size > budget) return { orders, truncated: list.length - orders.length };
+        used += size;
+        orders.push(order);
+    }
+    return { orders };
+}
 const LABEL_MAX = 40;
 const PAIRING_TARGET = 'pairing-code';
+/** 嘗試次數紀錄的目標數上限（桌號由對方指定） */
+const MAX_TARGETS = 256;
 
 /** 給店員裝置的訂單欄位：不含 principal、requestId 與歷程 */
 export function staffOrder(order) {
@@ -102,6 +126,10 @@ export class PosV2Hub extends BaseService {
         this._pairings = new Map();
         /** 入桌碼與連線碼的錯誤次數（每張桌、配對碼共用一份） */
         this._targetAttempts = new Map();
+        /** 目標 → 驗證中的請求數 */
+        this._targetInFlight = new Map();
+        /** 身分 → 最近的送單時間 */
+        this._orderTimes = new Map();
         /** order.act 依序執行：判斷站台離線與寫入不會交錯（協定規格 6.4） */
         this._actQueue = Promise.resolve();
         this._flushTimer = null;
@@ -145,6 +173,7 @@ export class PosV2Hub extends BaseService {
             connectedAt: this._now(),
             lastSeenAt: this._now(),
             attempts: createAttemptState(),
+            attemptsInFlight: 0,
             paused: false,
             closed: false,
         };
@@ -208,7 +237,7 @@ export class PosV2Hub extends BaseService {
 
     _notifyWhenTakeoverAllowed(lastSeenAt) {
         if (this._disposed) return;
-        const delay = Math.max(0, lastSeenAt + LIMITS.PEER_TIMEOUT_MS + 50 - this._now());
+        const delay = Math.max(0, lastSeenAt + this._peerTimeoutMs + 50 - this._now());
         const timer = this._timers.setTimeout(() => {
             this._presenceTimers.delete(timer);
             this.notifyChanged();
@@ -252,8 +281,17 @@ export class PosV2Hub extends BaseService {
             conn.paused = true;
             return false;
         }
+        let text;
         try {
-            conn.channel.send(encode(message));
+            text = encode(message);
+        } catch (err) {
+            // 內容太大（不應發生：推送已經依位元組截斷）。不要關掉連線，否則重連後同一份快照又送不出去
+            console.warn('[pos-v2 hub] 訊息太大，未送出', err);
+            if (message.type === 'res') this._send(conn, failure(message.id, new PosError(POS_V2_ERROR_CODES.INVALID_ORDER, '回應內容太大')));
+            return false;
+        }
+        try {
+            conn.channel.send(text);
             return true;
         } catch {
             this._close(conn, 'send failed');
@@ -333,22 +371,25 @@ export class PosV2Hub extends BaseService {
         const topics = {};
         if (device?.role === 'kitchen') {
             topics.kitchen = {
-                orders: orders.filter((o) => o.status === ORDER_STATUS.PENDING || o.status === ORDER_STATUS.PREPARING).map(staffOrder),
+                ...fitOrders(orders.filter((o) => o.status === ORDER_STATUS.PENDING || o.status === ORDER_STATUS.PREPARING).map(staffOrder)),
                 stations: this.listStations(),
             };
         }
         if (device?.role === 'display') {
             // 叫號畫面要用 id 送「已取餐」，只給號碼與狀態
             const shown = new Set([ORDER_STATUS.PENDING, ORDER_STATUS.PREPARING, ORDER_STATUS.READY]);
-            topics.display = { orders: orders.filter((o) => shown.has(o.status)).map(({ id, number, status }) => ({ id, number, status })) };
+            topics.display = fitOrders(orders.filter((o) => shown.has(o.status)).map(({ id, number, status }) => ({ id, number, status })));
         }
         if (device?.role === 'order') {
             const principal = principalOf(device);
-            topics.order = { orders: orders.filter((o) => o.principal === principal).slice(-RECENT_ORDER_LIMIT).map(staffOrder) };
+            topics.order = fitOrders(orders.filter((o) => o.principal === principal).slice(-RECENT_ORDER_LIMIT).map(staffOrder));
         }
         if (table || watches.size) {
             const principal = table ? principalOf(table) : null;
-            topics.myOrders = { orders: orders.filter((o) => canViewOrder(o, { principal, watches })).map((o) => projectCustomerOrder(o, orders)) };
+            // 最新的在前，截斷時留下最近的
+            const mine = orders.filter((o) => canViewOrder(o, { principal, watches })).map((o) => projectCustomerOrder(o, orders));
+            topics.myOrders = fitOrders(mine.reverse());
+            topics.myOrders.orders.reverse();
         }
         if (table) {
             const current = tables.find((t) => t.id === table.tableId)?.session;
@@ -362,17 +403,45 @@ export class PosV2Hub extends BaseService {
         return { rev: this.rev, topics: this._topicsFor(conn, await this._loadData()) };
     }
 
+    /** 同一個身分送單太頻繁時拒絕：一支手機狂送單會讓廚房快照與 IndexedDB 一直長大 */
+    _assertOrderRate(principal) {
+        const now = this._now();
+        const recent = (this._orderTimes.get(principal) ?? []).filter((at) => now - at < ORDER_RATE.windowMs);
+        if (recent.length >= ORDER_RATE.max) {
+            this._orderTimes.set(principal, recent);
+            throw Object.assign(new PosError(POS_V2_ERROR_CODES.RATE_LIMITED, '送單太頻繁，請稍後再試'), { retryAfterMs: recent[0] + ORDER_RATE.windowMs - now });
+        }
+        recent.push(now);
+        this._orderTimes.delete(principal);
+        this._orderTimes.set(principal, recent);
+        if (this._orderTimes.size > MAX_TARGETS) this._orderTimes.delete(this._orderTimes.keys().next().value);
+    }
+
     // ---------- 嘗試次數 ----------
 
     _targetState(key) {
         return this._targetAttempts.get(key) ?? createAttemptState();
     }
 
+    /**
+     * 冷卻中、或「視窗內的錯誤＋驗證中的請求」已達上限時拒絕。驗證中的請求先算成一次錯誤：
+     * 錯誤要等雜湊與 transaction 完成才記上，同一批並行送進來的請求不能因此全部通過檢查（審查 M1）。
+     */
+    _assertCanTry(state, inFlight, policy, now) {
+        assertAttemptAllowed(state, now);
+        const recent = state.failures.filter((at) => now - at < policy.windowMs).length;
+        if (recent + inFlight >= policy.maxFailures) {
+            assertAttemptAllowed({ lockedUntil: now + 1000 }, now);
+        }
+    }
+
     /** 入桌碼與連線碼共用：冷卻中直接拒絕；碼錯誤時同時計入連線與目標 */
     async _attempt(conn, target, run) {
         const now = this._now();
-        assertAttemptAllowed(conn.attempts, now);
-        assertAttemptAllowed(this._targetState(target), now);
+        this._assertCanTry(conn.attempts, conn.attemptsInFlight, CHANNEL_ATTEMPT_POLICY, now);
+        this._assertCanTry(this._targetState(target), this._targetInFlight.get(target) ?? 0, TARGET_ATTEMPT_POLICY, now);
+        conn.attemptsInFlight += 1;
+        this._targetInFlight.set(target, (this._targetInFlight.get(target) ?? 0) + 1);
         try {
             const value = await run();
             conn.attempts = registerSuccess(conn.attempts, CHANNEL_ATTEMPT_POLICY);
@@ -380,11 +449,29 @@ export class PosV2Hub extends BaseService {
         } catch (err) {
             if (err?.code === POS_V2_ERROR_CODES.CODE_INVALID) {
                 conn.attempts = registerFailure(conn.attempts, this._now(), CHANNEL_ATTEMPT_POLICY);
+                this._pruneTargets();
                 this._targetAttempts.set(target, registerFailure(this._targetState(target), this._now(), TARGET_ATTEMPT_POLICY));
                 this.emit('attempts', this.listAttempts());
             }
             throw err;
+        } finally {
+            conn.attemptsInFlight -= 1;
+            const left = (this._targetInFlight.get(target) ?? 1) - 1;
+            if (left > 0) this._targetInFlight.set(target, left);
+            else this._targetInFlight.delete(target);
         }
+    }
+
+    /** 目標（桌號）由對方指定：過期的紀錄先清掉，避免亂給桌號讓 Map 一直長大 */
+    _pruneTargets() {
+        if (this._targetAttempts.size < MAX_TARGETS) return;
+        const now = this._now();
+        for (const [key, state] of this._targetAttempts) {
+            const active = evaluateAttempt(state, now).retryAfterMs > 0 || state.failures.some((at) => now - at < TARGET_ATTEMPT_POLICY.windowMs);
+            if (!active) this._targetAttempts.delete(key);
+        }
+        // 還是滿的（大量不同的桌號同時在視窗內）：丟掉最舊的一筆
+        if (this._targetAttempts.size >= MAX_TARGETS) this._targetAttempts.delete(this._targetAttempts.keys().next().value);
     }
 
     // ---------- RPC ----------
@@ -460,6 +547,7 @@ export class PosV2Hub extends BaseService {
         async 'order.place'(conn, { items, requestId, tableId = null }) {
             const { device, table } = conn.grants;
             const grant = table ?? device;
+            this._assertOrderRate(principalOf(grant));
             const outcome = await this.repository.placeOrder({ grant, items, requestId, tableId: table ? null : tableId });
             if (outcome.result === 'applied') this.notifyChanged();
             const { orders } = await this._loadData();
@@ -474,7 +562,7 @@ export class PosV2Hub extends BaseService {
             const device = conn.grants.device;
             const actor = device.role === 'kitchen' ? device.station : `display:${device.label || device.id}`;
             const run = async () => {
-                if (action === 'takeover' && !isStationOffline(this._presence.get(fromStation), this._now(), this.startedAt)) {
+                if (action === 'takeover' && !isStationOffline(this._presence.get(fromStation), this._now(), this.startedAt, this._peerTimeoutMs)) {
                     throw new PosError(POS_V2_ERROR_CODES.CONFLICT, `站台 ${fromStation} 仍在線，不能接手`);
                 }
                 return this.repository.transition(orderId, { action, actor, fromStation });
@@ -526,12 +614,23 @@ export class PosV2Hub extends BaseService {
     /** 撤銷授權：持有它的連線收到 `grant.revoked`，之後的請求一律 UNAUTHORIZED／FORBIDDEN */
     async revoke(credentialId) {
         const record = await this.repository.revokeCredential(credentialId);
+        const stations = new Set();
         for (const conn of this._connections.values()) {
             const { device, table } = conn.grants;
-            if (device?.id === credentialId) conn.grants.device = null;
+            if (device?.id === credentialId) {
+                const station = this._stationOf(conn);
+                if (station) stations.add(station);
+                conn.grants.device = null;
+            }
             else if (table?.id === credentialId) conn.grants.table = null;
             else continue;
             this._send(conn, push('grant.revoked', this.rev, { credentialId }));
+        }
+        // 撤銷的廚房站台立即視為離線、可以接手：授權清掉後連線關閉時已經認不出它是哪個站台（審查 M3）
+        for (const station of stations) {
+            if (!this._stationConnections(station).length) {
+                this._presence.set(station, { connected: false, lastSeenAt: this._now() - this._peerTimeoutMs - 1 });
+            }
         }
         this.emit('connections', this.listConnections());
         this.notifyChanged();
@@ -568,7 +667,7 @@ export class PosV2Hub extends BaseService {
         return [...this._presence.entries()].map(([station, presence]) => ({
             station,
             online: presence.connected,
-            takeoverAllowed: isStationOffline(presence, now, this.startedAt),
+            takeoverAllowed: isStationOffline(presence, now, this.startedAt, this._peerTimeoutMs),
         }));
     }
 

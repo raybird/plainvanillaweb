@@ -117,7 +117,7 @@ export class PosV2JoinPage extends BaseComponent {
             this.notify('管理端拒絕了這個申請。', 'warn');
         } else if (topic === 'pair.approved') {
             const { roomId, sig, namespace } = this.params;
-            saveStaffCredential(namespace, roomId, { credential: data.credential, role: data.role, station: data.station, label: data.label });
+            saveStaffCredential(namespace, roomId, { credential: data.credential, role: data.role, station: data.station, label: data.label, sig });
             location.hash = buildRemoteHash(STAFF_ROLE_PATHS[data.role], { roomId, sig, namespace, kiosk: isKioskMode(location.hash) });
         }
     }

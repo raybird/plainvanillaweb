@@ -78,7 +78,7 @@ export function reconnectDelay(attempt, delays = RECONNECT_DELAYS_MS) {
 export class SignalingClient extends BaseService {
     /**
      * @param {{
-     *   url: string, roomId: string, role: 'host' | 'peer', hostSecret?: string,
+     *   url: string, roomId: string, role: 'host' | 'peer', hostSecret?: string, hostInstance?: string,
      *   WebSocketImpl?: typeof WebSocket, timers?: { setTimeout: Function, clearTimeout: Function, setInterval: Function, clearInterval: Function },
      *   now?: () => number, delays?: readonly number[], keepaliveMs?: number, staleMs?: number,
      * }} options
@@ -88,6 +88,7 @@ export class SignalingClient extends BaseService {
         roomId,
         role,
         hostSecret,
+        hostInstance,
         WebSocketImpl = globalThis.WebSocket,
         timers = globalThis,
         now = () => Date.now(),
@@ -101,6 +102,8 @@ export class SignalingClient extends BaseService {
         this.endpoint = signalingEndpoint(url, roomId, role);
         this.role = role;
         this._hostSecret = hostSecret;
+        /** 主機頁這次載入的執行個體 id：信令重連時不變，peer 據此知道直連仍然有效 */
+        this._hostInstance = hostInstance;
         this._WebSocket = WebSocketImpl;
         this._timers = timers;
         this._now = now;
@@ -145,7 +148,7 @@ export class SignalingClient extends BaseService {
             if (this._socket !== socket) return;
             opened = true;
             this._lastMessageAt = this._now();
-            if (this.role === 'host') socket.send(JSON.stringify({ t: 'host-auth', secret: this._hostSecret }));
+            if (this.role === 'host') socket.send(JSON.stringify({ t: 'host-auth', secret: this._hostSecret, ...(this._hostInstance ? { instance: this._hostInstance } : {}) }));
             this._startKeepalive();
         });
         socket.addEventListener('message', (event) => {

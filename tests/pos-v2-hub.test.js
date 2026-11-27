@@ -10,7 +10,7 @@ import {
     principalOf,
     withV2Fields,
 } from '../components/pages/solutions/pos-v2/pos-v2-model.js';
-import { PosV2Hub } from '../components/pages/solutions/pos-v2/pos-v2-hub.js';
+import { ORDER_RATE, PosV2Hub, fitOrders } from '../components/pages/solutions/pos-v2/pos-v2-hub.js';
 import { PosV2RpcClient } from '../components/pages/solutions/pos-v2/pos-v2-rpc-client.js';
 import { BAD_MESSAGE_LIMIT, BUFFER_HIGH_BYTES, MAX_MESSAGE_BYTES, parseMessage } from '../components/pages/solutions/pos-v2/pos-v2-wire.js';
 
@@ -317,6 +317,89 @@ test('嘗試次數：同一張桌一分鐘內 30 次錯誤後鎖 60 秒（跨連
     assert.ok(a1.retryAfterMs > 0);
 });
 
+test('嘗試次數：並行送出的錯誤碼也受限制，同一條連線最多 5 筆、同一張桌最多 30 筆進到驗證（審查 M1）', async (t) => {
+    const { connect, repository } = setup(t);
+    repository.openTable('A1');
+    let calls = 0;
+    const original = repository.joinTable.bind(repository);
+    // 驗證要等一下才有結果（真的 repository 要算雜湊、跑 transaction）
+    repository.joinTable = async (input) => {
+        calls += 1;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return original(input);
+    };
+    const { client } = connect();
+    const results = await Promise.allSettled(Array.from({ length: 50 }, () => client.request('table.join', { tableId: 'A1', code: '000000' })));
+    const codes = results.map((r) => r.reason?.code);
+    assert.equal(calls, 5, '同一條連線並行 50 筆，只有 5 筆應進到驗證');
+    assert.equal(codes.filter((c) => c === E.CODE_INVALID).length, 5);
+    assert.equal(codes.filter((c) => c === E.RATE_LIMITED).length, 45);
+
+    calls = 0;
+    const clients = Array.from({ length: 40 }, () => connect().client);
+    const spread = await Promise.allSettled(clients.map((c) => c.request('table.join', { tableId: 'A1', code: '000000' })));
+    assert.ok(calls <= 25, `同一張桌跨連線並行，進到驗證的不應超過剩餘名額（30 − 5）：${calls}`);
+    assert.equal(spread.filter((r) => r.reason?.code === E.RATE_LIMITED).length, 40 - calls);
+});
+
+test('嘗試次數：亂給的桌號不會讓紀錄無限增加', async (t) => {
+    const { connect, hub, repository } = setup(t);
+    // 真的 repository 對格式不合或不存在的桌也回 CODE_INVALID
+    repository.joinTable = async () => { throw new PosError(E.CODE_INVALID, '入桌碼不正確'); };
+    for (let i = 0; i < 400; i++) {
+        const { client } = connect();
+        await client.request('table.join', { tableId: `X${i}`, code: '000000' }).catch(() => {});
+    }
+    const count = hub.listAttempts().length;
+    assert.ok(count > 100 && count <= 256, `目標數應有上限：${count}`);
+});
+
+// ---------- 推送大小與送單速率（審查 S1） ----------
+
+test('fitOrders：超過位元組上限時只放前面的部分，標出沒放進去的筆數', () => {
+    const list = Array.from({ length: 100 }, (_, i) => ({ id: `o${i}`, note: 'x'.repeat(1000) }));
+    const { orders, truncated } = fitOrders(list, 10_000);
+    assert.ok(orders.length > 0 && orders.length < 10);
+    assert.equal(orders.length + truncated, 100);
+    assert.ok(JSON.stringify(orders).length <= 10_000);
+    assert.deepEqual(fitOrders(list.slice(0, 2), 10_000), { orders: list.slice(0, 2) });
+});
+
+test('廚房快照很大時截斷並標 truncated，連線不會被關；每一則推送都在上限內', async (t) => {
+    const { connect, repository, hub } = setup(t);
+    const big = DEFAULT_MENU.slice(0, 20).map((p) => ({ productId: p.id, qty: 20 }));
+    for (let i = 0; i < 120; i++) {
+        repository.orders.push({ ...createOrder({ items: big, requestId: `r${i}`, id: `o${i}`, sequence: i + 1, now: 1, by: 'x' }, DEFAULT_MENU), principal: 'x', source: 'device', tableId: null, diningSessionId: null });
+    }
+    const kitchen = connect();
+    const sent = [];
+    const send = kitchen.hostSide.send.bind(kitchen.hostSide);
+    kitchen.hostSide.send = (raw) => {
+        sent.push(raw);
+        send(raw);
+    };
+    const auth = await kitchen.client.request('auth', { credentials: [repository.device('kitchen', 'K1')] });
+    assert.ok(auth.topics.kitchen.truncated > 0, '應標出截斷的筆數');
+    assert.ok(Buffer.byteLength(JSON.stringify(auth.topics.kitchen)) < MAX_MESSAGE_BYTES);
+    hub.notifyChanged();
+    await sleep(30);
+    assert.equal(hub.listConnections().length, 1, '連線不應被關');
+    assert.ok(sent.some((raw) => raw.includes('"kitchen"')) && sent.every((raw) => Buffer.byteLength(raw) <= MAX_MESSAGE_BYTES));
+});
+
+test('送單速率：同一個身分一分鐘內超過上限回 RATE_LIMITED，其他身分不受影響；時間過了恢復', async (t) => {
+    const { connect, repository, clock } = setup(t);
+    const a = connect();
+    const b = connect();
+    await a.client.request('auth', { credentials: [repository.device('order')] });
+    await b.client.request('auth', { credentials: [repository.device('order')] });
+    for (let i = 0; i < ORDER_RATE.max; i++) await a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: `a${i}` });
+    await assert.rejects(a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'a-over' }), (err) => err.code === E.RATE_LIMITED && err.retryAfterMs > 0);
+    assert.equal((await b.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'b0' })).result, 'applied');
+    clock.now += ORDER_RATE.windowMs;
+    assert.equal((await a.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'a-later' })).result, 'applied');
+});
+
 // ---------- 配對與撤銷 ----------
 
 test('配對：申請進入待核准清單；核准後推送授權並立即生效；拒絕推送 pair.rejected；斷線移除申請', async (t) => {
@@ -405,6 +488,26 @@ test('接手：原站台在線時拒絕；斷線未滿 15 秒仍拒絕；之後�
     ]);
     assert.deepEqual(results.map((r) => r.status).sort(), ['fulfilled', 'rejected']);
     assert.equal(results.find((r) => r.status === 'rejected').reason.code, E.CONFLICT);
+});
+
+test('撤銷廚房裝置：站台立即視為離線，其他站台可以接手它備餐中的訂單（審查 M3）', async (t) => {
+    const { connect, repository, hub, clock } = setup(t, { pingIntervalMs: 60_000 });
+    const staff = connect();
+    await staff.client.request('auth', { credentials: [repository.device('order')] });
+    const placed = await staff.client.request('order.place', { items: [{ productId: 'burger', qty: 1 }], requestId: 'x' });
+    const k1Credential = repository.device('kitchen', 'K1');
+    const k1 = connect();
+    const k2 = connect();
+    await k1.client.request('auth', { credentials: [k1Credential] });
+    await k2.client.request('auth', { credentials: [repository.device('kitchen', 'K2')] });
+    await k1.client.request('order.act', { orderId: placed.order.id, action: 'claim' });
+    await hub.revoke(k1Credential.id);
+    k1.client.close();
+    await sleep(20);
+    clock.now += 60_000;
+    assert.deepEqual(hub.listStations().find((s) => s.station === 'K1'), { station: 'K1', online: false, takeoverAllowed: true });
+    const taken = await k2.client.request('order.act', { orderId: placed.order.id, action: 'takeover', fromStation: 'K1' });
+    assert.equal(taken.order.station, 'K2');
 });
 
 test('接手：站台斷線後，到可以接手的時間點再推送一次，其他廚房看得到 takeoverAllowed', async (t) => {

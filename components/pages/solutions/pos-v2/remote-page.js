@@ -62,6 +62,17 @@ export const remotePage = (Base) => class extends Base {
             this.session?.retry();
             return;
         }
+        if (name === 'trust-sig') {
+            this.session?.trustUrlSignaling();
+            return;
+        }
+        if (name === 'keep-sig') {
+            const session = this.session;
+            session?.useStoredSignaling();
+            // 網址也換回配對時的信令（不觸發 hashchange，頁面不重建），之後複製或重新整理都用這個
+            if (session) history.replaceState(history.state, '', this.link(location.hash.replace(/^#/, '').split('?')[0]));
+            return;
+        }
         await super.onAction(name, dataset);
     }
 
@@ -97,6 +108,17 @@ export const remotePage = (Base) => class extends Base {
                 return html`<p>這台裝置還沒有配對到這個主機。</p>${join}`;
             case REMOTE_PHASE.REVOKED:
                 return html`<p class="pos-alert" data-level="warn">管理端已撤銷這台裝置的授權，請重新配對。</p>${join}`;
+            case REMOTE_PHASE.SIG_MISMATCH: {
+                // 和主機頁的 sig= 確認一致：網址帶來的信令和配對時不同，確認前不把授權送出去
+                return html`
+                    <div class="pos-alert" data-level="warn" data-sig-mismatch>
+                        <p>這個網址的信令伺服器和這台裝置配對時不同：</p>
+                        <p>配對時：<code data-stored-sig>${connection.storedSig}</code><br>這個網址：<code data-url-sig>${connection.urlSig}</code></p>
+                        <p>只有確定是店家換了信令伺服器（例如重新啟動了 Quick Tunnel）時才改用新的；來路不明的連結可能是要騙取這台裝置的授權。</p>
+                    </div>
+                    <button type="button" class="btn btn-primary" data-action="keep-sig">使用配對時的信令</button>
+                    <button type="button" class="btn" data-action="trust-sig">改用這個網址的信令</button>`;
+            }
             case REMOTE_PHASE.WRONG_ROLE: {
                 const role = connection.actualRole;
                 return html`<p>這台裝置配對的角色是「${ROLE_LABEL[role] ?? role}」。</p>

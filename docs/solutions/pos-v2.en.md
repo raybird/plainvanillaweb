@@ -32,7 +32,7 @@ A complete run:
 5. The kitchen claims and finishes the order, the display shows the number, and "Picked up" closes it. After a counter order, the order device shows an order QR code so customers without a table can follow it.
 6. "Close table" when the party leaves: the old code and already-joined pages can no longer order into the next dining session.
 
-Reset: "Reset demo data" deletes only the order database and **keeps the room**, so paired devices and printed table cards keep working. "Regenerate room" replaces the room and the host key; every QR code and paired device must be set up again, so it asks for confirmation first. Add `?ns=<name>` for a separate data set.
+Reset: "Reset demo data" deletes only the order database and **keeps the room**, so printed table cards and QR code URLs keep working. Credentials and dining sessions also live in the order database, so paired staff devices must pair again and tables must be reopened. "Regenerate room" replaces the room and the host key; every QR code and paired device must be set up again, so it asks for confirmation first. Add `?ns=<name>` for a separate data set.
 
 ### Self-hosting the signaling server
 
@@ -45,7 +45,7 @@ curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/server/si
 node signaling.mjs --tunnel
 ```
 
-`signaling.mjs` is a single file with no dependencies and runs from an empty folder. `--tunnel` starts a Quick Tunnel and prints the host page link with `sig=`. If cloudflared is missing or no URL shows up, it prints manual steps, and the signaling server keeps running at `http://127.0.0.1:8787`. The Quick Tunnel URL changes on every start: after a restart, update the host page setting and have paired devices scan again.
+`signaling.mjs` is a single file with no dependencies and runs from an empty folder. `--tunnel` starts a Quick Tunnel and prints the host page link with `sig=`. If cloudflared is missing or no URL shows up, it prints manual steps, and the signaling server keeps running at `http://127.0.0.1:8787`. The Quick Tunnel URL changes on every start: after a restart, update the host page setting and have paired devices scan again: credentials are bound to the signaling used at pairing (joining), so when a URL carries different signaling, a staff device asks whether to switch and a customer phone asks for the table code again.
 
 **Option 2: your own Cloudflare Worker** (a Cloudflare account, the free plan is enough, and Node)
 
@@ -65,8 +65,8 @@ The `https://pos-v2-signaling.<account>.workers.dev` printed after deploying is 
 
 | File | SHA-256 |
 | --- | --- |
-| `server/signaling.mjs` | `2ab30c7a5b5a4b628807ba577cb0bd72364e1a32200c32c87157eb9db94ca6ec` |
-| `server/cloudflare/worker.js` | `7f906f6ee589d320f32d9fc98764eaacc8ff1fc54fa911c605fa3a297614bdef` |
+| `server/signaling.mjs` | `031ebad490fce671a1e4851e83037a6de68fecc8d215f91a427e3ba323ad3f2e` |
+| `server/cloudflare/worker.js` | `284c76c8c8f5dcc3621240eaf2e251d44fa011b73412418034db029192854315` |
 | `server/cloudflare/wrangler.jsonc` | `4ab58993fdbcb7cecc7e521d3bb141c6c64e0bf5b5ad89d2fc5936a3335c2a76` |
 
 ## 2. Architecture
@@ -86,7 +86,7 @@ The `https://pos-v2-signaling.<account>.workers.dev` printed after deploying is 
 
 - **One host**: a Web Lock on the admin page guarantees a single host tab per namespace. The signaling server binds the room's host seat trust-on-first-use (the first host that connects with the `hostSecret`; the binding is cleared after 24 hours without a host).
 - **Remote devices hold no authoritative state**: even on the host's own computer they go through a DataChannel. Cross-device mutual exclusion comes from IndexedDB transactions running one after another on the host; it is not a distributed lock.
-- **Thin signaling**: it only relays handshake messages and stores no orders. Once a direct connection is up, losing signaling does not affect it.
+- **Thin signaling**: it only relays handshake messages and stores no orders. Once a direct connection is up, the host or a device losing and regaining signaling does not tear it down; devices rebuild the link right away only when the host is a new instance (the host tab reloaded, so the instance id in `host-online` changed).
 
 | File | Purpose |
 | --- | --- |
@@ -115,13 +115,13 @@ Authorization:
 
 | Identity | How it is obtained | What it allows |
 | --- | --- | --- |
-| Staff device | Pairing (one-time token in the QR code, or a 6-digit connection code) → the host approves and assigns a role | By role: place orders; claim, finish and take over in the kitchen; mark picked up at the display |
+| Staff device | Pairing (a pairing token in the QR code valid for 5 minutes, or a 6-digit connection code; within that time every device that applies must be approved one by one) → the host approves and assigns a role | By role: place orders; claim, finish and take over in the kitchen; mark picked up at the display |
 | Customer (joined table) | Table + table code (shared within a dining session; 5 wrong tries trigger a cool-down) | Order into the table's current session; see orders placed with this credential |
 | Order tracking | A token the host derives from `hostSecret` for a counter order | See that one order only |
 
 - **Writes**: every write runs in one `readwrite` transaction on the host that re-reads the credential, decides and writes back; an order is refused if the credential was revoked just before.
 - **Deduplication**: the key is "credential + `requestId`". Replaying someone else's `requestId` creates your own new order and never returns theirs.
-- **Transitions**: same as v1 (claim, ready, takeover, pickup, cancel). The host decides whether a remote kitchen station is alive from its connection and heartbeat; takeover is allowed only after it has been offline past the timeout.
+- **Transitions**: same as v1 (claim, ready, takeover, pickup); cancelling a pending order is done only from the order list on the admin host. The host decides whether a remote kitchen station is alive from its connection and heartbeat; takeover is allowed only after it has been offline past the timeout.
 - **Pushes**: after a write the host coalesces pushes of `kitchen`, `display`, `order`, `myOrders` and other topics within 100 ms; each device receives only what its credential may see. On a gap in the push sequence the device runs `sync`.
 - **Orders ahead**: the number of pending orders in the whole shop with a smaller sequence number.
 
@@ -130,7 +130,7 @@ Authorization:
 | Situation | Expected behavior | How it is verified |
 | --- | --- | --- |
 | Reload (device) | Credentials are in localStorage; after a reload the device reconnects and authenticates without pairing again or re-entering the table code | Browser tests |
-| Reload (host) | Room, credentials and tables come back from IndexedDB; devices reconnect immediately on `host-online` | Browser test `runPosV2RecoveryTests` |
+| Reload (host) | Room, credentials and tables come back from IndexedDB; devices see a new host instance id in `host-online` and rebuild the link immediately | Browser test `runPosV2RecoveryTests` |
 | Lost between send and reply | The order is saved locally first and shown as "Waiting for the host"; after reconnecting it is resent with the same `requestId`, and an order the host already wrote comes back as the same single order | Browser tests (lost after and before the write), `tests/pos-v2-remote-session.test.js` |
 | Late-joining device | After authenticating it gets full data for every subscribed topic | Browser tests |
 | Concurrent actions on one order | They run one after another on the host; one succeeds, the other shows that another station handled it | Browser test with two remote kitchens claiming at once |
@@ -139,7 +139,11 @@ Authorization:
 | Close and reopen a table | Old pages get `SESSION_CLOSED`, the old code gets `CODE_INVALID`, and customers still see their own orders | Browser tests |
 | Host tab closed | Devices show "Waiting for the host…" and recover when the host returns | Browser tests `runPosV2HubTests`, `runPosV2RecoveryTests` |
 | A second host tab | It cannot get the Web Lock and is read-only | Browser tests |
-| Signaling server goes down | Established links no longer use signaling and are unaffected; signaling reconnects with backoff | `tests/signaling-client.test.js` (backoff; "links unaffected" follows from the design and is not tested on its own) |
+| Signaling server goes down | Established links no longer use signaling and are unaffected; signaling reconnects with backoff. After the host's signaling reconnects, `host-online` carries the same instance id and devices keep their links | Browser test `runPosV2RecoveryTests` (the phone's link is not rebuilt when the host's signaling reconnects), `tests/signaling-client.test.js` (backoff), `tests/signaling.test.js` (instance id) |
+| Many devices reconnect at once | An authenticated host's signaling rate allowance scales with the number of peers (50 × (1 + peers) messages per 10 s), so answering every handshake does not get it closed with 4008 | `tests/signaling.test.js` |
+| The URL's signaling differs from the one used at pairing (joining) | A staff device shows both signaling URLs and asks before sending its credential; a customer phone does not send its table credential and asks for the table code again | Browser test `runPosV2RecoveryTests` |
+| Concurrent guesses of a table or connection code | Requests still being verified count as failures, so even concurrent requests on one connection let at most 5 reach verification | `tests/pos-v2-hub.test.js` |
+| Oversized pushes, ordering too often | Snapshots are cut at a byte budget and marked `truncated` without closing the connection; one principal may place at most 30 orders a minute, then gets `RATE_LIMITED` | `tests/pos-v2-hub.test.js` |
 | Direct connection fails (symmetric NAT, mobile networks) | After a timeout it shows "Cannot connect directly, TURN is needed" with a retry, instead of waiting forever | Browser test `runPosV2HubTests` (relay-only without a TURN server) |
 | Malformed messages | Replies `BAD_MESSAGE` when there is an id, drops otherwise, counts both; closes the connection after 20 | `tests/pos-v2-hub.test.js`, browser tests |
 | Slow device (backpressure) | Pushes pause while `bufferedAmount` is above 1 MiB; one fresh snapshot is sent once the buffer drains | `tests/pos-v2-hub.test.js` |

@@ -16,6 +16,7 @@ import {
     extractTunnelUrl,
     hostPageLink,
     isOriginAllowed,
+    publicOrigin,
     parseFrame,
     parseOptions,
 } from '../server/signaling.mjs';
@@ -137,6 +138,17 @@ test('extractTunnelUrl：從 cloudflared 的輸出找出 Quick Tunnel 網址', (
     assert.equal(extractTunnelUrl(output), 'https://quiet-river-sample-tunnel.trycloudflare.com');
     assert.equal(extractTunnelUrl('INF Requesting new quick Tunnel on trycloudflare.com...'), null, '說明文字裡的網域不算');
     assert.equal(extractTunnelUrl(''), null);
+});
+
+test('publicOrigin：經過代理時照 X-Forwarded-Proto；localhost 與 IP 用 http，網域名稱用 https', () => {
+    const at = (headers) => publicOrigin({ headers });
+    assert.equal(at({ host: 'localhost:8787' }), 'http://localhost:8787');
+    assert.equal(at({ host: '127.0.0.1:8787' }), 'http://127.0.0.1:8787');
+    assert.equal(at({ host: '192.168.1.5:8787' }), 'http://192.168.1.5:8787');
+    assert.equal(at({ host: '[::1]:8787' }), 'http://[::1]:8787');
+    assert.equal(at({ host: 'a-b.trycloudflare.com' }), 'https://a-b.trycloudflare.com');
+    assert.equal(at({ host: 'localhost:8787', 'x-forwarded-proto': 'https', 'x-forwarded-host': 'a-b.trycloudflare.com' }), 'https://a-b.trycloudflare.com');
+    assert.equal(at({ host: '192.168.1.5:8787', 'x-forwarded-proto': 'http' }), 'http://192.168.1.5:8787');
 });
 
 test('hostPageLink：信令位址轉成 wss 並編碼進 sig 參數', () => {
@@ -270,6 +282,52 @@ test('主機上下線：peer 收到 host-online／host-offline；主機不在時
     h.close();
     await p.next('host-offline');
     p.close();
+});
+
+test('主機執行個體：host-auth 帶的 instance 由 welcome 與 host-online 轉給 peer；格式不對時為 null', async (t) => {
+    const { url } = await startServer(t);
+    const first = connect(url, 'host');
+    await first.opened;
+    first.send({ t: 'host-auth', secret: SECRET_A, instance: 'instance-1' });
+    await first.next('host-ready');
+    const p = connect(url, 'peer');
+    const welcome = await p.next('welcome');
+    assert.equal(welcome.hostOnline, true);
+    assert.equal(welcome.hostInstance, 'instance-1');
+    // 同一個主機頁的信令重連：instance 不變，peer 據此保留直連
+    const again = connect(url, 'host');
+    await again.opened;
+    again.send({ t: 'host-auth', secret: SECRET_A, instance: 'instance-1' });
+    assert.equal((await p.next('host-online')).instance, 'instance-1');
+    // 主機頁重新整理：新的 instance
+    const reloaded = connect(url, 'host');
+    await reloaded.opened;
+    reloaded.send({ t: 'host-auth', secret: SECRET_A, instance: 'instance-2' });
+    assert.equal((await p.next('host-online')).instance, 'instance-2');
+    const legacy = connect(url, 'host');
+    await legacy.opened;
+    legacy.send({ t: 'host-auth', secret: SECRET_A, instance: 'bad id!' });
+    assert.equal((await p.next('host-online')).instance, null);
+    for (const c of [first, again, reloaded, legacy, p]) c.close();
+});
+
+test('限速：已驗證的主機額度依 peer 數放大，多台裝置同時重連時不會被 4008 關掉', async (t) => {
+    const { url } = await startServer(t);
+    const h = await host(url);
+    await h.next('host-ready');
+    const peers = [];
+    for (let i = 0; i < 20; i++) {
+        const p = connect(url, 'peer');
+        await p.next('welcome');
+        peers.push(p);
+    }
+    await sleep(50);
+    // 每台裝置回應 answer＋2 個 candidate＋結束，共 4 則；20 台 80 則，超過固定的 50 則
+    const welcomes = peers.length;
+    for (let i = 0; i < welcomes * 4; i++) h.send({ t: 'signal', to: 'nobody', data: {} });
+    const outcome = await Promise.race([h.closed, sleep(500).then(() => 'open')]);
+    assert.equal(outcome, 'open', `主機不應被關閉：${outcome}`);
+    for (const c of [h, ...peers]) c.close();
 });
 
 test('綁定逾時：房間連續一段時間沒有主機後清除綁定，其他 secret 才能綁定', INTERNAL_ONLY, async (t) => {

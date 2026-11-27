@@ -34,6 +34,7 @@ const LIMITS = {
 const CLOSE = { HOST_REJECTED: 4001, HOST_REPLACED: 4002, RATE_LIMITED: 4008, ROOM_FULL: 4009 };
 
 const ROOM_ID = /^[A-Za-z0-9_-]{22}$/;
+const HOST_INSTANCE = /^[A-Za-z0-9_-]{8,64}$/;
 const HOST_SECRET = /^[A-Za-z0-9_-]{22,128}$/;
 const encoder = new TextEncoder();
 
@@ -149,8 +150,8 @@ export class PosRoom {
         const peerId = base64url(crypto.getRandomValues(new Uint8Array(16)));
         this.ctx.acceptWebSocket(server, ['peer', `peer:${peerId}`]);
         server.serializeAttachment({ role, peerId });
-        const hostOnline = this.hosts().length > 0;
-        send(server, { t: 'welcome', peerId, hostOnline, iceServers: this.iceServers });
+        const [currentHost] = this.hosts();
+        send(server, { t: 'welcome', peerId, hostOnline: Boolean(currentHost), hostInstance: currentHost?.deserializeAttachment()?.instance ?? null, iceServers: this.iceServers });
         for (const host of this.hosts()) send(host, { t: 'peer-joined', peerId });
         return new Response(null, { status: 101, webSocket: client });
     }
@@ -159,21 +160,23 @@ export class PosRoom {
     async webSocketMessage(ws, raw) {
         if (typeof raw !== 'string') return closeSocket(ws, 1003, 'only text frames are supported');
         if (encoder.encode(raw).length > LIMITS.MAX_MESSAGE_BYTES) return closeSocket(ws, 1009, 'message too large');
-        if (!this.allowMessage(ws)) return;
+        const attachment = ws.deserializeAttachment() ?? {};
+        // 已驗證的主機要回應每一台裝置的握手：額度依 peer 數放大（與 signaling.mjs 的 hostRateLimit 相同）
+        const limit = attachment.role === 'host' && attachment.authenticated ? LIMITS.RATE_MAX_MESSAGES * (1 + this.peers().length) : LIMITS.RATE_MAX_MESSAGES;
+        if (!this.allowMessage(ws, limit)) return;
         const message = parse(raw);
         if (!message) return send(ws, { t: 'error', code: 'BAD_MESSAGE' });
         if (message.t === 'ping') return send(ws, { t: 'pong' });
-        const attachment = ws.deserializeAttachment() ?? {};
         if (attachment.role === 'host') return this.onHostMessage(ws, attachment, message);
         if (attachment.role === 'peer') return this.onPeerMessage(ws, attachment, message);
     }
 
-    allowMessage(ws) {
+    allowMessage(ws, limit = LIMITS.RATE_MAX_MESSAGES) {
         const now = Date.now();
         const recent = (this.recent.get(ws) ?? []).filter((t) => now - t < LIMITS.RATE_WINDOW_MS);
         recent.push(now);
         this.recent.set(ws, recent);
-        if (recent.length > LIMITS.RATE_MAX_MESSAGES) {
+        if (recent.length > limit) {
             closeSocket(ws, CLOSE.RATE_LIMITED, 'rate limited');
             return false;
         }
@@ -191,7 +194,8 @@ export class PosRoom {
             if (!binding) await this.ctx.storage.put('binding', hash);
             await this.ctx.storage.deleteAlarm();
             const previous = this.hosts();
-            ws.serializeAttachment({ ...attachment, authenticated: true });
+            const instance = typeof message.instance === 'string' && HOST_INSTANCE.test(message.instance) ? message.instance : null;
+            ws.serializeAttachment({ ...attachment, authenticated: true, instance });
             for (const old of previous) {
                 // 先取消舊連線的資格，close 事件送達前 hosts() 就只剩新的主機
                 old.serializeAttachment({ ...old.deserializeAttachment(), authenticated: false });
@@ -200,7 +204,7 @@ export class PosRoom {
             }
             send(ws, { t: 'host-ready', peers: this.peers().map((peer) => peer.deserializeAttachment().peerId) });
             send(ws, { t: 'config', iceServers: this.iceServers });
-            for (const peer of this.peers()) send(peer, { t: 'host-online' });
+            for (const peer of this.peers()) send(peer, { t: 'host-online', instance });
             return;
         }
         if (message.t !== 'signal' || typeof message.to !== 'string' || message.data === undefined) {

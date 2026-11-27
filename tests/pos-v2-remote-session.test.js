@@ -42,9 +42,11 @@ function fakeRemote(replies) {
     };
 }
 
-function session(Session = RemotePosSession, hash = HASH) {
+/** credentialId：這個工作階段目前持有的授權（店員裝置或入桌） */
+function session(Session = RemotePosSession, hash = HASH, credentialId = 'cred-1') {
     const s = new Session({ role: 'order', hash, onChange: () => {} });
     s._authRun = 1;
+    s.stored = { credential: { kind: 'device', id: credentialId, secret: 'x' } };
     return s;
 }
 
@@ -129,6 +131,27 @@ test('新的一輪驗證開始後，舊的一輪不再送', async () => {
     assert.equal(loadPending(NS, ROOM, 'device').length, 1);
 });
 
+test('換了授權（換桌、重新配對）：舊授權的待確認送單不改用新授權重送，逐筆告知後刪掉；同一份授權的照常重送（審查 M4）', async () => {
+    const old = session(RemotePosSession, HASH, 'cred-old');
+    old._remote = fakeRemote([lost()]);
+    await assert.rejects(old.placeOrder(ITEMS, 'req-old'));
+    const current = session(RemotePosSession, HASH, 'cred-new');
+    current._remote = fakeRemote([lost()]);
+    await assert.rejects(current.placeOrder(ITEMS, 'req-new'));
+    assert.deepEqual(loadPending(NS, ROOM, 'device').map((p) => [p.requestId, p.credentialId]), [['req-old', 'cred-old'], ['req-new', 'cred-new']]);
+
+    const s = session(RemotePosSession, HASH, 'cred-new');
+    const remote = fakeRemote([{ result: 'applied', order: order('o9', '009') }]);
+    s._remote = remote;
+    const resolved = [];
+    s.onResolved = (r) => resolved.push(r);
+    await s._flushPending(1);
+    assert.deepEqual(remote.calls.filter((c) => c.method === 'order.place').map((c) => c.params.requestId), ['req-new'], '只重送同一份授權的那一筆');
+    assert.equal(resolved.find((r) => r.requestId === 'req-old').error.code, POS_V2_ERROR_CODES.UNAUTHORIZED);
+    assert.equal(resolved.find((r) => r.requestId === 'req-new').outcome.order.number, '009');
+    assert.equal(loadPending(NS, ROOM, 'device').length, 0);
+});
+
 test('授權失效：舊授權的待確認送單不改用新授權重送，逐筆告知後刪掉', async () => {
     const first = session();
     first._remote = fakeRemote([lost()]);
@@ -153,4 +176,40 @@ test('店員裝置與顧客的待確認送單分開存', async () => {
     assert.deepEqual(loadPending(NS, ROOM, 'table').map((p) => p.requestId), ['req-table']);
     customer._dropPending('入桌授權已失效');
     assert.deepEqual(loadPending(NS, ROOM, 'device').map((p) => p.requestId), ['req-staff']);
+});
+
+test('顧客輸入入桌碼取得新的授權時，舊授權下等待確認的送單立即告知並刪掉', async () => {
+    const tableHash = `${HASH}&t=A2`;
+    const old = session(RemoteTableSession, tableHash, 'table-old');
+    old._remote = fakeRemote([lost()]);
+    await assert.rejects(old.placeOrder(ITEMS, 'req-a1'));
+    const s = session(RemoteTableSession, tableHash, 'table-old');
+    s.stored = null;
+    s._remote = {
+        isOpen: true,
+        async request(method) {
+            if (method === 'table.join') return { credential: { kind: 'table', id: 'table-new', secret: 'y' }, session: { id: 's2', tableId: 'A2' }, topics: {} };
+            if (method === 'menu.get') return { products: [] };
+            return { topics: {} };
+        },
+    };
+    const resolved = [];
+    s.onResolved = (r) => resolved.push(r);
+    await s.join('123456');
+    assert.equal(resolved.length, 1);
+    assert.equal(resolved[0].requestId, 'req-a1');
+    assert.equal(resolved[0].error.code, POS_V2_ERROR_CODES.UNAUTHORIZED);
+    assert.equal(loadPending(NS, ROOM, 'table').length, 0);
+});
+
+test('較舊的快照不覆蓋較新的推送；新的連線 rev 從頭算（審查 S2）', () => {
+    const s = session();
+    s._applyPush('order', { orders: [order('o2', '002')] }, 5);
+    s._acceptTopics({ order: { orders: [order('o1', '001')] } }, 4);
+    assert.deepEqual(s.snapshot.orders.map((o) => o.id), ['o2'], 'rev 4 的快照晚到，不應蓋掉 rev 5 的推送');
+    s._acceptTopics({ order: { orders: [order('o3', '003')] } }, 5);
+    assert.deepEqual(s.snapshot.orders.map((o) => o.id), ['o3'], '同一個 rev 照常套用');
+    s._topicRev.clear();
+    s._acceptTopics({ order: { orders: [order('o4', '004')] } }, 1);
+    assert.deepEqual(s.snapshot.orders.map((o) => o.id), ['o4']);
 });

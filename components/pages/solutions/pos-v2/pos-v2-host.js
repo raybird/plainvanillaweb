@@ -12,6 +12,7 @@ import { BaseService } from '../../../../lib/base-service.js';
 import { createMessageBus } from '../../../../lib/coordination.js';
 import { solutionStorageName } from '../solution-kit.js';
 import { createPosV2Repository } from './pos-v2-repository.js';
+import { randomToken } from './pos-v2-model.js';
 import { PosV2Hub } from './pos-v2-hub.js';
 import { HostLinks } from './peer-link.js';
 import { SIGNALING_STATE, SignalingClient } from './signaling-client.js';
@@ -46,6 +47,8 @@ export class PosV2Host extends BaseService {
         this.hub = null;
         this.signaling = null;
         this.links = null;
+        /** 這次載入的執行個體 id（協定規格 3、7）：裝置看到它變了才重建直連 */
+        this.instance = randomToken(12);
         this._releaseLock = null;
         this._abortLock = new AbortController();
         this._offs = [];
@@ -133,7 +136,7 @@ export class PosV2Host extends BaseService {
             this._emitStatus();
             return;
         }
-        const signaling = new SignalingClient({ url: this.signalingUrl, roomId: this.room.roomId, role: 'host', hostSecret: this.room.hostSecret });
+        const signaling = new SignalingClient({ url: this.signalingUrl, roomId: this.room.roomId, role: 'host', hostSecret: this.room.hostSecret, hostInstance: this.instance });
         const links = new HostLinks({ signaling });
         this.signaling = signaling;
         this.links = links;
@@ -210,6 +213,11 @@ export class PosV2Host extends BaseService {
     /** 關桌：這個場次的入桌授權不能再送單，連線中的顧客畫面收到場次已關閉 */
     closeTable(tableId) {
         return this.mutate((repository) => repository.closeTable(tableId));
+    }
+
+    /** 取消待處理訂單（只有管理主機能做）：其他狀態回報 INVALID_TRANSITION，重複取消回傳 noop */
+    cancelOrder(orderId) {
+        return this.mutate((repository) => repository.transition(orderId, { action: 'cancel', actor: 'admin' }));
     }
 
     /** 換新入桌碼：舊碼立即失效，已加入的顧客不受影響 */

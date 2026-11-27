@@ -48,9 +48,18 @@ export const CLOSE = Object.freeze({
 
 const ROOM_ID = /^[A-Za-z0-9_-]{22}$/;
 const HOST_SECRET = /^[A-Za-z0-9_-]{22,128}$/;
+/** 主機頁每次載入產生的執行個體 id（選填）：peer 據此判斷主機是否換了一個，只有換了才重建直連 */
+const HOST_INSTANCE = /^[A-Za-z0-9_-]{8,64}$/;
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 // ---------- 純函式（單元測試直接匯入） ----------
+
+/**
+ * 已驗證主機的速率額度：每台裝置握手時主機要送 answer 與數個 candidate，固定額度在裝置一多、
+ * 同時重連（例如主機重新整理）時會被 4008 關掉，接著又重連、又觸發所有裝置重連。
+ * @param {number} peers
+ */
+export const hostRateLimit = (peers) => LIMITS.RATE_MAX_MESSAGES * (1 + peers);
 
 /**
  * Origin 是否在白名單內；`http://localhost:*` 這種結尾 `:*` 的項目允許任何連接埠。
@@ -86,6 +95,19 @@ export function hostPageLink(appUrl, httpsUrl) {
     const sig = httpsUrl.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:').replace(/\/+$/, '');
     const base = appUrl.endsWith('/') ? appUrl : `${appUrl}/`;
     return `${base}#/solutions/pos-v2/admin?sig=${encodeURIComponent(sig)}`;
+}
+
+/**
+ * 這個請求從外面看到的信令網址：經過 Cloudflare Tunnel 等反向代理時，請求本身是 http，
+ * 但使用者連的是 https（審查 S6）。代理帶了 X-Forwarded-Proto 就照它；否則 localhost 與 IP 位址（直連這個程式）用 http，網域名稱用 https。
+ * @param {import('node:http').IncomingMessage} req
+ */
+export function publicOrigin(req) {
+    const host = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? 'localhost').split(',')[0].trim();
+    const forwarded = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim().toLowerCase();
+    const local = /^(localhost|\d{1,3}(\.\d{1,3}){3}|\[[0-9a-f:.]+\])(:\d+)?$/i.test(host);
+    const proto = forwarded === 'http' || forwarded === 'https' ? forwarded : local ? 'http' : 'https';
+    return `${proto}://${host}`;
 }
 
 /** @param {string} secret */
@@ -266,11 +288,12 @@ export function createSignalingServer({
         }
     };
 
-    const allowMessage = (conn) => {
+    /** limit：已驗證的主機要回應每一台裝置的握手，額度依 peer 數放大 */
+    const allowMessage = (conn, limit = LIMITS.RATE_MAX_MESSAGES) => {
         const at = now();
         conn.recent = conn.recent.filter((t) => at - t < LIMITS.RATE_WINDOW_MS);
         conn.recent.push(at);
-        if (conn.recent.length > LIMITS.RATE_MAX_MESSAGES) {
+        if (conn.recent.length > limit) {
             conn.close(CLOSE.RATE_LIMITED, 'rate limited');
             return false;
         }
@@ -296,10 +319,10 @@ export function createSignalingServer({
     };
 
     const onHostMessage = (roomId, conn, text) => {
-        if (!allowMessage(conn)) return;
+        const entry = room(roomId);
+        if (!allowMessage(conn, conn.authenticated ? hostRateLimit(entry.peers.size) : LIMITS.RATE_MAX_MESSAGES)) return;
         const message = parse(conn, text);
         if (!message) return;
-        const entry = room(roomId);
         if (!conn.authenticated) {
             if (message.t !== 'host-auth' || typeof message.secret !== 'string' || !HOST_SECRET.test(message.secret)) {
                 conn.close(CLOSE.HOST_REJECTED, 'host-auth required');
@@ -313,6 +336,7 @@ export function createSignalingServer({
             entry.binding = hash;
             const previous = entry.host;
             entry.host = conn;
+            entry.hostInstance = typeof message.instance === 'string' && HOST_INSTANCE.test(message.instance) ? message.instance : null;
             entry.lastHostAt = now();
             conn.authenticated = true;
             clearTimeout(conn.authTimer);
@@ -322,7 +346,7 @@ export function createSignalingServer({
             }
             conn.send({ t: 'host-ready', peers: [...entry.peers.keys()] });
             conn.send({ t: 'config', iceServers });
-            for (const peer of entry.peers.values()) peer.send({ t: 'host-online' });
+            for (const peer of entry.peers.values()) peer.send({ t: 'host-online', instance: entry.hostInstance });
             return;
         }
         if (message.t !== 'signal' || typeof message.to !== 'string' || message.data === undefined) {
@@ -383,7 +407,7 @@ export function createSignalingServer({
         }
         if (pathname === '/') {
             res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end(`POS v2 信令伺服器（協定 v${PROTOCOL_VERSION}）運作中。\n主機頁：${hostPageLink(appUrl, `http://${req.headers.host}`)}\n`);
+            res.end(`POS v2 信令伺服器（協定 v${PROTOCOL_VERSION}）運作中。\n主機頁：${hostPageLink(appUrl, publicOrigin(req))}\n`);
             return;
         }
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -422,7 +446,7 @@ export function createSignalingServer({
         }
         conn.peerId = randomBytes(16).toString('base64url');
         entry.peers.set(conn.peerId, conn);
-        conn.send({ t: 'welcome', peerId: conn.peerId, hostOnline: Boolean(entry.host), iceServers });
+        conn.send({ t: 'welcome', peerId: conn.peerId, hostOnline: Boolean(entry.host), hostInstance: entry.host ? entry.hostInstance : null, iceServers });
         entry.host?.send({ t: 'peer-joined', peerId: conn.peerId });
     });
 

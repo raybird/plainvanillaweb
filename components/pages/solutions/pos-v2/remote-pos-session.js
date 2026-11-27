@@ -24,6 +24,7 @@ import {
     readRemoteParams,
     remoteSupported,
     removePending,
+    saveStaffCredential,
     saveTableCredential,
 } from './pos-v2-remote.js';
 
@@ -37,6 +38,8 @@ export const REMOTE_PHASE = Object.freeze({
     REVOKED: 'revoked',
     /** 店員裝置：授權的角色和這個畫面不同 */
     WRONG_ROLE: 'wrong-role',
+    /** 店員裝置：網址的信令和配對時不同，使用者確認前不送出授權 */
+    SIG_MISMATCH: 'sig-mismatch',
     /** 桌邊：還沒有這張桌目前場次的入桌授權，要輸入入桌碼 */
     NEED_CODE: 'need-code',
     /** 桌邊：入桌授權所屬的用餐場次已關閉（仍可查看自己的訂單） */
@@ -46,7 +49,7 @@ export const REMOTE_PHASE = Object.freeze({
 });
 
 /** 連線中斷時不覆蓋的階段：重連後由 auth 重新判斷 */
-const STICKY_PHASES = new Set([REMOTE_PHASE.REVOKED, REMOTE_PHASE.WRONG_ROLE, REMOTE_PHASE.MISSING]);
+const STICKY_PHASES = new Set([REMOTE_PHASE.REVOKED, REMOTE_PHASE.WRONG_ROLE, REMOTE_PHASE.MISSING, REMOTE_PHASE.SIG_MISMATCH]);
 
 class RemoteSessionBase {
     static get supported() {
@@ -76,6 +79,8 @@ class RemoteSessionBase {
         this._remote = null;
         this._disposed = false;
         this._authRun = 0;
+        /** 主題 → 已套用的 rev */
+        this._topicRev = new Map();
         this.snapshot = {
             products: [],
             orders: [],
@@ -102,6 +107,11 @@ class RemoteSessionBase {
         return 'device';
     }
 
+    /** 目前送單用的授權 id；待確認的送單只能用同一份授權重送 */
+    get credentialId() {
+        return this.stored?.credential?.id ?? null;
+    }
+
     _syncPending() {
         const pending = this.roomId ? loadPending(this.namespace, this.roomId, this.pendingKind) : [];
         this.snapshot = { ...this.snapshot, pending };
@@ -112,7 +122,8 @@ class RemoteSessionBase {
      * 沒寫入的照常建立；明確被拒絕的刪掉並通知畫面。又斷線時停下，等下一次重連。
      */
     async _flushPending(run) {
-        this._syncPending();
+        // 不是目前這份授權送出的（換了桌、重新配對）：不改用新授權重送，逐筆告知（審查 M4）
+        this._dropPending('送出這筆時用的授權已經更換，請向店員確認這筆是否已經送出', { keep: this.credentialId });
         for (const entry of this.snapshot.pending) {
             // 又斷線重連：交給新的一輪重送
             if (this._stale(run)) return;
@@ -136,9 +147,10 @@ class RemoteSessionBase {
      * 授權失效：舊授權下的待確認送單不能改用新的授權重送（主機若已寫入會變成兩筆），逐筆告知畫面後刪掉。
      * @param {string} message
      */
-    _dropPending(message) {
+    _dropPending(message, { keep = null } = {}) {
         if (!this.roomId) return;
         for (const entry of loadPending(this.namespace, this.roomId, this.pendingKind)) {
+            if (keep && entry.credentialId === keep) continue;
             removePending(this.namespace, this.roomId, this.pendingKind, entry.requestId);
             this.onResolved?.({ requestId: entry.requestId, error: new PosError(POS_V2_ERROR_CODES.UNAUTHORIZED, message) });
         }
@@ -161,7 +173,7 @@ class RemoteSessionBase {
             this._setConnection({ ...detail, phase: STICKY_PHASES.has(this.phase) ? this.phase : REMOTE_PHASE.CONNECTING });
         });
         remote.on('open', () => this._authenticate());
-        remote.on('push', ({ topic, data }) => this._applyPush(topic, data));
+        remote.on('push', ({ topic, rev, data }) => this._applyPush(topic, data, rev));
         remote.on('gap', () => this.refresh());
         remote.start();
     }
@@ -174,6 +186,8 @@ class RemoteSessionBase {
     /** 每次 DataChannel 開啟都重新驗證：主機重新整理或換分頁後，連線上的授權要重新建立 */
     async _authenticate() {
         const run = ++this._authRun;
+        // 新的連線：主機可能換了執行個體，rev 從頭算
+        this._topicRev.clear();
         try {
             const result = await this._remote.request('auth', this._authParams());
             if (this._stale(run)) return;
@@ -194,9 +208,24 @@ class RemoteSessionBase {
         return true;
     }
 
-    _applyPush(topic, data) {
+    _applyPush(topic, data, rev) {
         if (topic === 'grant.revoked') this._onRevoked(data);
-        else this._applyTopics({ [topic]: data });
+        else this._acceptTopics({ [topic]: data }, rev);
+    }
+
+    /**
+     * 只套用比已套用的更新（rev 不小於）的主題：auth／sync 的快照在等選單等請求時，
+     * 較新的推送可能先到，晚到的快照不能把它蓋回去（審查 S2）。
+     */
+    _acceptTopics(topics = {}, rev) {
+        const fresh = {};
+        for (const [topic, data] of Object.entries(topics)) {
+            const seen = this._topicRev.get(topic);
+            if (Number.isInteger(rev) && Number.isInteger(seen) && rev < seen) continue;
+            if (Number.isInteger(rev)) this._topicRev.set(topic, rev);
+            fresh[topic] = data;
+        }
+        this._applyTopics(fresh);
     }
 
     _setConnection(detail) {
@@ -217,8 +246,8 @@ class RemoteSessionBase {
     async refresh() {
         if (!this._remote?.isOpen) return;
         try {
-            const { topics } = await this._remote.request('sync');
-            this._applyTopics(topics);
+            const { topics, rev } = await this._remote.request('sync');
+            this._acceptTopics(topics, rev);
         } catch {
             // 連線中斷時由重連後的 auth 補上
         }
@@ -231,7 +260,7 @@ class RemoteSessionBase {
     async placeOrder(items, requestId) {
         if (!this._remote) throw new Error('還沒有連上主機');
         // 先存起來：送出後才斷線時，不知道主機有沒有寫入，重連後以同一個 requestId 重送就能取回同一筆
-        addPending(this.namespace, this.roomId, { requestId, items, createdAt: Date.now(), kind: this.pendingKind });
+        addPending(this.namespace, this.roomId, { requestId, items, createdAt: Date.now(), kind: this.pendingKind, credentialId: this.credentialId });
         this._syncPending();
         let outcome;
         try {
@@ -291,6 +320,31 @@ export class RemotePosSession extends RemoteSessionBase {
             this._setConnection({ phase: REMOTE_PHASE.UNPAIRED });
             return;
         }
+        // 網址的信令和配對時不同：使用者確認前不送出授權（審查 S5）
+        if (this.stored.sig !== this.sig) {
+            this._setConnection({ phase: REMOTE_PHASE.SIG_MISMATCH, storedSig: this.stored.sig, urlSig: this.sig });
+            return;
+        }
+        this._connect();
+    }
+
+    /**
+     * 使用者確認網址的信令可信（例如店家重新啟動了 Quick Tunnel）：改記這個信令並連線。
+     * 只在 SIG_MISMATCH 時有效。
+     */
+    trustUrlSignaling() {
+        if (this.phase !== REMOTE_PHASE.SIG_MISMATCH || !this.stored) return;
+        this.stored = { ...this.stored, sig: this.sig };
+        saveStaffCredential(this.namespace, this.roomId, this.stored);
+        this._setConnection({ phase: REMOTE_PHASE.CONNECTING });
+        this._connect();
+    }
+
+    /** 不信任網址的信令：改用配對時的信令連線。只在 SIG_MISMATCH 時有效 */
+    useStoredSignaling() {
+        if (this.phase !== REMOTE_PHASE.SIG_MISMATCH || !this.stored) return;
+        this.sig = this.stored.sig;
+        this._setConnection({ phase: REMOTE_PHASE.CONNECTING });
         this._connect();
     }
 
@@ -309,7 +363,7 @@ export class RemotePosSession extends RemoteSessionBase {
             return;
         }
         if (this.role === 'order' && !(await this._loadMenu(run))) return;
-        this._applyTopics(result.topics);
+        this._acceptTopics(result.topics, result.rev);
         this._setConnection({ phase: REMOTE_PHASE.READY, state: LINK_STATE.OPEN });
         if (this.role === 'order') await this._flushPending(run);
     }
@@ -386,7 +440,8 @@ export class RemoteTableSession extends RemoteSessionBase {
         }
         this._syncPending();
         const stored = loadTableCredential(this.namespace, this.roomId);
-        this.stored = stored?.tableId === this.tableId ? stored : null;
+        // 別張桌、或入桌時的信令和網址不同（審查 S5）：不自動送出，改輸入入桌碼
+        this.stored = stored?.tableId === this.tableId && stored.sig === this.sig ? stored : null;
         this._connect();
     }
 
@@ -410,7 +465,7 @@ export class RemoteTableSession extends RemoteSessionBase {
             return;
         }
         if (!(await this._loadMenu(run))) return;
-        this._applyTopics(result.topics);
+        this._acceptTopics(result.topics, result.rev);
         // 場次已關閉時也要重送：主機若已寫入，會取回原訂單（協定規格 5.4 先查去重鍵）
         await this._flushPending(run);
     }
@@ -435,11 +490,13 @@ export class RemoteTableSession extends RemoteSessionBase {
         const run = ++this._authRun;
         const joined = await this._remote.request('table.join', { tableId: this.tableId, code: String(code ?? '').trim() });
         if (this._stale(run)) return;
-        this.stored = { credential: joined.credential, tableId: joined.session.tableId, diningSessionId: joined.session.id };
+        this.stored = { credential: joined.credential, tableId: joined.session.tableId, diningSessionId: joined.session.id, sig: this.sig };
         saveTableCredential(this.namespace, this.roomId, this.stored);
         this.grant = { id: joined.credential.id, tableId: joined.session.tableId, diningSessionId: joined.session.id };
+        // 換了一份入桌授權：舊授權下等待確認的送單不改用它重送
+        this._dropPending('送出這筆時用的入桌授權已經更換，請向店員確認這筆是否已經送出', { keep: this.credentialId });
         if (!(await this._loadMenu(run))) return;
-        this._applyTopics(joined.topics);
+        this._acceptTopics(joined.topics, joined.rev);
     }
 
     _onRevoked({ credentialId } = {}) {

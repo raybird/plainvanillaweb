@@ -767,9 +767,11 @@ function posV2Rig(openTab, base, label) {
                 const issued = await ev(host, `${q('page-pos-v2-admin')}.host.repository.approveDevice({ role: ${JSON.stringify(role)}, station: ${JSON.stringify(station ?? null)} })
                     .then((r) => ({ credential: r.credential, role: r.device.role, station: r.device.station }))`);
                 const tab = await open(`${base}tests/pos-v2-peer.html`);
-                await ev(tab, `localStorage.setItem(${JSON.stringify(`vanilla_solution:${ns}:credential:${roomId}`)}, ${JSON.stringify(JSON.stringify({ ...issued, label: '' }))})`);
+                await ev(tab, `localStorage.setItem(${JSON.stringify(`vanilla_solution:${ns}:credential:${roomId}`)}, ${JSON.stringify(JSON.stringify({ ...issued, label: '', sig }))})`);
                 await tab.page.send('Page.navigate', { url: `${base}${remoteHash(`/solutions/pos-v2/${role}`)}` });
-                check(await waitFor(tab.page, `${q('.pos-pill[data-online="true"]')} !== null`, 15000), `${role} 裝置應連上主機`);
+                // 一次直連嘗試的逾時是 15 秒，第一次沒成功時自動重試一定超過 15 秒：等久一點，失敗時附上連線歷程
+                const online = await waitFor(tab.page, `${q('.pos-pill[data-online="true"]')} !== null`, 35000);
+                check(online, `${role} 裝置應連上主機：${online ? '' : await ev(tab, `JSON.stringify([...document.querySelectorAll('*')].find((e) => e.tagName.startsWith('PAGE-POS-V2'))?.session?.snapshot?.connection ?? null)`)}`);
                 return tab;
             };
             /** 開桌，回傳入桌碼與桌牌網址 */
@@ -805,12 +807,26 @@ async function runPosV2RecoveryTests(openTab, base) {
     const rig = posV2Rig(openTab, base, 'POS v2 中斷恢復');
     const { check, open, ev, q, click, phase, enterCode, order } = rig;
     try {
-        const { host, roomId, staff, openTable } = await rig.setup();
+        const { host, roomId, remoteHash, staff, openTable } = await rig.setup();
         const { code, tableUrl } = await openTable('A1');
         const phone = await open(tableUrl, phase('need-code'));
         await enterCode(phone, code);
         check(await waitFor(phone.page, `${phase('ready')} && ${q('[data-action="add"]')} !== null`, 10000), '手機應能入桌點餐');
         const counter = await staff('order');
+
+        // 審查 S5：網址的信令和配對（入桌）時不同，不自動送出授權
+        const otherSig = 'ws://127.0.0.1:9';
+        const reopen = async (tab, hash, ready) => {
+            await tab.page.send('Page.navigate', { url: `${base}tests/pos-v2-peer.html` });
+            await tab.page.send('Page.navigate', { url: `${base}${hash}` });
+            return waitFor(tab.page, ready, 15000);
+        };
+        check(await reopen(counter, remoteHash('/solutions/pos-v2/order', { sig: otherSig }), `${q('[data-sig-mismatch]')} !== null`), '信令不同時店員裝置應先請使用者確認');
+        check(await ev(counter, `${q('page-pos-v2-order')}.session._remote === null`), '確認前不應連到網址的信令');
+        await click(counter, '[data-action="keep-sig"]');
+        check(await waitFor(counter.page, `${q('.pos-pill[data-online="true"]')} !== null`, 35000), '改回配對時的信令後應連上主機');
+        check(await reopen(phone, remoteHash('/solutions/pos-v2/table', { t: 'A1', sig: otherSig }), `${q(rig.table)}?.session !== undefined && ${q(rig.table)}.session.stored === null`), '信令不同時手機不應沿用入桌授權');
+        check(await reopen(phone, new URL(tableUrl).hash, `${phase('ready')} && ${q('[data-action="add"]')} !== null`), '回到原本的桌牌網址後應沿用入桌授權');
         const pendingKey = `vanilla_solution:${rig.ns}:pending:${roomId}`;
         const readPending = (tab) => ev(tab, `JSON.parse(localStorage.getItem(${JSON.stringify(pendingKey)}) ?? '[]')`);
         const hostReady = `${q('[data-host-role="primary"]')} !== null && ${q('[data-signaling-state="open"]')} !== null`;
@@ -860,6 +876,15 @@ async function runPosV2RecoveryTests(openTab, base) {
         check(await waitFor(counter.page, `${q('[data-pending-orders]')} === null && ${q('[data-handover]')} !== null`, 15000), '主機回來後，點餐裝置應自動重送並顯示訂單 QR Code');
         check(await countByRequest(pendingB.requestId) === 1, '主機沒寫入的那筆重送後應建立一筆');
 
+        // 主機只是信令重連（同一個主機頁）：裝置的直連照常可用，不重建（審查 M5、ADR 0109 決策 3）
+        await ev(phone, `(() => { window.__opens = 0; ${q(rig.table)}.session._remote.link.on('open', () => { window.__opens += 1; }); })()`);
+        await ev(host, `${q('page-pos-v2-admin')}.host.signaling._socket.close()`);
+        check(await waitFor(host.page, `${q('[data-signaling-state="open"]')} === null`, 5000), '主機的信令應先斷線');
+        check(await waitFor(host.page, `${q('[data-signaling-state="open"]')} !== null`, 10000), '主機的信令應自動重連');
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        check(await ev(phone, 'window.__opens') === 0, `主機信令重連時，手機的直連不應重建（重建 ${await ev(phone, 'window.__opens')} 次）`);
+        check(await ev(phone, `${q('.pos-pill[data-online="true"]')} !== null`), '主機信令重連時，手機應維持連線');
+
         // 主機分頁重新整理：裝置不用重新配對、不用重輸入桌碼
         const total = (await rig.hostOrders(host)).length;
         await host.page.send('Page.reload');
@@ -870,12 +895,27 @@ async function runPosV2RecoveryTests(openTab, base) {
         await order(phone, 'cola');
         check(await waitFor(phone.page, `document.querySelectorAll('[data-my-order]').length === 2`, 10000), '主機重新整理後，手機應能繼續點餐');
         check((await rig.hostOrders(host)).length === total + 1, '主機重新整理後送單應正常建立');
+
+        // 審查 S4：管理頁的營運統計與訂單明細，可取消待處理訂單（最新的一筆是手機剛點的可樂）
+        const cancelButton = `${q('[data-orders-panel] [data-action="cancel-order"]')}`;
+        check(await waitFor(host.page, `${cancelButton} !== null && ${q('[data-stat="revenue"]')} !== null`, 10000), '管理頁應顯示營運統計與可取消的待處理訂單');
+        const pendingCount = () => ev(host, `Number(${q('[data-stat="pending"] strong')}.textContent)`);
+        const pendingBefore = await pendingCount();
+        const cancelId = await ev(host, `${cancelButton}.dataset.orderId`);
+        await click(host, `[data-action="cancel-order"][data-order-id="${cancelId}"]`);
+        check(await waitFor(host.page, `${q(`[data-orders-panel] tr[data-order-id="${cancelId}"]`)}?.dataset.status === 'cancelled'`, 5000), '取消後訂單明細應顯示已取消');
+        check(await pendingCount() === pendingBefore - 1, '取消後待處理的統計應減一');
+        check(await waitFor(phone.page, `${q('[data-my-order][data-status="cancelled"]')} !== null`, 10000), '取消後手機的我的訂單應看到已取消');
+
+        // 審查 N9（A9）：直連逾時或 ICE 失敗時，畫面提示可能需要 TURN，並提供重試
+        await ev(counter, `${q('page-pos-v2-order')}.session._setConnection({ phase: 'connecting', state: 'failed', reason: 'timeout', needTurn: true })`);
+        check(await waitFor(counter.page, `${q('[data-need-turn="true"]')}?.textContent.includes('TURN') && ${q('[data-action="retry-link"]')} !== null`, 5000), '直連失敗時應提示可能需要 TURN 伺服器並提供重試');
     } catch (err) {
         rig.fail(err);
     } finally {
         await rig.finish();
     }
-    console.log('  POS v2 中斷恢復：回覆前中斷（已寫入與未寫入）、等待確認跨重新整理、主機回來自動重送不重複、主機重新整理後自動重連');
+    console.log('  POS v2 中斷恢復：信令不同時不送授權、回覆前中斷（已寫入與未寫入）、等待確認跨重新整理、主機回來自動重送不重複、主機信令重連不拆直連、主機重新整理後自動重連、管理頁取消訂單、TURN 提示');
     return rig.failures;
 }
 

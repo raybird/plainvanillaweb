@@ -3,7 +3,8 @@ import { html } from '../../../../lib/html.js';
 import { router } from '../../../../lib/router.js';
 import { VERSION } from '../../../../lib/version.js';
 import { resolveNamespace } from '../solution-kit.js';
-import { ORDER_STATUS } from '../pos/pos-model.js';
+import { ORDER_STATUS, STATUS_LABEL, summarizeOrders } from '../pos/pos-model.js';
+import { formatMoney, formatTime } from '../pos/pos-page.js';
 import { HOST_ROLE, PosV2Host } from './pos-v2-host.js';
 import { HOME_PATH, JOIN_PATH, ROLE_LABEL as STAFF_ROLE_LABEL, TABLE_PATH, buildRemoteHash } from './pos-v2-remote.js';
 import { qrCode } from './remote-page.js';
@@ -53,7 +54,7 @@ const formatClock = (ts) => new Date(ts).toLocaleTimeString('zh-TW', { hour12: f
 /** 已連線裝置的身分說明 */
 function describeConnection(conn) {
     if (conn.device) {
-        const role = { order: '點餐', kitchen: '廚房', display: '叫號' }[conn.device.role] ?? conn.device.role;
+        const role = STAFF_ROLE_LABEL[conn.device.role] ?? conn.device.role;
         return `${role}${conn.device.station ? ` · ${conn.device.station}` : ''}${conn.device.label ? ` · ${conn.device.label}` : ''}`;
     }
     if (conn.table) return `顧客 · ${conn.table.tableId}`;
@@ -63,7 +64,7 @@ function describeConnection(conn) {
 
 /**
  * POS v2 管理主機（#16）：主機分頁（Web Lock 單例，其他管理分頁唯讀）、信令設定（A9）、
- * 房間與已連線裝置。配對與桌位管理在 P5、P6 加入。
+ * 房間與已連線裝置、店員裝置配對、桌位、營運統計與訂單明細（可取消待處理訂單）。
  *
  * 網址帶來的 `sig` 不會直接套用：信令伺服器在信任範圍內（ADR 0109 決策 5），
  * 任何人都能做出帶 `sig` 的連結，所以要使用者確認後才儲存。
@@ -236,6 +237,11 @@ export class PosV2AdminPage extends BaseComponent {
                     await this.host.closeTable(dataset.tableId);
                     this.tableCodes.delete(dataset.tableId);
                     return `${dataset.tableId} 桌已關桌，這次用餐的入桌授權不能再送單。`;
+                });
+            case 'cancel-order':
+                return this.runHostAction(async () => {
+                    const { result, order } = await this.host.cancelOrder(dataset.orderId);
+                    return result === 'noop' ? `訂單 ${order.number} 已經取消` : `已取消訂單 ${order.number}`;
                 });
             case 'print-tables':
                 window.print();
@@ -429,7 +435,7 @@ export class PosV2AdminPage extends BaseComponent {
             ${this.pairings.length ? html`
                 <ul class="pos-approvals">
                     ${this.pairings.map((p) => html`
-                        <li data-pairing="${p.id}">
+                        <li id="pos-v2-pairing-${p.id}" data-pairing="${p.id}">
                             <div><strong>${p.label || '未命名裝置'}</strong> <span class="pos-muted">${formatClock(p.requestedAt)} · ${p.connectionId.slice(0, 6)}</span></div>
                             <div class="pos-actions">
                                 <select name="role" aria-label="角色">
@@ -441,6 +447,50 @@ export class PosV2AdminPage extends BaseComponent {
                             </div>
                         </li>`)}
                 </ul>` : html`<p class="pos-muted">裝置送出申請後會出現在這裡。</p>`}
+        `;
+    }
+
+    /** 營運統計與訂單明細（沿用第一代的 summarizeOrders）；取消待處理訂單只在主機分頁 */
+    renderOrders() {
+        const orders = this.data.orders;
+        const summary = summarizeOrders(orders);
+        const recent = [...orders].sort((a, b) => b.createdAt - a.createdAt).slice(0, 50);
+        const canCancel = this.hostStatus?.role === HOST_ROLE.PRIMARY;
+        return html`
+            <section class="pos-card" aria-labelledby="pos-v2-orders-title" data-orders-panel>
+                <h3 id="pos-v2-orders-title">營運統計</h3>
+                <div class="pos-stats" aria-label="統計">
+                    ${Object.values(ORDER_STATUS).map((status) => html`
+                        <div class="pos-stat" data-stat="${status}"><strong>${summary.counts[status]}</strong><span>${STATUS_LABEL[status]}</span></div>
+                    `)}
+                    <div class="pos-stat" data-stat="revenue"><strong>${formatMoney(summary.revenue)}</strong><span>營收（不含取消，未收款）</span></div>
+                    <div class="pos-stat" data-stat="avg-prep"><strong>${summary.avgPrepMs === null ? '—' : `${(summary.avgPrepMs / 1000).toFixed(1)} 秒`}</strong><span>平均備餐時間</span></div>
+                </div>
+                ${summary.topItems.length ? html`
+                    <p class="pos-muted" data-top-items>熱銷：${summary.topItems.map((item) => `${item.emoji} ${item.name} × ${item.qty}`).join('、')}</p>` : ''}
+                <h4>訂單明細（最新 50 筆）</h4>
+                ${recent.length ? html`
+                    <div class="pos-table-wrap" tabindex="0" role="region" aria-label="訂單明細表">
+                        <table class="pos-table">
+                            <thead><tr><th>號碼</th><th>桌號</th><th>品項</th><th>金額</th><th>狀態</th><th>站台</th><th>更新</th><th></th></tr></thead>
+                            <tbody>
+                                ${recent.map((o) => html`
+                                    <tr id="pos-v2-order-${o.id}" data-order-id="${o.id}" data-order-number="${o.number}" data-status="${o.status}">
+                                        <td>${o.number}</td>
+                                        <td>${o.tableId ?? '—'}</td>
+                                        <td>${o.items.map((line) => `${line.name}×${line.qty}`).join('、')}</td>
+                                        <td>${formatMoney(o.total)}</td>
+                                        <td>${STATUS_LABEL[o.status]}</td>
+                                        <td>${o.station ?? '—'}</td>
+                                        <td>${formatTime(o.updatedAt)}</td>
+                                        <td>${canCancel && o.status === ORDER_STATUS.PENDING ? html`<button type="button" class="btn" data-action="cancel-order" data-order-id="${o.id}">取消</button>` : ''}</td>
+                                    </tr>
+                                `)}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : html`<p class="pos-muted">還沒有訂單。</p>`}
+            </section>
         `;
     }
 
@@ -669,7 +719,14 @@ export class PosV2AdminPage extends BaseComponent {
                     [data-print-area] { position: absolute; inset: 0 auto auto 0; width: 100%; grid-template-columns: repeat(3, 1fr); color: #000; }
                     .pos-table-card { break-inside: avoid; padding: 1rem; border: 1px dashed #999; }
                 }
-                [data-pairing-panel] h4, .pos-card .pos-connections + h4 { margin-top: 1rem; }
+                [data-pairing-panel] h4, .pos-card .pos-connections + h4, [data-orders-panel] h4 { margin-top: 1rem; }
+                .pos-stats { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+                .pos-stat { padding: 0.75rem; border-radius: 10px; border: 1px solid var(--border-color); background: var(--surface-color); }
+                .pos-stat strong { display: block; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+                .pos-stat span { font-size: 0.8rem; color: var(--text-muted); }
+                .pos-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+                .pos-table th, .pos-table td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+                .pos-table-wrap { overflow-x: auto; }
                 details[data-guide] > summary { cursor: pointer; font-weight: 600; }
             </style>
             <section class="pos-page" data-pos-role="admin" data-pos-version="2">
@@ -693,6 +750,7 @@ export class PosV2AdminPage extends BaseComponent {
                         <h3 id="pos-v2-pair-title">店員裝置配對</h3>
                         ${this.renderPairing()}
                     </section>` : ''}
+                ${this.data ? this.renderOrders() : ''}
                 ${this.data?.tables?.length ? html`
                     <section class="pos-card" aria-labelledby="pos-v2-tables-title" data-tables-panel>
                         <h3 id="pos-v2-tables-title">桌位</h3>

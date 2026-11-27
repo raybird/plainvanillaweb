@@ -66,22 +66,27 @@ export class HostLinks extends BaseService {
 
     async _onSignal(peerId, data) {
         if (!peerId || peerId === 'host' || !data || typeof data !== 'object') return;
+        // 記下處理的是哪一條：await 期間同一個 peer 可能已經重新發起，失敗時只關這一條，不關較新的（審查 N1）
+        let link = this._links.get(peerId);
         try {
-            if (data.kind === 'offer' && typeof data.sdp === 'string') await this._answer(peerId, data.sdp);
-            else if (data.kind === 'candidate') await this._links.get(peerId)?.candidates.add(data.candidate);
+            if (data.kind === 'offer' && typeof data.sdp === 'string') {
+                link = null;
+                await this._answer(peerId, data.sdp, (created) => { link = created; });
+            } else if (data.kind === 'candidate') await link?.candidates.add(data.candidate);
             else if (data.kind === 'restart') this.close(peerId);
         } catch (err) {
             console.warn('[pos-v2] 處理 WebRTC 握手失敗', peerId, err);
-            this.close(peerId);
+            if (link && this._links.get(peerId) === link) this.close(peerId);
         }
     }
 
-    async _answer(peerId, sdp) {
+    async _answer(peerId, sdp, onCreated) {
         // 同一個 peer 重新發起：放棄舊的 PeerConnection
         this.close(peerId);
         const pc = new this._RTCPeerConnection({ iceServers: this.signaling.iceServers });
         const link = { pc, candidates: new CandidateQueue(pc) };
         this._links.set(peerId, link);
+        onCreated?.(link);
         pc.addEventListener('icecandidate', (event) => {
             this.signaling.sendSignal({ kind: 'candidate', candidate: candidateJson(event.candidate) }, peerId);
         });
@@ -161,6 +166,8 @@ export class PeerLink extends BaseService {
         this._current = null;
         this._retryTimer = null;
         this._hostOnline = false;
+        /** 最近一次知道的主機執行個體 id */
+        this._hostInstance = null;
         this.channel = null;
         this._offs = [];
     }
@@ -173,21 +180,25 @@ export class PeerLink extends BaseService {
         if (this._offs.length) return;
         const s = this.signaling;
         this._offs = [
-            s.on('welcome', ({ hostOnline }) => {
+            s.on('welcome', ({ hostOnline, hostInstance }) => {
                 this._hostOnline = Boolean(hostOnline);
+                const instanceChanged = this._instanceChanged(hostInstance);
                 // DataChannel 建立後不再依賴信令：信令重連時不要丟掉仍然正常的直連。
                 // 握手中則要重來：信令重連後 peerId 換了，主機的 answer 會送到舊的 id
-                if (this._state === LINK_STATE.OPEN) return;
+                if (this._state === LINK_STATE.OPEN) {
+                    if (instanceChanged) this._restartOpenLink();
+                    return;
+                }
                 if (this._hostOnline) this._connectNow();
                 else this._setState(LINK_STATE.WAITING_HOST);
             }),
-            s.on('host-online', () => {
+            s.on('host-online', ({ instance }) => {
                 this._hostOnline = true;
-                // 直連還開著卻收到 host-online：主機換了一個執行個體（例如主機分頁重新整理），舊的直連已經沒有對象。
-                // 不等心跳逾時（15 秒），立即重連（協定規格 7）
+                const instanceChanged = this._instanceChanged(instance);
+                // 直連還開著：主機只是信令重連時，直連照常可用，不要拆掉（ADR 0109 決策 3）；
+                // 主機換了執行個體（主機分頁重新整理）時舊的直連已經沒有對象，不等心跳逾時，立即重連（協定規格 7）
                 if (this._state === LINK_STATE.OPEN) {
-                    this.reconnect();
-                    this._connectNow();
+                    if (instanceChanged) this._restartOpenLink();
                     return;
                 }
                 // 收到 host-online 立即重試：等待中、退避中或上一次已失敗都一樣（協定規格 4.4）
@@ -313,6 +324,21 @@ export class PeerLink extends BaseService {
         this._abandon(reason);
         this.signaling.sendSignal({ kind: 'restart' });
         this._setState(LINK_STATE.FAILED, { reason, needTurn: reason === 'timeout' || reason === 'ice-failed' });
+    }
+
+    /**
+     * 記下主機的執行個體 id，回傳是否換了一個。之前或這次沒有 id（舊版信令伺服器）時不算：
+     * 交給 DataChannel 的 close 與心跳判斷。
+     */
+    _instanceChanged(instance) {
+        const previous = this._hostInstance;
+        if (typeof instance === 'string' && instance) this._hostInstance = instance;
+        return Boolean(previous && instance && instance !== previous);
+    }
+
+    _restartOpenLink() {
+        this.reconnect();
+        this._connectNow();
     }
 
     _scheduleReconnect() {

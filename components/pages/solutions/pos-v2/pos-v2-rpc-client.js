@@ -78,12 +78,6 @@ export class PosV2RpcClient extends BaseService {
         });
     }
 
-    /** 收到完整快照（auth／sync／order.watch 的結果）時呼叫，讓之後的跳號判斷以它為準 */
-    acceptSnapshot({ rev, topics } = {}) {
-        if (Number.isInteger(rev)) this.lastRev = Math.max(this.lastRev, rev);
-        for (const [topic, data] of Object.entries(topics ?? {})) this.emit('push', { topic, rev, data, snapshot: true });
-    }
-
     _receive(raw) {
         this.lastSeenAt = this._now();
         const parsed = parseMessage(raw);

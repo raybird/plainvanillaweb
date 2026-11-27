@@ -19,7 +19,7 @@ export const formatTime = (ts) => new Date(ts).toLocaleTimeString('zh-TW', { hou
  * 快照不放進 reactive state：它含 Set，而且每次都整份替換，直接存在欄位再排程重繪即可。
  *
  * 擴充點（POS v2 #16 用來重用點餐、廚房、叫號畫面；預設值就是第一代的行為）：`static Session`
- * 換成介面相同的工作階段類別，`titlePrefix`、`hubPath`、`hubLabel`、`unsupportedText` 換標頭與提示，
+ * 換成介面相同的工作階段類別，`meta`、`titlePrefix`、`hubPath`、`hubLabel`、`unsupportedText` 換標頭與提示，
  * `renderStatusPill(snapshot)` 換標頭的連線狀態。
  */
 export class PosRolePage extends BaseComponent {
@@ -28,6 +28,8 @@ export class PosRolePage extends BaseComponent {
 
     /** 工作階段類別：要有 `supported`、建構參數 `{ role, onChange }`，以及 `start`、`dispose`、`namespace`、`nsOption` */
     static Session = PosSession;
+    /** 標題的圖示與名稱；未設定時依 `role` 取 `POS_ROLES` */
+    static meta = null;
     static titlePrefix = 'POS';
     static hubPath = '/solutions/pos';
     static hubLabel = 'POS 入口';
@@ -117,7 +119,7 @@ export class PosRolePage extends BaseComponent {
 
     render() {
         const { role, titlePrefix, hubPath, hubLabel, unsupportedText } = this.constructor;
-        const meta = POS_ROLES[role] ?? { title: '入口', icon: '🏪' };
+        const meta = this.constructor.meta ?? POS_ROLES[role] ?? { title: '入口', icon: '🏪' };
         const snapshot = this.snapshot;
         const notice = this.state.notice;
         let body;

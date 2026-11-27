@@ -96,10 +96,18 @@
 
 ### P6 顧客端
 
-- [ ] 管理端桌位管理：開桌、關桌、輪換入桌碼、列印用的桌牌 QR Code。
-- [ ] 顧客路由：共用首頁（列出已開放的桌號）、桌牌入口、輸入入桌碼、點餐與加點、我的訂單（取餐號、進度、前面待備餐筆數）。
-- [ ] 櫃檯交接：點餐裝置的顧客側畫面顯示取餐號與訂單 QR Code；查單頁只能看那一筆。
-- [ ] 瀏覽器測試：A4、A5、A6。
+- [x] 管理端桌位管理：開桌、關桌、輪換入桌碼、列印用的桌牌 QR Code。
+- [x] 顧客路由：共用首頁（列出已開放的桌號）、桌牌入口、輸入入桌碼、點餐與加點、我的訂單（取餐號、進度、前面待備餐筆數）。
+- [x] 櫃檯交接：點餐裝置的顧客側畫面顯示取餐號與訂單 QR Code；查單頁只能看那一筆。
+- [x] 瀏覽器測試：A4、A5、A6。
+- 結果（2026-11-27）：
+  - 第一代再加兩個相容的擴充點：`PosRolePage` 的 `static meta`（標題），`PosKitchenPage` 的 `renderTicketExtra(order)`（第二代顯示桌號與場次）；第一代測試仍未修改、全部通過（A8）。
+  - `remote-pos-session.js` 拆成共用基底與兩個工作階段：店員的 `RemotePosSession`、顧客的 `RemoteTableSession`（入桌授權存在 `vanilla_solution:<ns>:table:<roomId>`；場次關閉後顯示「用餐已結束」與自己的訂單，可輸入新的入桌碼）。桌邊點餐頁沿用第一代點餐元件，前面加入桌碼表單、後面加「我的訂單」與前面待備餐筆數。
+  - `PosV2CustomerPages.js`：`/home`（已開桌清單與「店員加入」）、`/table?t=`、`/track?o=&k=`（`order.watch`，查詢授權存在 `vanilla_solution:<ns>:watches:<roomId>`）。點餐裝置送單後顯示訂單 QR Code（`PosV2StaffPages.js`）。
+  - 主機頁：桌位清單（開桌、關桌、換新入桌碼、這個場次的訂單數、入桌碼錯誤次數）。入桌碼只在開桌或換新時顯示一次，存在主機分頁的記憶體，重新整理後要換新才看得到（主機只存雜湊）。桌牌 QR Code（店家入口＋每張桌）可列印：`@media print` 只印桌牌，以 `Page.printToPDF` 確認為單頁；直接按 Ctrl+P 時以 `beforeprint` 展開收合的區塊。QR Code 依網址快取，主機頁重繪不再重算。
+  - `tests/browser-runner.mjs`：`openTab({ isolated: true })` 以 `Target.createBrowserContext` 開獨立的瀏覽器環境，模擬不同裝置（localStorage 不互通）；店員與顧客測試的每台裝置都用它。`runPosV2CustomerTests`：店家入口選桌與桌牌兩種入口、只有桌號時 `UNAUTHORIZED`、同桌兩支手機共用入桌碼、廚房看到兩筆同桌同場次、主機的場次訂單數、前面筆數由 1 變 0、手機看不到別人的訂單、假 token 查單被拒、拿別人的 `requestId` 只建立自己的新單、櫃檯訂單 QR Code 交接並隨認領更新、輸錯 5 次後冷卻（正確碼也拒絕）、關桌後仍看得到自己的訂單、再開桌後舊頁面 `SESSION_CLOSED`、舊碼 `CODE_INVALID`、新碼可以再點餐。本機連跑 3 次穩定（店員＋顧客約 39 秒）。
+  - 手機尺寸（390×844）的桌邊點餐頁以截圖確認亮暗兩種主題。實機部分（A4、A6 的 iOS Safari／Android Chrome）併入 A10。
+  - 完整檢查時 Farm（#11）的多分頁測試偶發一次「只有 1 個節點處理到圖片」，重跑通過；和本次變更無關，記錄備查。
 
 ### P7 中斷恢復
 

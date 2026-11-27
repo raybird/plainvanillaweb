@@ -38,6 +38,7 @@
 | `/solutions/pos-v2/track` | 訂單查詢（櫃檯交接） | `o`：訂單 id，`k`：查詢 token |
 | `/solutions/pos-v2/order`、`/kitchen`、`/display` | 已配對店員裝置的角色畫面 | 無 |
 
+- **顧客端的本機資料**：入桌授權存在 localStorage `vanilla_solution:<ns>:table:<roomId>`（`{credential, tableId, diningSessionId}`，一支手機同一個房間只記最後加入的那張桌）；訂單查詢授權存在 `vanilla_solution:<ns>:watches:<roomId>`（最多 50 筆）。
 - **連線碼的前提**：輸入連線碼的裝置要先開啟帶 `room` 與 `sig` 的網址：店家入口（`home`）的「店員加入」，或主機頁上「店員加入頁」的連結（`join` 不帶 `pair`）。只有連線碼、沒有店家入口網址時無法加入。連線碼只在 DataChannel 內驗證，不經過信令伺服器。
 - 主機頁從網址參數拿到 `sig` 時，要使用者確認才儲存。遠端裝置直接使用 QR Code 帶來的 `sig`：QR Code 由主機產生，信令伺服器由測試者自架，在信任範圍內（ADR 0109 決策 5）。
 

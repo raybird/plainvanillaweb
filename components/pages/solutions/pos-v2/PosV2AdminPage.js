@@ -1,12 +1,12 @@
 import { BaseComponent } from '../../../../lib/base-component.js';
-import { html, unsafe } from '../../../../lib/html.js';
+import { html } from '../../../../lib/html.js';
 import { router } from '../../../../lib/router.js';
 import { VERSION } from '../../../../lib/version.js';
 import { resolveNamespace } from '../solution-kit.js';
 import { ORDER_STATUS } from '../pos/pos-model.js';
 import { HOST_ROLE, PosV2Host } from './pos-v2-host.js';
-import { JOIN_PATH, ROLE_LABEL as STAFF_ROLE_LABEL, buildRemoteHash } from './pos-v2-remote.js';
-import { encodeQr, qrToSvg } from './qr-code.js';
+import { HOME_PATH, JOIN_PATH, ROLE_LABEL as STAFF_ROLE_LABEL, TABLE_PATH, buildRemoteHash } from './pos-v2-remote.js';
+import { qrCode } from './remote-page.js';
 import { SIGNALING_STATE } from './signaling-client.js';
 import {
     CLOUDFLARED_INSTALL_URL,
@@ -39,15 +39,6 @@ const SIGNALING_LABEL = {
     [SIGNALING_STATE.REPLACED]: '另一個主機分頁取代了這個分頁',
     [SIGNALING_STATE.CLOSED]: '未連線',
 };
-
-/** QR Code 的 SVG 只含 qrToSvg 產生的路徑，可以直接插入；網址超過 QR Code 容量時改顯示說明 */
-function unsafeSvg(text) {
-    try {
-        return unsafe(qrToSvg(encodeQr(text)));
-    } catch (err) {
-        return html`<span class="pos-qr-error">${err.message}；請改用連結或連線碼。</span>`;
-    }
-}
 
 /** 下一個沒人用的廚房站台名稱：K1、K2… */
 function nextStationName(devices) {
@@ -106,6 +97,10 @@ export class PosV2AdminPage extends BaseComponent {
         this.pairing = null;
         this.pairings = [];
         this._pairingTimer = null;
+        /** 開桌或換新後的入桌碼（主機只存雜湊，碼只在這個分頁的記憶體裡）：tableId → { code, sessionId } */
+        this.tableCodes = new Map();
+        this.attempts = [];
+        this.tableCardsOpen = false;
     }
 
     connectedCallback() {
@@ -114,12 +109,19 @@ export class PosV2AdminPage extends BaseComponent {
         this.checkSigParam();
         // 停在同一頁時換網址（例如再點一次帶 sig 的連結）不會重建頁面，要自己重新檢查
         this._offRoute = router.on('route-change', () => this.checkSigParam());
+        // 直接用瀏覽器列印（Ctrl+P）時桌牌區塊可能是收合的，收合的 details 內容不會印出：先展開
+        this._onBeforePrint = () => {
+            const details = this.querySelector('details[data-table-cards]');
+            if (details && !details.open) details.open = true;
+        };
+        window.addEventListener('beforeprint', this._onBeforePrint);
         this.startHost();
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
         this._offRoute?.();
+        window.removeEventListener('beforeprint', this._onBeforePrint);
         this.testRun += 1;
         this.host?.dispose();
         this.host = null;
@@ -135,6 +137,10 @@ export class PosV2AdminPage extends BaseComponent {
         });
         host.on('connections', (list) => {
             this.connections = list;
+            this.scheduleUpdate();
+        });
+        host.on('attempts', (list) => {
+            this.attempts = list;
             this.scheduleUpdate();
         });
         host.on('pairings', (list) => {
@@ -187,6 +193,7 @@ export class PosV2AdminPage extends BaseComponent {
         // toggle 不會冒泡，用 capture 記下展開狀態，重繪時才不會被收合
         this.addEventListener('toggle', (event) => {
             if (event.target.matches?.('details[data-guide]')) this.state.guideOpen = event.target.open;
+            if (event.target.matches?.('details[data-table-cards]')) this.tableCardsOpen = event.target.open;
         }, true);
     }
 
@@ -215,6 +222,24 @@ export class PosV2AdminPage extends BaseComponent {
                     this.host.rejectPairing(dataset.pairingId);
                     return '已拒絕配對申請。';
                 });
+            case 'open-table':
+            case 'rotate-code':
+                return this.runHostAction(async () => {
+                    const { session, code } = name === 'open-table'
+                        ? await this.host.openTable(dataset.tableId)
+                        : await this.host.rotateTableCode(dataset.tableId);
+                    this.tableCodes.set(dataset.tableId, { code, sessionId: session.id });
+                    return `${dataset.tableId} 桌${name === 'open-table' ? '已開桌' : '已換新入桌碼'}，入桌碼 ${code}。`;
+                });
+            case 'close-table':
+                return this.runHostAction(async () => {
+                    await this.host.closeTable(dataset.tableId);
+                    this.tableCodes.delete(dataset.tableId);
+                    return `${dataset.tableId} 桌已關桌，這次用餐的入桌授權不能再送單。`;
+                });
+            case 'print-tables':
+                window.print();
+                return;
             case 'revoke':
                 return this.runHostAction(async () => {
                     await this.host.revokeDevice(dataset.deviceId);
@@ -386,7 +411,7 @@ export class PosV2AdminPage extends BaseComponent {
             const url = this.remoteUrl(JOIN_PATH, { pair: pairing.token });
             ticket = html`
                 <div class="pos-pairing">
-                    <a class="pos-qr" href="${url}" target="_blank" rel="noopener" aria-label="配對 QR Code（也可以點開連結）" data-pairing-url="${url}">${unsafeSvg(url)}</a>
+                    <a class="pos-qr" href="${url}" target="_blank" rel="noopener" aria-label="配對 QR Code（也可以點開連結）" data-pairing-url="${url}">${qrCode(url)}</a>
                     <div>
                         <p>用店員裝置的相機掃 QR Code，或在<a href="${this.remoteUrl(JOIN_PATH)}" target="_blank" rel="noopener" data-join-url>店員加入頁</a>輸入連線碼：</p>
                         <p class="pos-code" data-pairing-code="${pairing.code}">${pairing.code.slice(0, 3)} ${pairing.code.slice(3)}</p>
@@ -416,6 +441,71 @@ export class PosV2AdminPage extends BaseComponent {
                             </div>
                         </li>`)}
                 </ul>` : html`<p class="pos-muted">裝置送出申請後會出現在這裡。</p>`}
+        `;
+    }
+
+    renderTables() {
+        const status = this.hostStatus;
+        const tables = this.data?.tables ?? [];
+        if (!status || !tables.length) return '';
+        const primary = status.role === HOST_ROLE.PRIMARY;
+        const orders = this.data?.orders ?? [];
+        const failures = new Map(this.attempts.map((a) => [a.target, a]));
+        return html`
+            <ul class="pos-approvals pos-tables">
+                ${tables.map((table) => {
+                    const session = table.session;
+                    const open = session?.status === 'open';
+                    const entry = this.tableCodes.get(table.id);
+                    const code = open && entry?.sessionId === session.id ? entry.code : null;
+                    const count = open ? orders.filter((o) => o.diningSessionId === session.id).length : 0;
+                    const attempt = failures.get(`table:${table.id}`);
+                    return html`
+                        <li data-table="${table.id}" data-table-status="${open ? 'open' : 'closed'}" data-table-session="${open ? session.id : ''}" data-session-orders="${count}">
+                            <div>
+                                <strong>${table.name}</strong>
+                                <span class="pos-muted">${open ? `用餐中 · 場次 ${session.id.slice(0, 6)} · ${count} 筆訂單` : '未開桌'}</span>
+                                ${attempt?.failures ? html`<span class="pos-muted" data-table-failures="${attempt.failures}"> · 入桌碼錯誤 ${attempt.failures} 次${attempt.retryAfterMs ? '（冷卻中）' : ''}</span>` : ''}
+                                ${code ? html`<div>入桌碼 <span class="pos-code pos-code-small" data-table-code="${code}">${code.slice(0, 3)} ${code.slice(3)}</span></div>`
+                                    : open && primary ? html`<div class="pos-muted">入桌碼只在開桌或換新時顯示；要告訴顧客請按「換新入桌碼」。</div>` : ''}
+                            </div>
+                            ${primary ? html`
+                                <div class="pos-actions">
+                                    ${open ? html`
+                                        <button type="button" class="btn" data-action="rotate-code" data-table-id="${table.id}">換新入桌碼</button>
+                                        <button type="button" class="btn btn-danger" data-action="close-table" data-table-id="${table.id}">關桌</button>`
+                                        : html`<button type="button" class="btn btn-primary" data-action="open-table" data-table-id="${table.id}">開桌</button>`}
+                                </div>` : ''}
+                        </li>`;
+                })}
+            </ul>
+            ${primary && status.signalingUrl && status.roomId ? this.renderTableCards(tables) : ''}
+        `;
+    }
+
+    /** 桌牌與店家入口的 QR Code：房間不變就一直有效（重設 demo 資料也保留），可以印出來放在桌上 */
+    renderTableCards(tables) {
+        const homeUrl = this.remoteUrl(HOME_PATH);
+        return html`
+            <details class="pos-table-cards-panel" data-table-cards ${this.tableCardsOpen ? 'open' : ''}>
+                <summary>桌牌 QR Code（可列印）</summary>
+                <p class="pos-muted">桌牌只帶桌號，顧客掃碼後還要輸入入桌碼才能點餐。「重新產生房間」後要重新列印。</p>
+                <div class="pos-actions"><button type="button" class="btn" data-action="print-tables">列印桌牌</button></div>
+                <div class="pos-table-cards" data-print-area>
+                    <figure class="pos-table-card" data-home-card>
+                        <a class="pos-qr" href="${homeUrl}" target="_blank" rel="noopener" data-home-url="${homeUrl}">${qrCode(homeUrl)}</a>
+                        <figcaption>店家入口（選桌點餐）</figcaption>
+                    </figure>
+                    ${tables.map((table) => {
+                        const url = this.remoteUrl(TABLE_PATH, { t: table.id });
+                        return html`
+                            <figure class="pos-table-card" data-table-card="${table.id}">
+                                <a class="pos-qr" href="${url}" target="_blank" rel="noopener" data-table-url="${url}">${qrCode(url)}</a>
+                                <figcaption>${table.name}</figcaption>
+                            </figure>`;
+                    })}
+                </div>
+            </details>
         `;
     }
 
@@ -565,6 +655,20 @@ export class PosV2AdminPage extends BaseComponent {
                 .pos-approvals li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; }
                 .pos-approvals select, .pos-approvals input { font: inherit; padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); }
                 .pos-approvals input { width: 9rem; }
+                .pos-code-small { font-size: 1.3rem; }
+                .pos-tables li > div:first-child { flex: 1; min-width: 220px; }
+                .pos-table-cards-panel > summary { cursor: pointer; font-weight: 600; margin: 0.5rem 0; }
+                .pos-table-cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); margin-top: 0.75rem; }
+                .pos-table-card { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; text-align: center; font-weight: 700; }
+                .pos-table-card .pos-qr { width: 150px; }
+                @media print {
+                    /* 只印桌牌：不含列印區的元素不占版面（只用 visibility 會多出空白頁），列印區的祖先保留但隱藏 */
+                    body *:not(:has([data-print-area])):not([data-print-area]):not([data-print-area] *) { display: none !important; }
+                    body * { visibility: hidden; }
+                    [data-print-area], [data-print-area] * { visibility: visible; }
+                    [data-print-area] { position: absolute; inset: 0 auto auto 0; width: 100%; grid-template-columns: repeat(3, 1fr); color: #000; }
+                    .pos-table-card { break-inside: avoid; padding: 1rem; border: 1px dashed #999; }
+                }
                 [data-pairing-panel] h4, .pos-card .pos-connections + h4 { margin-top: 1rem; }
                 details[data-guide] > summary { cursor: pointer; font-weight: 600; }
             </style>
@@ -588,6 +692,11 @@ export class PosV2AdminPage extends BaseComponent {
                     <section class="pos-card" aria-labelledby="pos-v2-pair-title" data-pairing-panel>
                         <h3 id="pos-v2-pair-title">店員裝置配對</h3>
                         ${this.renderPairing()}
+                    </section>` : ''}
+                ${this.data?.tables?.length ? html`
+                    <section class="pos-card" aria-labelledby="pos-v2-tables-title" data-tables-panel>
+                        <h3 id="pos-v2-tables-title">桌位</h3>
+                        ${this.renderTables()}
                     </section>` : ''}
                 <section class="pos-card" aria-labelledby="pos-v2-sig-title">
                     <h3 id="pos-v2-sig-title">信令伺服器</h3>

@@ -58,6 +58,7 @@ export function staffOrder(order) {
         items: order.items,
         total: order.total,
         tableId: order.tableId ?? null,
+        diningSessionId: order.diningSessionId ?? null,
         source: order.source,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,

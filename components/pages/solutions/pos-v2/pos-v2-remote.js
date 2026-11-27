@@ -23,6 +23,10 @@ export const STAFF_ROLE_PATHS = Object.freeze({
 });
 
 export const JOIN_PATH = '/solutions/pos-v2/join';
+/** 顧客端：店家入口、桌牌、訂單查詢 */
+export const HOME_PATH = '/solutions/pos-v2/home';
+export const TABLE_PATH = '/solutions/pos-v2/table';
+export const TRACK_PATH = '/solutions/pos-v2/track';
 
 export const ROLE_LABEL = Object.freeze({ order: '點餐', kitchen: '廚房', display: '叫號' });
 
@@ -92,6 +96,52 @@ export function saveStaffCredential(namespace, roomId, { credential, role, stati
 
 export function clearStaffCredential(namespace, roomId) {
     localStorage.removeItem(credentialStorageKey(namespace, roomId));
+}
+
+/** 顧客的入桌授權：一支手機同一個房間只記一份（最後加入的那張桌） */
+export const tableCredentialStorageKey = (namespace, roomId) => `${solutionStorageName(namespace, 'table')}:${roomId}`;
+
+/** @returns {{ credential: { kind: string, id: string, secret: string }, tableId: string, diningSessionId: string } | null} */
+export function loadTableCredential(namespace, roomId) {
+    try {
+        const value = JSON.parse(localStorage.getItem(tableCredentialStorageKey(namespace, roomId)) ?? 'null');
+        return value?.credential?.id && value.credential.secret && value.tableId ? value : null;
+    } catch {
+        return null;
+    }
+}
+
+export function saveTableCredential(namespace, roomId, value) {
+    localStorage.setItem(tableCredentialStorageKey(namespace, roomId), JSON.stringify(value));
+}
+
+export function clearTableCredential(namespace, roomId) {
+    localStorage.removeItem(tableCredentialStorageKey(namespace, roomId));
+}
+
+/** 訂單查詢授權（櫃檯交接的訂單 QR Code），最多保留 50 筆 */
+export const watchStorageKey = (namespace, roomId) => `${solutionStorageName(namespace, 'watches')}:${roomId}`;
+const MAX_WATCHES = 50;
+
+/** @returns {Array<{ orderId: string, token: string }>} */
+export function loadWatches(namespace, roomId) {
+    try {
+        const list = JSON.parse(localStorage.getItem(watchStorageKey(namespace, roomId)) ?? '[]');
+        return Array.isArray(list) ? list.filter((w) => typeof w?.orderId === 'string' && typeof w.token === 'string').slice(-MAX_WATCHES) : [];
+    } catch {
+        return [];
+    }
+}
+
+export function saveWatch(namespace, roomId, watch) {
+    const list = loadWatches(namespace, roomId).filter((w) => w.orderId !== watch.orderId);
+    list.push({ orderId: watch.orderId, token: watch.token });
+    localStorage.setItem(watchStorageKey(namespace, roomId), JSON.stringify(list.slice(-MAX_WATCHES)));
+}
+
+export function removeWatches(namespace, roomId, orderIds) {
+    const drop = new Set(orderIds);
+    localStorage.setItem(watchStorageKey(namespace, roomId), JSON.stringify(loadWatches(namespace, roomId).filter((w) => !drop.has(w.orderId))));
 }
 
 /** 遠端裝置需要的瀏覽器能力 */

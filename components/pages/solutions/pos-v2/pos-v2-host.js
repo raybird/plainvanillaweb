@@ -202,6 +202,25 @@ export class PosV2Host extends BaseService {
         return this.hub.revoke(credentialId);
     }
 
+    /** 開桌：建立新的用餐場次，回傳只出現這一次的入桌碼 */
+    openTable(tableId) {
+        return this.mutate((repository) => repository.openTable(tableId));
+    }
+
+    /** 關桌：這個場次的入桌授權不能再送單，連線中的顧客畫面收到場次已關閉 */
+    closeTable(tableId) {
+        return this.mutate((repository) => repository.closeTable(tableId));
+    }
+
+    /** 換新入桌碼：舊碼立即失效，已加入的顧客不受影響 */
+    rotateTableCode(tableId) {
+        return this.mutate((repository) => repository.rotateTableCode(tableId));
+    }
+
+    listAttempts() {
+        return this.hub?.listAttempts() ?? [];
+    }
+
     listPairings() {
         return this.hub?.listPairings() ?? [];
     }

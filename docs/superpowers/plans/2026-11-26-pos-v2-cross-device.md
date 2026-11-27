@@ -3,7 +3,7 @@
 - Issue：#16（承接 #10、Epic #8）
 - 建立日期：2026-11-26
 - 規模：Large。風險：高（跨裝置授權、斷線恢復、新增外部信令服務）
-- 狀態：驗收 A1–A10（見 #16）已於 2026-11-26 核准；ADR 0109 已接受；P0–P8 完成，2026-11-27 處理審查 1 的發現（見文末）
+- 狀態：驗收 A1–A10（見 #16）已於 2026-11-26 核准；ADR 0109 已接受；P0–P8 完成，2026-11-27 處理審查 1 的發現（見文末）；2026-11-27 合併（`d3a783f`）並發版 v3.4.0，A10 實機驗收完成 Node＋Quick Tunnel 一輪，自有 Worker、iOS Safari 與其餘 QR Code 的實際掃描留待之後（見 P8「實機驗收結果」）
 - 協定規格：[2026-11-26-pos-v2-protocol.md](./2026-11-26-pos-v2-protocol.md)
 
 **目標** 讓管理統計頁成為店內 POS 主機，店員裝置與顧客手機經 WebRTC DataChannel 加入，所有寫入集中在主機的 IndexedDB。第一代 `#/solutions/pos/*` 保留不變。
@@ -126,8 +126,8 @@
 
 - [x] 文件：`docs/solutions/pos-v2.md`／`pos-v2.en.md`（依 reference app 文件範本）、`conventions.md` 範例清單、第一代 `pos.md` 的「正式上線差距」連到第二代、`Docs.js` 清單、Solutions 入口。
 - [x] 自架信令文件：Node＋Quick Tunnel 與自有 Worker 兩種步驟，寫在 `pos-v2.md`／`pos-v2.en.md`，內容和主機頁顯示的指令一致，並附上 `signaling.mjs`、`worker.js`、`wrangler.jsonc` 的 SHA-256 供比對。
-- [ ] 發版順序：tag `v<VERSION>` 推上去之前，主機頁指令裡的 jsDelivr 網址會 404。實機驗收先用 commit SHA 的網址；推 tag（需使用者同意）後，再照主機頁指令重跑一次 Node＋Quick Tunnel，確認網址可下載。
-- [ ] 實機驗收清單：管理筆電、iOS Safari、Android Chrome；同一 Wi-Fi；兩種自架信令各走一次，只照主機頁上顯示的指令操作，不參考其他文件（A1、A2、A4、A6、A10）。
+- [x] 發版順序：tag `v<VERSION>` 推上去之前，主機頁指令裡的 jsDelivr 網址會 404。實機驗收先用 commit SHA 的網址；推 tag（需使用者同意）後，再照主機頁指令重跑一次 Node＋Quick Tunnel，確認網址可下載。
+- [ ] 實機驗收清單（部分完成，見下方「實機驗收結果」）：管理筆電、iOS Safari、Android Chrome；同一 Wi-Fi；兩種自架信令各走一次，只照主機頁上顯示的指令操作，不參考其他文件（A1、A2、A4、A6、A10）。
 - [x] `node scripts/update-sw-version.js`、CHANGELOG、`lib/version.js` 升到 v3.4.0 並同步 README／docs 的 CDN 網址、`scripts/check.sh` 全部通過（A10）。
 - 結果（2026-11-27）：
   - 文件依範本七節，中英章節一致；「如何驗證」欄逐項對照實際測試（沒有單獨測試的情境照實寫明）。按鈕名稱與畫面一致。
@@ -135,27 +135,73 @@
   - Solutions 目錄新增 POS v2（入口 `#/solutions/pos-v2/admin`），`Docs.js` 清單與對應路由、`conventions` 範例清單、README 中英版的 Solutions 說明、第一代文件的「跨裝置同步與後端」都連到第二代。
   - `lib/version.js` 升到 3.4.0、CHANGELOG 新增 3.4.0 一節、README／`docs/sdk-usage.md` 的固定版本網址改為 `@v3.4.0`；核心匯出不變（minor）。
 
-#### 實機驗收清單（A10，待使用者執行）
+#### 實機驗收清單（A10）
 
 前提：主機頁要在 Origin 白名單內的 https 網站（預設 `https://raybird.github.io`），所以實機驗收在 PR 合併、GitHub Pages 部署之後進行；tag 還沒推之前，主機頁指令裡的 `@v3.4.0` 會 404，改用合併提交的 SHA（`@<sha>`）下載同一批檔案。
 
-1. **Node＋Quick Tunnel**（筆電 Chrome 當主機）
-   - [ ] 空目錄執行主機頁的方式一指令（`@v3.4.0` 換成 `@<sha>`），`--tunnel` 印出帶 `sig=` 的主機頁連結；用它打開主機頁並確認儲存。
+1. **Node＋Quick Tunnel**（筆電 Chrome 當主機；2026-11-27 實際用 Edge）
+   - [x] 空目錄執行主機頁的方式一指令（`@v3.4.0` 換成 `@<sha>`），`--tunnel` 印出帶 `sig=` 的主機頁連結；用它打開主機頁並確認儲存。2026-11-27 實際是推 tag 後直接用 `@v3.4.0`，加上 `--port 8788`（見「實機驗收結果」）。
    - [ ] A1：iPhone（Safari）掃配對 QR Code、Android（Chrome）輸入連線碼，主機核准為點餐與廚房；核准前無法操作。
-   - [ ] A2：點餐 → 廚房認領 → 備餐完成 → 叫號畫面取餐（叫號可用筆電另一個分頁配對），主機統計與各裝置一致。
+   - [x] A2：點餐 → 廚房認領 → 備餐完成 → 叫號畫面取餐（叫號可用筆電另一個分頁配對），主機統計與各裝置一致。
    - [ ] A4：開 A1 桌，iPhone 由店家入口選桌、Android 掃列印的桌牌，用同一組入桌碼各送一筆，廚房與主機看到同桌同場次。
    - [ ] A6：手機「我的訂單」顯示前面筆數並隨認領減少；櫃檯點餐後用另一支手機掃訂單 QR Code 查單。
 2. **自有 Cloudflare Worker**
    - [ ] 執行方式二指令（同樣用 `@<sha>`）部署，把印出的網址貼到主機頁並通過連線測試；重跑上面 A1、A2、A4、A6 的主要流程。
 3. **推 tag 後**（需使用者同意推 `v3.4.0`）
-   - [ ] 照主機頁顯示的方式一指令（不改網址）重跑一次 Node＋Quick Tunnel，確認 jsDelivr 可下載，下載的檔案 SHA-256 和 `pos-v2.md` 列的一致。
+   - [x] 照主機頁顯示的方式一指令（不改網址）重跑一次 Node＋Quick Tunnel，確認 jsDelivr 可下載，下載的檔案 SHA-256 和 `pos-v2.md` 列的一致。
 4. **審查 1 建議補充的項目**
    - [ ] 用正式網址掃過每一種 QR Code：配對、店家入口、桌牌、櫃檯訂單 QR Code（最長的一種），iOS 與 Android 都要能開啟。
    - [ ] iPhone 切到背景或鎖定 30 秒以上再回來，確認自動重連、等待確認的送單照常重送。
-   - [ ] 所有裝置都連著時重新整理主機分頁，確認全部自動重連、不用重新配對或輸入入桌碼。
-   - [ ] 店內 Wi-Fi 若開啟 AP／client isolation，裝置之間無法直連；記錄測試用的網路是否有開。
-   - [ ] 記錄各裝置的瀏覽器與版本。
+   - [x] 所有裝置都連著時重新整理主機分頁，確認全部自動重連、不用重新配對或輸入入桌碼。
+   - [x] 店內 Wi-Fi 若開啟 AP／client isolation，裝置之間無法直連；記錄測試用的網路是否有開。
+   - [x] 記錄各裝置的瀏覽器與版本。
    - [ ] 部署 Worker 後執行 `SIGNALING_URL=wss://<你的 Worker> node --test tests/signaling.test.js`，確認 Worker 版行為和 Node 版一致。
+
+#### 實機驗收結果（2026-11-27）
+
+依使用者在 2026-11-27 的回報記錄；沒有勾選的項目維持未驗收。
+
+- **環境**：
+  - 主機：筆電 Microsoft Edge 158.0.4370.33（x86_64），經 Wi-Fi 上網；信令伺服器（`signaling.mjs --tunnel`）和主機瀏覽器在同一台電腦。
+  - 裝置：Android Chrome 158.0.8127.92，經手機自己的 4G 上網。沒有使用 iPhone。
+  - 主機與手機不在同一個網路，直連穿過兩邊的 NAT，只用 STUN、沒有 TURN。這組網路實測可行，不代表所有電信業者的 NAT 都能直連；直連失敗時要靠 TURN（主機頁會顯示提示）。
+  - 手機走 4G，Wi-Fi 的 AP／client isolation 不影響這次結果，記為不適用。
+- **方式一（Node＋Quick Tunnel）**：使用者在 tag `v3.4.0` 推上去之後執行主機頁的指令。這台電腦的 8787 埠被另一個專案的 Docker 容器佔用，改加 `--port 8788`（Quick Tunnel 跟著用指定的埠，其餘照主機頁操作）。
+- **推 tag 後的下載**：`server/signaling.mjs`、`server/cloudflare/worker.js`、`server/cloudflare/wrangler.jsonc` 從 `cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/…` 下載，SHA-256 都和 `pos-v2.md` 列的一致。`signaling.mjs` 的網址在推 tag 前被請求過，jsDelivr 快取了 404，以 `purge.jsdelivr.net` 清除後正常。
+- **A1**：Android 掃配對 QR Code 申請加入，主機核准前無法操作。iPhone 與輸入連線碼加入這次沒有實測。
+- **A2**：點餐 → 廚房認領 → 備餐完成 → 叫號取餐走完，主機統計與各裝置一致。
+- **A4、A6**：使用者回報流程完成，只用了 Android，沒有 iPhone；店家入口、桌牌與櫃檯訂單 QR Code 沒有用手機相機實際掃描。
+- **中斷恢復**：手機鎖定 30 秒以上後自動重連；所有裝置都連著時重新整理主機分頁，裝置自動重連，不用重新配對或輸入入桌碼。
+- **留待之後**：
+  - 方式二（自有 Cloudflare Worker）一輪，以及 Worker 版執行 `tests/signaling.test.js`（使用者 2026-11-27 決定之後再測）。
+  - iOS Safari 的 A1、A4、A6 與背景重連。
+  - 用手機相機實際掃店家入口、桌牌與櫃檯訂單 QR Code（最長的版本 11）。
+  - v3.4.1 的兩個修正（連接埠被佔用的說明、先選角色才能核准）的實機確認：使用者 2026-11-27 決定併入下一輪實機，這次以自動化測試為準發版（審查 5 R5-S2）。
+- **實機驗收時的發現**（使用者 2026-11-27 決定補在 #16 修正，發版 v3.4.1，見下方「A10 發現的修正」）：
+  - 8787 埠被佔用時只有 Node 的 `EADDRINUSE` 錯誤，主機頁與文件沒有提到 `--port`。
+  - 店員的角色在主機核准時指定，第一次使用時不容易發現：申請加入的裝置上看不到也改不了角色，使用者第一次核准時沿用預設的「點餐」，找不到廚房畫面。
+
+#### A10 發現的修正（v3.4.1，2026-11-27）
+
+- 連接埠被佔用：`server/signaling.mjs` 的 `listenErrorMessage()` 在 `EADDRINUSE`／`EACCES` 時說明加上 `--port <下一個埠>`（或 `SIGNALING_PORT`），以代碼 1 結束、不印堆疊。主機頁方式一（`[data-guide-port]`）與 `pos-v2.md`／`.en.md` 加上同樣的說明；主機頁的指令本身不變。`tests/signaling.test.js` 以子程序實測佔用中的埠。
+- 角色指定：待核准申請的角色選單預設「選擇角色…」（空值），沒選就按核准會提示先選角色、申請維持待核准；主機的待核准清單與裝置的等待核准畫面都加上說明（`[data-role-hint]`）。瀏覽器測試在 A1 的第一台裝置核准前檢查這三點。
+- 升版 3.4.1：`lib/version.js`、CHANGELOG、README／docs 的 `@v3.4.1` 網址，`signaling.mjs` 的 SHA-256 更新（`worker.js`、`wrangler.jsonc` 不變）。
+
+#### v3.4.1 發版後待辦（審查 5 R5-S2）
+
+- [ ] 合併後 GitHub Pages 的主機頁立刻顯示 `@v3.4.1` 的指令，tag 推上去之前照指令下載會 404，jsDelivr 也會把 404 快取起來：合併後盡快推 tag `v3.4.1`（需使用者同意）。推 tag 前被請求過的網址，以 `https://purge.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/<路徑>` 清除。
+- [ ] 推 tag 後從 `cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/` 下載 `server/signaling.mjs`、`server/cloudflare/worker.js`、`server/cloudflare/wrangler.jsonc`，SHA-256 和 `pos-v2.md` 列的一致。
+
+#### 審查 5 的處理（2026-11-27）
+
+審查報告：[2026-11-27-pos-v2-review-5.md](../reviews/2026-11-27-pos-v2-review-5.md)（PASS，適用 `60e2a17`）。使用者 2026-11-27 的決定：SHOULD FIX 兩項都修、NICE TO HAVE 全部修，兩個修正的實機確認併入下一輪實機。
+
+- R5-S1：連接埠測試改等子程序的 `close`（stdout／stderr 讀完才觸發），並設 10 秒 timeout。
+- R5-S2：補上「v3.4.1 發版後待辦」，實機確認列入「留待之後」。
+- R5-N1：建議的指令沿用這次是否帶 `--tunnel`；1024 以下（需要系統權限）與最大埠改建議 8788。
+- R5-N2：清單第 1 項註明實際用 Edge、推 tag 後用 `@v3.4.0`。
+- R5-N3：角色選單以 `aria-describedby` 連到角色說明；沒選角色就按核准時，焦點移到那一筆的角色選單。
+- R5-N4：瀏覽器測試檢查主機頁方式一的連接埠說明、沒選角色時的焦點與 `aria-describedby`；連接埠測試帶 `--tunnel`，確認 listen 失敗時不啟動 Quick Tunnel。
 
 ## 審查 1 的處理（2026-11-27）
 

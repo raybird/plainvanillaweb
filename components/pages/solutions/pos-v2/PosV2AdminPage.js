@@ -210,9 +210,13 @@ export class PosV2AdminPage extends BaseComponent {
                 });
             case 'approve': {
                 const item = button.closest('[data-pairing]');
-                const role = item.querySelector('select[name="role"]').value;
+                const select = item.querySelector('select[name="role"]');
+                const role = select.value;
                 const station = role === 'kitchen' ? item.querySelector('input[name="station"]').value.trim() : null;
+                // 沒選角色：焦點移到這一筆的選單（錯誤訊息在頁首，離清單較遠）
+                if (!role) select.focus();
                 return this.runHostAction(async () => {
+                    if (!role) throw new Error('先選擇這台裝置的角色（點餐、廚房或叫號），再按核准');
                     if (role === 'kitchen' && !station) throw new Error('廚房要指定站台名稱');
                     const device = await this.host.approvePairing(dataset.pairingId, { role, station });
                     return `已核准：${STAFF_ROLE_LABEL[device.role]}${device.station ? `（${device.station}）` : ''}${device.label ? ` · ${device.label}` : ''}。`;
@@ -432,13 +436,15 @@ export class PosV2AdminPage extends BaseComponent {
                 <button type="button" class="btn ${pairing && !expired ? '' : 'btn-primary'}" data-action="create-pairing">${pairing && !expired ? '產生新的配對碼' : '產生配對 QR Code'}</button>
             </div>
             <h4>待核准（<span data-pairing-count>${this.pairings.length}</span>）</h4>
+            <p class="pos-muted" id="pos-v2-role-hint" data-role-hint>裝置的畫面（點餐、廚房、叫號）由這裡選的角色決定，裝置端不能自己改；選錯時在下方「已配對」清單撤銷後重新配對。</p>
             ${this.pairings.length ? html`
                 <ul class="pos-approvals">
                     ${this.pairings.map((p) => html`
                         <li id="pos-v2-pairing-${p.id}" data-pairing="${p.id}">
                             <div><strong>${p.label || '未命名裝置'}</strong> <span class="pos-muted">${formatClock(p.requestedAt)} · ${p.connectionId.slice(0, 6)}</span></div>
                             <div class="pos-actions">
-                                <select name="role" aria-label="角色">
+                                <select name="role" aria-label="角色" aria-describedby="pos-v2-role-hint" required>
+                                    <option value="" selected disabled>選擇角色…</option>
                                     ${Object.entries(STAFF_ROLE_LABEL).map(([value, label]) => html`<option value="${value}">${label}</option>`)}
                                 </select>
                                 <input name="station" aria-label="廚房站台名稱" maxlength="40" value="${suggestion}" placeholder="站台（廚房才需要）">
@@ -651,6 +657,7 @@ export class PosV2AdminPage extends BaseComponent {
                     <pre data-command="node">${this.commands.node}</pre>
                     <button type="button" class="btn" data-action="copy" data-command="node">複製指令</button>
                     <p class="pos-muted">終端機會印出已帶好信令網址的主機頁連結，用它開啟這一頁，或把印出的 <code>wss://</code> 網址貼到上方。Quick Tunnel 的網址每次啟動都不同。</p>
+                    <p class="pos-muted" data-guide-port>終端機顯示連接埠 8787 已被其他程式使用時，在第二行後面加上 <code>--port 8788</code>（或其他沒被使用的連接埠）再執行，其他步驟不變。</p>
                 </section>
                 <section class="pos-card" data-guide-option="worker">
                     <h4>B. 自己的 Cloudflare Worker</h4>

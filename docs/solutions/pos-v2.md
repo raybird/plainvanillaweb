@@ -36,23 +36,23 @@
 
 ### 自架信令伺服器
 
-專案**不提供公共信令伺服器**，請擇一自架。主機頁未設定信令時會顯示下面兩組指令與複製按鈕，指令下載和頁面同版（`v3.4.0`）的檔案。只提供「下載後執行」，不提供 `curl | sh`：可以先打開檔案檢查再執行。
+專案**不提供公共信令伺服器**，請擇一自架。主機頁未設定信令時會顯示下面兩組指令與複製按鈕，指令下載和頁面同版（`v3.4.1`）的檔案。只提供「下載後執行」，不提供 `curl | sh`：可以先打開檔案檢查再執行。
 
 **方式一：Node＋Cloudflare Quick Tunnel**（需要 Node 22+ 與 [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)，不需要帳號）
 
 ```bash
-curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/server/signaling.mjs
+curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/server/signaling.mjs
 node signaling.mjs --tunnel
 ```
 
-`signaling.mjs` 是單一檔案、零依賴，放在空目錄就能執行。`--tunnel` 會啟動 Quick Tunnel 並印出帶 `sig=` 的主機頁連結；找不到 cloudflared 或抓不到網址時，印出手動步驟，信令伺服器照常在 `http://127.0.0.1:8787` 運作。Quick Tunnel 的網址每次啟動都不同，重新啟動後要在主機頁改設定，已配對的裝置也要重新掃碼：裝置的授權綁定配對（入桌）時的信令，網址帶了不同的信令時，店員裝置會先請使用者確認是否改用，顧客手機則要重新輸入入桌碼。
+`signaling.mjs` 是單一檔案、零依賴，放在空目錄就能執行。`--tunnel` 會啟動 Quick Tunnel 並印出帶 `sig=` 的主機頁連結；找不到 cloudflared 或抓不到網址時，印出手動步驟，信令伺服器照常在 `http://127.0.0.1:8787` 運作。這台電腦的 8787 已被其他程式使用時，伺服器會印出提示並結束：在第二行後面加上 `--port 8788`（或其他沒被使用的連接埠）再執行，Quick Tunnel 會跟著用這個連接埠，其他步驟不變。Quick Tunnel 的網址每次啟動都不同，重新啟動後要在主機頁改設定，已配對的裝置也要重新掃碼：裝置的授權綁定配對（入桌）時的信令，網址帶了不同的信令時，店員裝置會先請使用者確認是否改用，顧客手機則要重新輸入入桌碼。
 
 **方式二：自己的 Cloudflare Worker**（需要 Cloudflare 帳號，免費方案即可，以及 Node）
 
 ```bash
 mkdir pos-v2-signaling && cd pos-v2-signaling
-curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/server/cloudflare/worker.js
-curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/server/cloudflare/wrangler.jsonc
+curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/server/cloudflare/worker.js
+curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/server/cloudflare/wrangler.jsonc
 npx wrangler@4 login
 npx wrangler@4 deploy
 ```
@@ -61,11 +61,11 @@ npx wrangler@4 deploy
 
 **Origin 白名單**：信令伺服器只接受白名單內的 `Origin`，預設是 `https://raybird.github.io`、`http://localhost:*`、`http://127.0.0.1:*`。自己架設前端網站時，要把網站加進白名單：Node 版用 `--allow-origin <origin>`（可重複），Worker 版改 `wrangler.jsonc` 的 `ALLOWED_ORIGINS`。其他設定：`--ice-servers`／`ICE_SERVERS`（例如加上 TURN）、`--port`、`--host`、`--app-url`／`APP_URL`。
 
-**檔案比對**（`v3.4.0` 的 SHA-256；下載後可用 `sha256sum <檔案>` 或 `shasum -a 256 <檔案>` 比對）：
+**檔案比對**（`v3.4.1` 的 SHA-256；下載後可用 `sha256sum <檔案>` 或 `shasum -a 256 <檔案>` 比對）：
 
 | 檔案 | SHA-256 |
 | --- | --- |
-| `server/signaling.mjs` | `031ebad490fce671a1e4851e83037a6de68fecc8d215f91a427e3ba323ad3f2e` |
+| `server/signaling.mjs` | `e02ed4451e96bd433ff50e0e08b853a69003be8d9494bf6b0421ffb5bd44fc47` |
 | `server/cloudflare/worker.js` | `284c76c8c8f5dcc3621240eaf2e251d44fa011b73412418034db029192854315` |
 | `server/cloudflare/wrangler.jsonc` | `4ab58993fdbcb7cecc7e521d3bb141c6c64e0bf5b5ad89d2fc5936a3335c2a76` |
 

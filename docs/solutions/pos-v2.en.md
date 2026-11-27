@@ -36,23 +36,23 @@ Reset: "Reset demo data" deletes only the order database and **keeps the room**,
 
 ### Self-hosting the signaling server
 
-The project **does not run a public signaling server**; host one yourself, either way below. While no signaling URL is set, the host page shows these two command sets with copy buttons, and the commands download files of the same version as the page (`v3.4.0`). Only "download, then run" is offered, never `curl | sh`, so you can read the files before running them.
+The project **does not run a public signaling server**; host one yourself, either way below. While no signaling URL is set, the host page shows these two command sets with copy buttons, and the commands download files of the same version as the page (`v3.4.1`). Only "download, then run" is offered, never `curl | sh`, so you can read the files before running them.
 
 **Option 1: Node + Cloudflare Quick Tunnel** (Node 22+ and [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/); no account needed)
 
 ```bash
-curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/server/signaling.mjs
+curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/server/signaling.mjs
 node signaling.mjs --tunnel
 ```
 
-`signaling.mjs` is a single file with no dependencies and runs from an empty folder. `--tunnel` starts a Quick Tunnel and prints the host page link with `sig=`. If cloudflared is missing or no URL shows up, it prints manual steps, and the signaling server keeps running at `http://127.0.0.1:8787`. The Quick Tunnel URL changes on every start: after a restart, update the host page setting and have paired devices scan again: credentials are bound to the signaling used at pairing (joining), so when a URL carries different signaling, a staff device asks whether to switch and a customer phone asks for the table code again.
+`signaling.mjs` is a single file with no dependencies and runs from an empty folder. `--tunnel` starts a Quick Tunnel and prints the host page link with `sig=`. If cloudflared is missing or no URL shows up, it prints manual steps, and the signaling server keeps running at `http://127.0.0.1:8787`. If port 8787 is already used by another program on this computer, the server prints a hint and exits: add `--port 8788` (or any free port) to the second line and run it again. The Quick Tunnel follows that port, and the other steps stay the same. The Quick Tunnel URL changes on every start: after a restart, update the host page setting and have paired devices scan again: credentials are bound to the signaling used at pairing (joining), so when a URL carries different signaling, a staff device asks whether to switch and a customer phone asks for the table code again.
 
 **Option 2: your own Cloudflare Worker** (a Cloudflare account, the free plan is enough, and Node)
 
 ```bash
 mkdir pos-v2-signaling && cd pos-v2-signaling
-curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/server/cloudflare/worker.js
-curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/server/cloudflare/wrangler.jsonc
+curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/server/cloudflare/worker.js
+curl -fsSLO https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/server/cloudflare/wrangler.jsonc
 npx wrangler@4 login
 npx wrangler@4 deploy
 ```
@@ -61,11 +61,11 @@ The `https://pos-v2-signaling.<account>.workers.dev` printed after deploying is 
 
 **Origin allowlist**: the signaling server accepts only allowlisted `Origin`s, by default `https://raybird.github.io`, `http://localhost:*` and `http://127.0.0.1:*`. If you host the front end yourself, add your site: `--allow-origin <origin>` (repeatable) for Node, or `ALLOWED_ORIGINS` in `wrangler.jsonc` for the Worker. Other settings: `--ice-servers`/`ICE_SERVERS` (for example to add TURN), `--port`, `--host`, `--app-url`/`APP_URL`.
 
-**File checksums** (SHA-256 of `v3.4.0`; compare after downloading with `sha256sum <file>` or `shasum -a 256 <file>`):
+**File checksums** (SHA-256 of `v3.4.1`; compare after downloading with `sha256sum <file>` or `shasum -a 256 <file>`):
 
 | File | SHA-256 |
 | --- | --- |
-| `server/signaling.mjs` | `031ebad490fce671a1e4851e83037a6de68fecc8d215f91a427e3ba323ad3f2e` |
+| `server/signaling.mjs` | `e02ed4451e96bd433ff50e0e08b853a69003be8d9494bf6b0421ffb5bd44fc47` |
 | `server/cloudflare/worker.js` | `284c76c8c8f5dcc3621240eaf2e251d44fa011b73412418034db029192854315` |
 | `server/cloudflare/wrangler.jsonc` | `4ab58993fdbcb7cecc7e521d3bb141c6c64e0bf5b5ad89d2fc5936a3335c2a76` |
 

@@ -5,7 +5,7 @@
 固定版本的引用方式（jsDelivr 依 git tag 提供，內容不會再變）：
 
 ```javascript
-import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.0/lib/core.js';
+import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird/plainvanillaweb@v3.4.1/lib/core.js';
 ```
 
 `https://raybird.github.io/plainvanillaweb/lib/...` 永遠是最新的 master，適合試用，不適合正式專案。
@@ -13,6 +13,15 @@ import { BaseComponent, html, router } from 'https://cdn.jsdelivr.net/gh/raybird
 **發版步驟**：更新 `lib/version.js` 的 `VERSION` 與本檔最新一節 → 執行 `scripts/check.sh` → commit → 打 tag `v<VERSION>` 並推送。`tests/core.test.js` 會檢查 `VERSION` 與本檔最新一節一致。
 
 ---
+
+## [3.4.1] - 2026-11-27
+
+POS v2（#16）A10 實機驗收發現的兩個使用問題；核心與 `lib/coordination.js` 的匯出不變。
+
+### 修正
+
+- 自架信令 `server/signaling.mjs`：連接埠被其他程式佔用（或沒有權限）時，不再印出 Node 的堆疊，改成說明怎麼用 `--port`（或 `SIGNALING_PORT`）換一個連接埠，並以代碼 1 結束。主機頁的方式一與文件也加上這個說明。檔案 SHA-256 已更新，`worker.js`、`wrangler.jsonc` 不變。
+- 店員裝置配對：主機的待核准申請不再預設「點餐」，要先選角色才能核准（沒選時焦點移到那一筆的角色選單）；主機與等待核准的裝置都說明角色（點餐、廚房、叫號）由主機核准時指定、裝置端不能自己改。
 
 ## [3.4.0] - 2026-11-27
 

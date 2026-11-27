@@ -16,6 +16,7 @@ import {
     extractTunnelUrl,
     hostPageLink,
     isOriginAllowed,
+    listenErrorMessage,
     publicOrigin,
     parseFrame,
     parseOptions,
@@ -411,4 +412,34 @@ test('單一檔案：複製到空目錄就能執行；不匯入任何本地模�
     assert.match(output, /找不到 cloudflared/);
     const health = await (await fetch(`http://127.0.0.1:${port}/healthz`)).json();
     assert.deepEqual(health, { ok: true, protocol: 1, rooms: 0 });
+});
+
+test('連接埠被佔用：印出怎麼用 --port 換一個連接埠、不啟動 Quick Tunnel，以代碼 1 結束（A10 實機驗收）', { ...INTERNAL_ONLY, timeout: 10000 }, async (t) => {
+    const blocker = http.createServer();
+    await new Promise((resolve) => blocker.listen(0, '127.0.0.1', resolve));
+    t.after(() => blocker.close());
+    const { port } = blocker.address();
+    // PATH 清空：tunnel 若被啟動會印出「找不到 cloudflared」
+    const child = spawn(process.execPath, [SERVER_FILE, '--tunnel', '--port', String(port)], { env: { PATH: '' } });
+    t.after(() => child.kill());
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    // close 在 stdout／stderr 都讀完後才觸發；exit 可能早於最後一段輸出
+    const code = await new Promise((resolve) => child.once('close', resolve));
+    assert.equal(code, 1);
+    assert.match(stderr, new RegExp(`連接埠 ${port} 已被其他程式使用`));
+    assert.ok(stderr.includes(`node signaling.mjs --tunnel --port ${port + 1}`), stderr);
+    assert.doesNotMatch(stderr, /at Server\.setupListenHandle/, '不應印出 Node 的堆疊');
+    assert.doesNotMatch(stdout + stderr, /cloudflared/, 'listen 失敗時不應啟動 Quick Tunnel');
+});
+
+test('listenErrorMessage：建議的指令沿用原本是否帶 --tunnel；1024 以下與最大埠改建議 8788', () => {
+    const plain = listenErrorMessage({ code: 'EADDRINUSE' }, 9000);
+    assert.ok(plain.includes('node signaling.mjs --port 9001'), plain);
+    assert.doesNotMatch(plain, /tunnel|Tunnel/);
+    assert.match(listenErrorMessage({ code: 'EACCES' }, 80, { tunnel: true }), /沒有權限使用連接埠 80。.*--tunnel --port 8788.*Quick Tunnel 會跟著/);
+    assert.match(listenErrorMessage({ code: 'EADDRINUSE' }, 65535), /--port 8788/);
+    assert.equal(listenErrorMessage(new Error('boom'), 8787), '無法在連接埠 8787 啟動：boom');
 });
